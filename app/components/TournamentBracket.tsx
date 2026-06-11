@@ -37,6 +37,11 @@ export function TournamentBracket({
                         : "border-white/8 bg-white/[0.035]"
                     }`}
                   >
+                    {fixture.matchNumber ? (
+                      <p className="mb-1 text-[8px] font-black uppercase tracking-wider text-white/25">
+                        Match {fixture.matchNumber}
+                      </p>
+                    ) : null}
                     <FixtureTeam
                       name={fixture.home.name}
                       flag={fixture.home.flag}

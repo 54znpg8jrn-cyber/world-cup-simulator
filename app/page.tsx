@@ -625,6 +625,7 @@ export default function Home() {
       const officialStage = createOfficialGroupStage(
         selectedNation,
         completedUserGroupResults,
+        backgroundGroupResults,
         tournamentForm,
       );
       const selectedGroup = getGroupForNation(selectedNation.name)?.[0];

@@ -207,6 +207,7 @@ export function resolveThirdPlaceSlots(
 export function createOfficialGroupStage(
   selectedNation: Nation,
   userResults: TournamentFixture[],
+  backgroundResults: TournamentFixture[],
   form: TournamentForm = {},
 ): OfficialGroupStage {
   const tables: Record<string, GroupTableRow[]> = {};
@@ -215,6 +216,14 @@ export function createOfficialGroupStage(
       fixture.home.code === selectedNation.code
         ? fixture.away.code
         : fixture.home.code,
+      fixture,
+    ]),
+  );
+  const fixtureKey = (homeCode: string, awayCode: string) =>
+    [homeCode, awayCode].sort().join("-");
+  const backgroundResultByTeams = new Map(
+    backgroundResults.map((fixture) => [
+      fixtureKey(fixture.home.code, fixture.away.code),
       fixture,
     ]),
   );
@@ -237,6 +246,7 @@ export function createOfficialGroupStage(
               : undefined;
         const fixture =
           userFixture ??
+          backgroundResultByTeams.get(fixtureKey(home.code, away.code)) ??
           quickFixture(
             `group-${group}-${home.code}-${away.code}`,
             "Group Stage",
@@ -535,11 +545,66 @@ export function createTournamentAwards(
   }))
     .filter((entry) => entry.player)
     .sort((a, b) => b.player.rating - a.player.rating);
-  const selectedTopScorer = Object.entries(scorers).sort((a, b) => b[1] - a[1])[0];
-  const goldenBootStar = selectedTopScorer
-    ? { name: selectedTopScorer[0], nation: selectedNation.name, goals: Math.max(5, selectedTopScorer[1]) }
-    : { name: globalStars[0].player.name, nation: globalStars[0].nation.name, goals: 7 };
-  const bestKeeper = starFor(winner, ["GK"]) ?? starFor(runnerUp, ["GK"]);
+  const teamTotals = new Map<
+    string,
+    { nation: Nation; goals: number; against: number }
+  >();
+  rounds.flatMap((round) => round.fixtures).forEach((fixture) => {
+    const home = teamTotals.get(fixture.home.code) ?? {
+      nation: fixture.home,
+      goals: 0,
+      against: 0,
+    };
+    const away = teamTotals.get(fixture.away.code) ?? {
+      nation: fixture.away,
+      goals: 0,
+      against: 0,
+    };
+    home.goals += fixture.homeGoals;
+    home.against += fixture.awayGoals;
+    away.goals += fixture.awayGoals;
+    away.against += fixture.homeGoals;
+    teamTotals.set(fixture.home.code, home);
+    teamTotals.set(fixture.away.code, away);
+  });
+  const estimatedScorers = [...teamTotals.values()].map((team) => {
+    const attackers = getPlayersByNation(team.nation.name)
+      .filter(
+        (player) => player.position === "FW" || player.position === "MF",
+      )
+      .sort(
+        (a, b) =>
+          (b.position === "FW" ? 4 : 0) +
+          b.attack -
+          ((a.position === "FW" ? 4 : 0) + a.attack),
+      );
+    return {
+      name:
+        attackers[0]?.name ??
+        starFor(team.nation)?.name ??
+        "Tournament scorer",
+      nation: team.nation.name,
+      goals: Math.max(1, Math.round(team.goals * 0.48)),
+    };
+  });
+  const selectedTopScorer = Object.entries(scorers)
+    .map(([name, goals]) => ({
+      name,
+      nation: selectedNation.name,
+      goals,
+    }))
+    .sort((a, b) => b.goals - a.goals)[0];
+  const goldenBootStar = [
+    ...estimatedScorers,
+    ...(selectedTopScorer ? [selectedTopScorer] : []),
+  ].sort((a, b) => b.goals - a.goals)[0];
+  const goalkeeperTeam = [winner, runnerUp].sort(
+    (a, b) =>
+      (teamTotals.get(a.code)?.against ?? 99) -
+      (teamTotals.get(b.code)?.against ?? 99),
+  )[0];
+  const bestKeeper =
+    starFor(goalkeeperTeam, ["GK"]) ?? starFor(winner, ["GK"]);
   const youngPool = globalStars.filter((entry) => entry.player.caps < 35);
 
   return {
@@ -553,7 +618,7 @@ export function createTournamentAwards(
     },
     bestGoalkeeper: {
       name: bestKeeper?.name ?? "Tournament goalkeeper",
-      nation: winner.name,
+      nation: goalkeeperTeam.name,
     },
     bestYoungPlayer: {
       name: youngPool[0]?.player.name ?? globalStars[1].player.name,
