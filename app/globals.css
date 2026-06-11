@@ -1,26 +1,127 @@
 @import "tailwindcss";
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --background: #07100b;
+  --foreground: #f7f5ec;
 }
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --font-sans: Arial, Helvetica, sans-serif;
+  --font-mono: "SFMono-Regular", Consolas, monospace;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+* {
+  box-sizing: border-box;
+}
+
+html {
+  background: var(--background);
 }
 
 body {
+  margin: 0;
   background: var(--background);
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
+}
+
+button,
+input {
+  font: inherit;
+}
+
+button {
+  cursor: pointer;
+}
+
+.stadium-bg {
+  background:
+    radial-gradient(circle at 50% -10%, rgba(72, 150, 94, 0.2), transparent 35%),
+    radial-gradient(circle at 10% 50%, rgba(216, 183, 91, 0.06), transparent 25%),
+    linear-gradient(180deg, #0b1710 0%, #060b08 72%);
+}
+
+.stadium-bg::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  opacity: 0.32;
+  background-image:
+    linear-gradient(rgba(255,255,255,.02) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255,255,255,.02) 1px, transparent 1px);
+  background-size: 42px 42px;
+  mask-image: linear-gradient(to bottom, black, transparent 72%);
+}
+
+.text-gradient {
+  color: transparent;
+  background: linear-gradient(120deg, #f8e9b5, #cda94d);
+  background-clip: text;
+  -webkit-background-clip: text;
+}
+
+.ball-mark {
+  background:
+    radial-gradient(circle at 50% 50%, transparent 0 18%, #f6dc86 19% 22%, transparent 23%),
+    linear-gradient(35deg, transparent 45%, #f6dc86 46% 49%, transparent 50%),
+    linear-gradient(-35deg, transparent 45%, #f6dc86 46% 49%, transparent 50%);
+}
+
+.pitch {
+  background-color: #1c6938;
+  background-image:
+    repeating-linear-gradient(90deg, transparent 0 12.5%, rgba(0,0,0,.065) 12.5% 25%),
+    radial-gradient(circle at 50% 50%, rgba(107, 255, 150, .12), transparent 55%),
+    linear-gradient(180deg, #237844, #14552e);
+}
+
+.live-dot {
+  animation: pulse 1s ease-in-out infinite;
+}
+
+.event-in {
+  animation: event-in .35s ease-out both;
+}
+
+.result-stat {
+  display: flex;
+  flex-direction: column;
+  gap: .15rem;
+  border: 1px solid rgba(255,255,255,.08);
+  border-radius: 1rem;
+  background: rgba(255,255,255,.035);
+  padding: .8rem .4rem;
+}
+
+.result-stat b {
+  color: #f6dc86;
+  font-size: 1.5rem;
+}
+
+.result-stat span {
+  color: rgba(255,255,255,.36);
+  font-size: .55rem;
+  font-weight: 900;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+}
+
+@keyframes pulse {
+  50% { opacity: .25; transform: scale(.8); }
+}
+
+@keyframes event-in {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    scroll-behavior: auto !important;
+    animation-duration: .01ms !important;
+    animation-iteration-count: 1 !important;
+  }
 }
