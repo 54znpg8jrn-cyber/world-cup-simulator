@@ -13,14 +13,6 @@ import type {
   TournamentRound,
 } from "./types";
 
-export const KNOCKOUT_ROUNDS: Array<Exclude<TournamentRound, "Group Stage">> = [
-  "Round of 32",
-  "Round of 16",
-  "Quarter-final",
-  "Semi-final",
-  "Final",
-];
-
 export function randomItem<T>(items: T[]): T {
   return items[Math.floor(Math.random() * items.length)];
 }
@@ -352,18 +344,4 @@ export function updateGroupTable(
         b.goalsFor - b.goalsAgainst - (a.goalsFor - a.goalsAgainst) ||
         b.goalsFor - a.goalsFor,
     );
-}
-
-// Placeholder bracket hook. The group stage is exact; this keeps knockout
-// opponent selection isolated until the full third-place mapping is added.
-export function getKnockoutOpponent(
-  selectedNation: Nation,
-  previousOpponents: Nation[],
-) {
-  const excluded = new Set([
-    selectedNation.code,
-    ...previousOpponents.map((nation) => nation.code),
-  ]);
-  const available = NATIONS.filter((nation) => !excluded.has(nation.code));
-  return randomItem(available.length ? available : NATIONS);
 }

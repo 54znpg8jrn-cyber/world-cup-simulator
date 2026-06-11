@@ -15,14 +15,6 @@ import {
   type TournamentForm,
 } from "./nation-strength";
 
-const knockoutRounds: Array<Exclude<TournamentRound, "Group Stage">> = [
-  "Round of 32",
-  "Round of 16",
-  "Quarter-final",
-  "Semi-final",
-  "Final",
-];
-
 function randomScore() {
   let goals = 0;
   for (let chance = 0; chance < 5; chance += 1) {
@@ -391,58 +383,130 @@ export function simulateKnockoutFixtures(
   };
 }
 
-export function createKnockoutRoundResults(
+const officialProgression: Record<
+  Exclude<TournamentRound, "Group Stage" | "Round of 32" | "Final">,
+  Array<[number, number, number]>
+> = {
+  "Round of 16": [
+    [89, 73, 75],
+    [90, 74, 77],
+    [91, 76, 78],
+    [92, 79, 80],
+    [93, 83, 84],
+    [94, 81, 82],
+    [95, 86, 88],
+    [96, 85, 87],
+  ],
+  "Quarter-final": [
+    [97, 89, 90],
+    [98, 93, 94],
+    [99, 91, 92],
+    [100, 95, 96],
+  ],
+  "Semi-final": [
+    [101, 97, 98],
+    [102, 99, 100],
+  ],
+};
+
+export function createNextOfficialRound(
+  previousRound: TournamentRoundResults,
+): {
+  round: Exclude<TournamentRound, "Group Stage" | "Round of 32">;
+  fixtures: TournamentFixture[];
+} | null {
+  const nextRound = {
+    "Round of 32": "Round of 16",
+    "Round of 16": "Quarter-final",
+    "Quarter-final": "Semi-final",
+    "Semi-final": "Final",
+    Final: null,
+  }[previousRound.round] as
+    | Exclude<TournamentRound, "Group Stage" | "Round of 32">
+    | null;
+  if (!nextRound) return null;
+  const winnerOf = (matchNumber: number) =>
+    previousRound.fixtures.find(
+      (fixture) => fixture.matchNumber === matchNumber,
+    )?.winner;
+
+  if (nextRound === "Final") {
+    const home = winnerOf(101);
+    const away = winnerOf(102);
+    if (!home || !away) return null;
+    return {
+      round: "Final",
+      fixtures: [
+        {
+          id: "match-104",
+          matchNumber: 104,
+          round: "Final",
+          home,
+          away,
+          homeGoals: 0,
+          awayGoals: 0,
+        },
+      ],
+    };
+  }
+
+  const fixtures = officialProgression[nextRound].flatMap(
+    ([matchNumber, homeSource, awaySource]) => {
+      const home = winnerOf(homeSource);
+      const away = winnerOf(awaySource);
+      return home && away
+        ? [
+            {
+              id: `match-${matchNumber}`,
+              matchNumber,
+              round: nextRound,
+              home,
+              away,
+              homeGoals: 0,
+              awayGoals: 0,
+            },
+          ]
+        : [];
+    },
+  );
+  return { round: nextRound, fixtures };
+}
+
+export function simulateAutomaticKnockoutRound(
   round: Exclude<TournamentRound, "Group Stage">,
-  selectedNation: Nation,
-  opponent: Nation,
-  userGoals: number,
-  opponentGoals: number,
+  fixtures: TournamentFixture[],
   form: TournamentForm = {},
 ): TournamentRoundResults {
-  const fixtureCount = {
-    "Round of 32": 16,
-    "Round of 16": 8,
-    "Quarter-final": 4,
-    "Semi-final": 2,
-    Final: 1,
-  }[round];
-  const userFixture: TournamentFixture = {
-    id: `${round}-user`,
+  return {
     round,
-    home: selectedNation,
-    away: opponent,
-    homeGoals: userGoals,
-    awayGoals: opponentGoals,
-    winner: userGoals > opponentGoals ? selectedNation : opponent,
-    isUserMatch: true,
-    isUpset:
-      getNationStrength(
-        userGoals > opponentGoals ? selectedNation : opponent,
-        form,
-      ) +
-        4 <
-      getNationStrength(
-        userGoals > opponentGoals ? opponent : selectedNation,
-        form,
-      ),
-  };
-  const pool = NATIONS.filter(
-    (nation) =>
-      nation.code !== selectedNation.code && nation.code !== opponent.code,
-  ).sort(() => Math.random() - 0.5);
-  const fixtures = [userFixture];
-  for (let index = 0; fixtures.length < fixtureCount; index += 2) {
-    fixtures.push(
-      quickFixture(
-        `${round}-${fixtures.length}`,
+    fixtures: fixtures.map((fixture) => ({
+      ...quickFixture(
+        fixture.id,
         round,
-        pool[index % pool.length],
-        pool[(index + 1) % pool.length],
+        fixture.home,
+        fixture.away,
         form,
       ),
+      matchNumber: fixture.matchNumber,
+    })),
+  };
+}
+
+export function completeOfficialBracket(
+  completedRounds: TournamentRoundResults[],
+  form: TournamentForm = {},
+) {
+  const rounds = [...completedRounds];
+  while (rounds.at(-1)?.round !== "Final") {
+    const previousRound = rounds.at(-1);
+    if (!previousRound) break;
+    const next = createNextOfficialRound(previousRound);
+    if (!next) break;
+    rounds.push(
+      simulateAutomaticKnockoutRound(next.round, next.fixtures, form),
     );
   }
-  return { round, fixtures };
+  return rounds;
 }
 
 function starFor(nation: Nation, positions?: string[]) {
@@ -496,42 +560,4 @@ export function createTournamentAwards(
       nation: youngPool[0]?.nation.name ?? globalStars[1].nation.name,
     },
   };
-}
-
-export function ensureCompleteBracket(
-  currentRounds: TournamentRoundResults[],
-  selectedNation: Nation,
-) {
-  const rounds = [...currentRounds];
-  let featured = selectedNation;
-  for (const round of knockoutRounds) {
-    if (rounds.some((item) => item.round === round)) {
-      featured =
-        rounds.find((item) => item.round === round)?.fixtures[0]?.winner ?? featured;
-      continue;
-    }
-    const opponent =
-      NATIONS.find(
-        (nation) =>
-          nation.code !== featured.code &&
-          !rounds.some((item) =>
-            item.fixtures.some(
-              (fixture) =>
-                fixture.home.code === nation.code || fixture.away.code === nation.code,
-            ),
-          ),
-      ) ?? NATIONS.find((nation) => nation.code !== featured.code)!;
-    const featuredGoals = randomScore();
-    const opponentGoals = featuredGoals === 0 ? 1 : Math.max(0, featuredGoals - 1);
-    const generated = createKnockoutRoundResults(
-      round,
-      featured,
-      opponent,
-      featuredGoals,
-      opponentGoals,
-    );
-    rounds.push(generated);
-    featured = generated.fixtures[0].winner ?? featured;
-  }
-  return rounds;
 }

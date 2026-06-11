@@ -12,19 +12,18 @@ import {
 import { getPlayersByNation } from "../data/players";
 import { calculateTeamRatings } from "./lib/ratings";
 import {
-  KNOCKOUT_ROUNDS,
   createGroupTable,
   createMatch,
-  getKnockoutOpponent,
   getLiveScore,
   updateGroupTable,
 } from "./lib/simulation";
 import {
   createBackgroundGroupResults,
-  createKnockoutRoundResults,
   createTournamentAwards,
   createOfficialGroupStage,
-  ensureCompleteBracket,
+  completeOfficialBracket,
+  createNextOfficialRound,
+  simulateAutomaticKnockoutRound,
   simulateKnockoutFixtures,
 } from "./lib/tournament";
 import {
@@ -400,8 +399,6 @@ export default function Home() {
   const [pendingRound, setPendingRound] =
     useState<TournamentRoundResults | null>(null);
   const [groupIndex, setGroupIndex] = useState(0);
-  const [knockoutIndex, setKnockoutIndex] = useState(0);
-  const [previousOpponents, setPreviousOpponents] = useState<Nation[]>([]);
   const [stats, setStats] = useState<TournamentStats>(emptyStats);
   const [finish, setFinish] = useState("");
   const [tournamentForm, setTournamentForm] = useState<TournamentForm>({});
@@ -513,8 +510,6 @@ export default function Home() {
     setGroupOpponents(opponents);
     setGroupTable(createGroupTable(group));
     setGroupIndex(0);
-    setKnockoutIndex(0);
-    setPreviousOpponents([opponents[0]]);
     setStats(emptyStats());
     setBackgroundGroupResults(
       createBackgroundGroupResults(selectedNation, nextForm),
@@ -614,7 +609,6 @@ export default function Home() {
         const nextIndex = groupIndex + 1;
         setGroupIndex(nextIndex);
         const opponent = groupOpponents[nextIndex];
-        setPreviousOpponents((current) => [...current, opponent]);
         setMatch(
           createMatch(
             "Group Stage",
@@ -640,7 +634,14 @@ export default function Home() {
       );
       if (!qualified) {
         setFinish("Group Stage exit");
-        setBracketRounds(ensureCompleteBracket([], selectedNation));
+        const roundOf32 = simulateAutomaticKnockoutRound(
+          "Round of 32",
+          officialStage.roundOf32,
+          tournamentForm,
+        );
+        setBracketRounds(
+          completeOfficialBracket([roundOf32], tournamentForm),
+        );
         setView("result");
         return;
       }
@@ -651,7 +652,14 @@ export default function Home() {
       );
       if (!userRoundOf32) {
         setFinish("Group Stage exit");
-        setBracketRounds(ensureCompleteBracket([], selectedNation));
+        const roundOf32 = simulateAutomaticKnockoutRound(
+          "Round of 32",
+          officialStage.roundOf32,
+          tournamentForm,
+        );
+        setBracketRounds(
+          completeOfficialBracket([roundOf32], tournamentForm),
+        );
         setView("result");
         return;
       }
@@ -660,17 +668,16 @@ export default function Home() {
           ? userRoundOf32.away
           : userRoundOf32.home;
       const nextMatch = createMatch(
-        KNOCKOUT_ROUNDS[0],
+        "Round of 32",
         opponent,
         xi,
         ratings.overall,
         tournamentForm,
       );
-      setPreviousOpponents((current) => [...current, opponent]);
       setMatch(nextMatch);
       setPendingRound(
         simulateKnockoutFixtures(
-          KNOCKOUT_ROUNDS[0],
+          "Round of 32",
           officialStage.roundOf32,
           selectedNation,
           opponent,
@@ -684,16 +691,8 @@ export default function Home() {
       return;
     }
 
-    const completedRound =
-      pendingRound ??
-      createKnockoutRoundResults(
-        match.round as Exclude<SimMatch["round"], "Group Stage">,
-        selectedNation,
-        match.opponent,
-        match.userGoals,
-        match.opponentGoals,
-        tournamentForm,
-      );
+    if (!pendingRound) return;
+    const completedRound = pendingRound;
     const completedRounds = [...bracketRounds, completedRound];
     setBracketRounds(completedRounds);
 
@@ -701,7 +700,9 @@ export default function Home() {
       setFinish(
         match.round === "Final" ? "World Cup Runner-up" : `Eliminated in ${match.round}`,
       );
-      setBracketRounds(ensureCompleteBracket(completedRounds, selectedNation));
+      setBracketRounds(
+        completeOfficialBracket(completedRounds, tournamentForm),
+      );
       setView("result");
       return;
     }
@@ -711,21 +712,37 @@ export default function Home() {
       return;
     }
 
-    const nextIndex = knockoutIndex + 1;
-    setKnockoutIndex(nextIndex);
-    const opponent = getKnockoutOpponent(selectedNation, previousOpponents);
+    const nextRound = createNextOfficialRound(completedRound);
+    if (!nextRound) return;
+    const userFixture = nextRound.fixtures.find(
+      (fixture) =>
+        fixture.home.code === selectedNation.code ||
+        fixture.away.code === selectedNation.code,
+    );
+    if (!userFixture) {
+      setBracketRounds(
+        completeOfficialBracket(completedRounds, tournamentForm),
+      );
+      setFinish(`Eliminated in ${match.round}`);
+      setView("result");
+      return;
+    }
+    const opponent =
+      userFixture.home.code === selectedNation.code
+        ? userFixture.away
+        : userFixture.home;
     const upcomingMatch = createMatch(
-      KNOCKOUT_ROUNDS[nextIndex],
+      nextRound.round,
       opponent,
       xi,
       ratings.overall,
       tournamentForm,
     );
-    setPreviousOpponents((current) => [...current, opponent]);
     setMatch(upcomingMatch);
     setPendingRound(
-      createKnockoutRoundResults(
-        KNOCKOUT_ROUNDS[nextIndex],
+      simulateKnockoutFixtures(
+        nextRound.round,
+        nextRound.fixtures,
         selectedNation,
         opponent,
         upcomingMatch.userGoals,
