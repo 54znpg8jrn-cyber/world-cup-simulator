@@ -59,7 +59,7 @@ export interface MatchEvent {
   text: string;
   isGoal: boolean;
   forUser: boolean;
-  phase: "chance" | "outcome";
+  phase: "chance" | "outcome" | "substitution";
   scorer?: string;
   kind?: "chance" | "penalty" | "var" | "free-kick" | "counter" | "late";
 }
@@ -70,6 +70,8 @@ export interface SimMatch {
   userGoals: number;
   opponentGoals: number;
   events: MatchEvent[];
+  userSubstitutions: number;
+  opponentSubstitutions: number;
 }
 
 export interface TournamentStats {

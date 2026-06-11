@@ -1,4 +1,5 @@
 import { NATIONS } from "../data/groups";
+import { getPlayersByNation } from "../../data/players";
 import type {
   GroupTableRow,
   MatchEvent,
@@ -36,6 +37,67 @@ function fakeOpponentName() {
   return `${randomItem(firstNames)} ${randomItem(lastNames)}`;
 }
 
+function substitutionMinutes(count: number) {
+  const minutes = new Set<number>();
+  while (minutes.size < count) {
+    const roll = Math.random();
+    const minute =
+      roll < 0.08
+        ? 18 + Math.floor(Math.random() * 25)
+        : roll < 0.2
+          ? 46
+          : 55 + Math.floor(Math.random() * 31);
+    minutes.add(minute);
+  }
+  return [...minutes].sort((a, b) => a - b);
+}
+
+function createSubstitutionEvents(
+  squad: Player[],
+  starters: Player[],
+  forUser: boolean,
+) {
+  const count = 3 + Math.floor(Math.random() * 3);
+  const active = [...starters];
+  const bench = squad.filter(
+    (player) => !active.some((starter) => starter.id === player.id),
+  );
+
+  return substitutionMinutes(count).flatMap((minute) => {
+    const replaceable = active.filter((player) => player.position !== "GK");
+    const outgoing = randomItem(replaceable.length ? replaceable : active);
+    const samePosition = bench.filter(
+      (player) => player.position === outgoing.position,
+    );
+    const incoming = randomItem(samePosition.length ? samePosition : bench);
+    if (!outgoing || !incoming) return [];
+
+    active.splice(active.indexOf(outgoing), 1, incoming);
+    bench.splice(bench.indexOf(incoming), 1);
+    bench.push(outgoing);
+
+    return {
+      minute,
+      text: `Substitution ${minute}': ${incoming.name} replaces ${outgoing.name}`,
+      isGoal: false,
+      forUser,
+      phase: "substitution" as const,
+    };
+  });
+}
+
+function substitutionMomentum(starters: Player[], squad: Player[]) {
+  const starterIds = new Set(starters.map((player) => player.id));
+  const bench = squad
+    .filter((player) => !starterIds.has(player.id))
+    .sort((a, b) => b.rating - a.rating)
+    .slice(0, 5);
+  if (!bench.length) return 0;
+  const average =
+    bench.reduce((sum, player) => sum + player.rating, 0) / bench.length;
+  return Math.max(-1.5, Math.min(1.5, (average - 72) / 8));
+}
+
 const chanceTexts: Array<{
   kind: NonNullable<MatchEvent["kind"]>;
   text: string;
@@ -62,8 +124,24 @@ export function createMatch(
   xi: Player[],
   teamRating: number,
 ): SimMatch {
-  let userGoals = scoreGoals(teamRating, opponent.strength);
-  let opponentGoals = scoreGoals(opponent.strength, teamRating);
+  const userSquad = getPlayersByNation(xi[0]?.nation ?? "");
+  const opponentSquad = getPlayersByNation(opponent.name);
+  const opponentStarters = [...opponentSquad]
+    .sort((a, b) => b.rating - a.rating)
+    .slice(0, 11);
+  const userMomentum = substitutionMomentum(xi, userSquad);
+  const opponentMomentum = substitutionMomentum(
+    opponentStarters,
+    opponentSquad,
+  );
+  let userGoals = scoreGoals(
+    teamRating + userMomentum,
+    opponent.strength + opponentMomentum,
+  );
+  let opponentGoals = scoreGoals(
+    opponent.strength + opponentMomentum,
+    teamRating + userMomentum,
+  );
 
   if (round !== "Group Stage" && userGoals === opponentGoals) {
     if (Math.random() < 0.5 + (teamRating - opponent.strength) / 40) {
@@ -153,62 +231,34 @@ export function createMatch(
     ];
   });
 
-  return { round, opponent, userGoals, opponentGoals, events };
+  const userSubstitutionEvents = createSubstitutionEvents(
+    userSquad,
+    xi,
+    true,
+  );
+  const opponentSubstitutionEvents = createSubstitutionEvents(
+    opponentSquad,
+    opponentStarters,
+    false,
+  );
+  events.push(...userSubstitutionEvents, ...opponentSubstitutionEvents);
+  events.sort(
+    (a, b) =>
+      a.minute - b.minute ||
+      (a.phase === "chance" ? -1 : b.phase === "chance" ? 1 : 0),
+  );
+
+  return {
+    round,
+    opponent,
+    userGoals,
+    opponentGoals,
+    events,
+    userSubstitutions: userSubstitutionEvents.length,
+    opponentSubstitutions: opponentSubstitutionEvents.length,
+  };
 }
 
-export function adjustMatchForSubstitution(
-  match: SimMatch,
-  revealedEvents: number,
-  outgoing: Player,
-  incoming: Player,
-) {
-  const ratingDelta = incoming.rating - outgoing.rating;
-  if (ratingDelta === 0 || Math.random() > Math.min(0.55, 0.2 + Math.abs(ratingDelta) / 20)) {
-    return match;
-  }
-
-  const events = [...match.events];
-  if (ratingDelta > 0) {
-    const outcomeIndex = events.findIndex(
-      (event, index) =>
-        index >= revealedEvents &&
-        event.phase === "outcome" &&
-        event.forUser &&
-        !event.isGoal,
-    );
-    if (outcomeIndex >= 0) {
-      const minute = events[outcomeIndex].minute;
-      events[outcomeIndex] = {
-        ...events[outcomeIndex],
-        isGoal: true,
-        scorer: incoming.name,
-        text: `GOAL! ${incoming.name} ${minute}' Fresh legs make the difference!`,
-      };
-      return { ...match, events, userGoals: match.userGoals + 1 };
-    }
-  }
-
-  if (ratingDelta < 0) {
-    const outcomeIndex = events.findIndex(
-      (event, index) =>
-        index >= revealedEvents &&
-        event.phase === "outcome" &&
-        event.forUser &&
-        event.isGoal,
-    );
-    if (outcomeIndex >= 0) {
-      events[outcomeIndex] = {
-        ...events[outcomeIndex],
-        isGoal: false,
-        scorer: undefined,
-        text: "Saved! The chance is smothered at the last second.",
-      };
-      return { ...match, events, userGoals: Math.max(0, match.userGoals - 1) };
-    }
-  }
-
-  return match;
-}
 
 export function getLiveScore(match: SimMatch, revealedEvents: number) {
   return match.events.slice(0, revealedEvents).reduce(

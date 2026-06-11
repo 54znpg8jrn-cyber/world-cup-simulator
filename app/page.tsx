@@ -2,7 +2,6 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
-import { TeamManager } from "./components/TeamManager";
 import { TournamentBracket } from "./components/TournamentBracket";
 import {
   FORMATION_SLOTS,
@@ -16,7 +15,6 @@ import {
   KNOCKOUT_ROUNDS,
   createGroupTable,
   createMatch,
-  adjustMatchForSubstitution,
   getKnockoutOpponent,
   getLiveScore,
   updateGroupTable,
@@ -382,8 +380,6 @@ export default function Home() {
     "ready" | "playing" | "paused" | "finished"
   >("ready");
   const [speed, setSpeed] = useState<"normal" | "fast">("normal");
-  const [teamManagerOpen, setTeamManagerOpen] = useState(false);
-  const [substitutionsUsed, setSubstitutionsUsed] = useState(0);
   const [groupOpponents, setGroupOpponents] = useState<Nation[]>([]);
   const [groupTable, setGroupTable] = useState<GroupTableRow[]>([]);
   const [backgroundGroupResults, setBackgroundGroupResults] = useState<
@@ -511,7 +507,6 @@ export default function Home() {
     setBackgroundGroupResults(createBackgroundGroupResults(selectedNation));
     setBracketRounds([]);
     setPendingRound(null);
-    setSubstitutionsUsed(0);
     setMatchStatus("ready");
     setSpeed("normal");
     setFinish("");
@@ -541,7 +536,7 @@ export default function Home() {
       goalsAgainst: stats.goalsAgainst + played.opponentGoals,
       points: stats.points + (played.round === "Group Stage" ? (won ? 3 : drew ? 1 : 0) : 0),
       scorers: { ...stats.scorers },
-      substitutions: [...stats.substitutions, substitutionsUsed],
+      substitutions: [...stats.substitutions, played.userSubstitutions],
     };
     Object.entries(scorerUpdates).forEach(([name, goals]) => {
       nextStats.scorers[name] = (nextStats.scorers[name] ?? 0) + goals;
@@ -575,7 +570,6 @@ export default function Home() {
         setPreviousOpponents((current) => [...current, opponent]);
         setMatch(createMatch("Group Stage", opponent, xi, ratings.overall));
         setRevealedEvents(0);
-        setSubstitutionsUsed(0);
         setMatchStatus("ready");
         return;
       }
@@ -609,7 +603,6 @@ export default function Home() {
         ),
       );
       setRevealedEvents(0);
-      setSubstitutionsUsed(0);
       setMatchStatus("ready");
       return;
     }
@@ -661,40 +654,7 @@ export default function Home() {
       ),
     );
     setRevealedEvents(0);
-    setSubstitutionsUsed(0);
     setMatchStatus("ready");
-  };
-
-  const makeSubstitution = (outgoing: Player, incoming: Player) => {
-    setSelections((current) => {
-      const entry = Object.entries(current).find(
-        ([, player]) => player.id === outgoing.id,
-      );
-      if (!entry) return current;
-      return { ...current, [entry[0]]: incoming };
-    });
-    if (match) {
-      const adjustedMatch = adjustMatchForSubstitution(
-        match,
-        revealedEvents,
-        outgoing,
-        incoming,
-      );
-      setMatch(adjustedMatch);
-      if (match.round !== "Group Stage" && selectedNation) {
-        setPendingRound(
-          createKnockoutRoundResults(
-            match.round as Exclude<SimMatch["round"], "Group Stage">,
-            selectedNation,
-            match.opponent,
-            adjustedMatch.userGoals,
-            adjustedMatch.opponentGoals,
-          ),
-        );
-      }
-    }
-    setSubstitutionsUsed((count) => count + 1);
-    setTeamManagerOpen(false);
   };
 
   const playAgain = () => {
@@ -886,7 +846,7 @@ export default function Home() {
           </div>
 
           {!matchComplete ? (
-            <div className="mt-5 grid grid-cols-2 gap-2 sm:grid-cols-4">
+            <div className="mt-5 grid grid-cols-2 gap-2 sm:grid-cols-3">
               {matchStatus === "ready" ? (
                 <button
                   onClick={() => setMatchStatus("playing")}
@@ -919,15 +879,8 @@ export default function Home() {
               >
                 Speed: {speed === "normal" ? "Normal" : "Fast"}
               </button>
-              <button
-                disabled={matchStatus !== "paused"}
-                onClick={() => setTeamManagerOpen(true)}
-                className="col-span-2 rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-xs font-black uppercase tracking-wider disabled:cursor-not-allowed disabled:opacity-30 sm:col-span-1"
-              >
-                Manage Team
-              </button>
               <span className="grid place-items-center rounded-2xl border border-white/8 bg-black/20 px-3 text-xs font-black text-white/45">
-                Subs {substitutionsUsed}/5
+                Auto subs {match.userSubstitutions}
               </span>
             </div>
           ) : null}
@@ -1129,16 +1082,6 @@ export default function Home() {
           setActiveSlot(null);
         }}
       />
-      {selectedNation ? (
-        <TeamManager
-          open={teamManagerOpen}
-          nation={selectedNation}
-          startingXI={xi}
-          substitutionsUsed={substitutionsUsed}
-          onClose={() => setTeamManagerOpen(false)}
-          onConfirm={makeSubstitution}
-        />
-      ) : null}
     </main>
   );
 }
