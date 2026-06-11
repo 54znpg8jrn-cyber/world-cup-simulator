@@ -26,6 +26,10 @@ import {
   ensureCompleteBracket,
 } from "./lib/tournament";
 import {
+  createTournamentForm,
+  type TournamentForm,
+} from "./lib/nation-strength";
+import {
   FORMATIONS,
   type Formation,
   type GroupTableRow,
@@ -395,6 +399,7 @@ export default function Home() {
   const [previousOpponents, setPreviousOpponents] = useState<Nation[]>([]);
   const [stats, setStats] = useState<TournamentStats>(emptyStats);
   const [finish, setFinish] = useState("");
+  const [tournamentForm, setTournamentForm] = useState<TournamentForm>({});
 
   const slots = FORMATION_SLOTS[formation];
   const xi = slots.map((slot) => selections[slot.id]).filter(Boolean);
@@ -498,19 +503,31 @@ export default function Home() {
     const opponents = group.filter(
       (nation) => nation.code !== selectedNation.code,
     );
+    const nextForm = createTournamentForm();
+    setTournamentForm(nextForm);
     setGroupOpponents(opponents);
     setGroupTable(createGroupTable(group));
     setGroupIndex(0);
     setKnockoutIndex(0);
     setPreviousOpponents([opponents[0]]);
     setStats(emptyStats());
-    setBackgroundGroupResults(createBackgroundGroupResults(selectedNation));
+    setBackgroundGroupResults(
+      createBackgroundGroupResults(selectedNation, nextForm),
+    );
     setBracketRounds([]);
     setPendingRound(null);
     setMatchStatus("ready");
     setSpeed("normal");
     setFinish("");
-    setMatch(createMatch("Group Stage", opponents[0], xi, ratings.overall));
+    setMatch(
+      createMatch(
+        "Group Stage",
+        opponents[0],
+        xi,
+        ratings.overall,
+        nextForm,
+      ),
+    );
     setRevealedEvents(0);
     setView("simulation");
   };
@@ -568,7 +585,15 @@ export default function Home() {
         setGroupIndex(nextIndex);
         const opponent = groupOpponents[nextIndex];
         setPreviousOpponents((current) => [...current, opponent]);
-        setMatch(createMatch("Group Stage", opponent, xi, ratings.overall));
+        setMatch(
+          createMatch(
+            "Group Stage",
+            opponent,
+            xi,
+            ratings.overall,
+            tournamentForm,
+          ),
+        );
         setRevealedEvents(0);
         setMatchStatus("ready");
         return;
@@ -590,6 +615,7 @@ export default function Home() {
         opponent,
         xi,
         ratings.overall,
+        tournamentForm,
       );
       setPreviousOpponents((current) => [...current, opponent]);
       setMatch(nextMatch);
@@ -600,6 +626,7 @@ export default function Home() {
           opponent,
           nextMatch.userGoals,
           nextMatch.opponentGoals,
+          tournamentForm,
         ),
       );
       setRevealedEvents(0);
@@ -615,6 +642,7 @@ export default function Home() {
         match.opponent,
         match.userGoals,
         match.opponentGoals,
+        tournamentForm,
       );
     const completedRounds = [...bracketRounds, completedRound];
     setBracketRounds(completedRounds);
@@ -641,6 +669,7 @@ export default function Home() {
       opponent,
       xi,
       ratings.overall,
+      tournamentForm,
     );
     setPreviousOpponents((current) => [...current, opponent]);
     setMatch(upcomingMatch);
@@ -651,6 +680,7 @@ export default function Home() {
         opponent,
         upcomingMatch.userGoals,
         upcomingMatch.opponentGoals,
+        tournamentForm,
       ),
     );
     setRevealedEvents(0);

@@ -1,5 +1,9 @@
 import { NATIONS } from "../data/groups";
 import { getPlayersByNation } from "../../data/players";
+import {
+  getNationStrength,
+  type TournamentForm,
+} from "./nation-strength";
 import type {
   GroupTableRow,
   MatchEvent,
@@ -28,6 +32,7 @@ function scoreGoals(rating: number, opponentRating: number) {
   for (let chance = 0; chance < 5; chance += 1) {
     if (Math.random() < expected / 5) goals += 1;
   }
+  if (rating + 5 < opponentRating && Math.random() < 0.12) goals += 1;
   return goals;
 }
 
@@ -123,6 +128,7 @@ export function createMatch(
   opponent: Nation,
   xi: Player[],
   teamRating: number,
+  form: TournamentForm = {},
 ): SimMatch {
   const userSquad = getPlayersByNation(xi[0]?.nation ?? "");
   const opponentSquad = getPlayersByNation(opponent.name);
@@ -134,17 +140,26 @@ export function createMatch(
     opponentStarters,
     opponentSquad,
   );
+  const userNation = NATIONS.find((nation) => nation.name === xi[0]?.nation);
+  const userStrength = userNation
+    ? getNationStrength(userNation, form, teamRating)
+    : teamRating;
+  const opponentStrength = getNationStrength(opponent, form);
   let userGoals = scoreGoals(
-    teamRating + userMomentum,
-    opponent.strength + opponentMomentum,
+    userStrength + userMomentum,
+    opponentStrength + opponentMomentum,
   );
   let opponentGoals = scoreGoals(
-    opponent.strength + opponentMomentum,
-    teamRating + userMomentum,
+    opponentStrength + opponentMomentum,
+    userStrength + userMomentum,
   );
 
   if (round !== "Group Stage" && userGoals === opponentGoals) {
-    if (Math.random() < 0.5 + (teamRating - opponent.strength) / 40) {
+    const favoriteChance = Math.max(
+      0.28,
+      Math.min(0.72, 0.5 + (userStrength - opponentStrength) / 40),
+    );
+    if (Math.random() < favoriteChance) {
       userGoals += 1;
     } else {
       opponentGoals += 1;

@@ -7,6 +7,10 @@ import type {
   TournamentRound,
   TournamentRoundResults,
 } from "./types";
+import {
+  getNationStrength,
+  type TournamentForm,
+} from "./nation-strength";
 
 const knockoutRounds: Array<Exclude<TournamentRound, "Group Stage">> = [
   "Round of 32",
@@ -29,11 +33,18 @@ function quickFixture(
   round: TournamentRound,
   home: Nation,
   away: Nation,
+  form: TournamentForm = {},
 ): TournamentFixture {
-  let homeGoals = randomScore();
-  let awayGoals = randomScore();
+  const homeStrength = getNationStrength(home, form);
+  const awayStrength = getNationStrength(away, form);
+  let homeGoals = randomScore() + (Math.random() < Math.max(0, homeStrength - awayStrength) / 35 ? 1 : 0);
+  let awayGoals = randomScore() + (Math.random() < Math.max(0, awayStrength - homeStrength) / 35 ? 1 : 0);
+  if (Math.abs(homeStrength - awayStrength) > 7 && Math.random() < 0.1) {
+    if (homeStrength < awayStrength) homeGoals += 1;
+    else awayGoals += 1;
+  }
   if (round !== "Group Stage" && homeGoals === awayGoals) {
-    if (Math.random() < home.strength / (home.strength + away.strength)) homeGoals += 1;
+    if (Math.random() < homeStrength / (homeStrength + awayStrength)) homeGoals += 1;
     else awayGoals += 1;
   }
   const winner =
@@ -46,11 +57,18 @@ function quickFixture(
     homeGoals,
     awayGoals,
     winner,
-    isUpset: Boolean(winner && winner.strength + 4 < (winner.code === home.code ? away : home).strength),
+    isUpset: Boolean(
+      winner &&
+        getNationStrength(winner, form) + 4 <
+          getNationStrength(winner.code === home.code ? away : home, form),
+    ),
   };
 }
 
-export function createBackgroundGroupResults(selectedNation: Nation) {
+export function createBackgroundGroupResults(
+  selectedNation: Nation,
+  form: TournamentForm = {},
+) {
   return Object.entries(WORLD_CUP_GROUPS).flatMap(([groupName, nations]) => {
     const fixtures: TournamentFixture[] = [];
     for (let home = 0; home < nations.length; home += 1) {
@@ -67,6 +85,7 @@ export function createBackgroundGroupResults(selectedNation: Nation) {
             "Group Stage",
             nations[home],
             nations[away],
+            form,
           ),
         );
       }
@@ -81,6 +100,7 @@ export function createKnockoutRoundResults(
   opponent: Nation,
   userGoals: number,
   opponentGoals: number,
+  form: TournamentForm = {},
 ): TournamentRoundResults {
   const fixtureCount = {
     "Round of 32": 16,
@@ -99,8 +119,15 @@ export function createKnockoutRoundResults(
     winner: userGoals > opponentGoals ? selectedNation : opponent,
     isUserMatch: true,
     isUpset:
-      (userGoals > opponentGoals ? selectedNation : opponent).strength + 4 <
-      (userGoals > opponentGoals ? opponent : selectedNation).strength,
+      getNationStrength(
+        userGoals > opponentGoals ? selectedNation : opponent,
+        form,
+      ) +
+        4 <
+      getNationStrength(
+        userGoals > opponentGoals ? opponent : selectedNation,
+        form,
+      ),
   };
   const pool = NATIONS.filter(
     (nation) =>
@@ -114,6 +141,7 @@ export function createKnockoutRoundResults(
         round,
         pool[index % pool.length],
         pool[(index + 1) % pool.length],
+        form,
       ),
     );
   }
