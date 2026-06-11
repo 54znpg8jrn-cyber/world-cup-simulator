@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { TournamentBracket } from "./components/TournamentBracket";
 import {
@@ -401,6 +401,7 @@ export default function Home() {
   const [stats, setStats] = useState<TournamentStats>(emptyStats);
   const [finish, setFinish] = useState("");
   const [tournamentForm, setTournamentForm] = useState<TournamentForm>({});
+  const eventFeedRef = useRef<HTMLDivElement>(null);
 
   const slots = FORMATION_SLOTS[formation];
   const xi = slots.map((slot) => selections[slot.id]).filter(Boolean);
@@ -413,6 +414,8 @@ export default function Home() {
   const liveScore = match
     ? getLiveScore(match, revealedEvents)
     : { user: 0, opponent: 0 };
+  const currentEvent = match?.events[Math.max(0, revealedEvents - 1)];
+  const matchMinute = matchComplete ? 90 : currentEvent?.minute ?? 0;
   const awards = useMemo(
     () =>
       selectedNation && bracketRounds.length
@@ -467,6 +470,11 @@ export default function Home() {
     speed,
     view,
   ]);
+
+  useEffect(() => {
+    const feed = eventFeedRef.current;
+    if (feed) feed.scrollTop = feed.scrollHeight;
+  }, [revealedEvents]);
 
   const chooseNation = (nation: Nation) => {
     setSelectedNation(nation);
@@ -865,8 +873,8 @@ export default function Home() {
       ) : null}
 
       {view === "simulation" && selectedNation && match ? (
-        <section className="mx-auto flex min-h-screen max-w-3xl flex-col px-4 py-6 sm:px-8">
-          <header className="mb-8 flex items-center justify-between">
+        <section className="mx-auto flex min-h-screen max-w-3xl flex-col px-4 py-4 sm:px-8">
+          <header className="mb-4 flex items-center justify-between">
             <div>
               <p className="text-[10px] font-black uppercase tracking-[0.25em] text-[#d8b75b]">{match.round}</p>
               <h1 className="text-2xl font-black">Matchday</h1>
@@ -878,7 +886,7 @@ export default function Home() {
             </span>
           </header>
 
-          <div className="rounded-[2rem] border border-white/10 bg-[#101713]/95 p-5 shadow-2xl sm:p-8">
+          <div className="rounded-[2rem] border border-white/10 bg-[#101713]/95 p-4 shadow-2xl sm:p-6">
             <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-3 text-center">
               <div>
                 <span className="text-5xl">{selectedNation.flag}</span>
@@ -891,7 +899,7 @@ export default function Home() {
               </div>
             </div>
 
-            <div className="my-7 rounded-2xl border border-white/8 bg-black/25 px-3 py-5 text-center">
+            <div className="my-4 rounded-2xl border border-white/8 bg-black/25 px-3 py-4 text-center">
               <p className="flex items-center justify-center gap-2 text-[9px] font-black uppercase tracking-[0.2em] text-[#8cf2a7]">
                 {!matchComplete && matchStatus === "playing" ? (
                   <span className="live-dot h-2 w-2 rounded-full bg-[#8cf2a7]" />
@@ -909,9 +917,15 @@ export default function Home() {
                 <span className="px-2 text-white/25">-</span>
                 {liveScore.opponent} {match.opponent.name}
               </p>
+              <p className="mt-2 text-[10px] font-black uppercase tracking-[0.2em] text-white/35">
+                {matchMinute}&apos;
+              </p>
             </div>
 
-            <div className="min-h-60 space-y-2">
+            <div
+              ref={eventFeedRef}
+              className="h-52 space-y-2 overflow-y-auto overscroll-contain rounded-2xl border border-white/5 bg-black/15 p-2 sm:h-60"
+            >
               {match.events.slice(0, revealedEvents).map((event, index) => (
                 <div
                   key={`${event.minute}-${index}`}
@@ -970,10 +984,19 @@ export default function Home() {
               >
                 Speed: {speed === "normal" ? "Normal" : "Fast"}
               </button>
+              <button
+                onClick={() => {
+                  setRevealedEvents(match.events.length);
+                  setMatchStatus("finished");
+                }}
+                className="col-span-2 rounded-2xl border border-[#d8b75b]/30 bg-[#d8b75b]/10 px-4 py-3 text-xs font-black uppercase tracking-wider text-[#f6dc86] sm:col-span-1"
+              >
+                Skip Match
+              </button>
             </div>
           ) : null}
 
-          {match.round === "Group Stage" ? (
+          {matchComplete && match.round === "Group Stage" ? (
             <div className="mt-5 overflow-hidden rounded-2xl border border-white/10 bg-[#101713]/90">
               <div className="flex items-center justify-between border-b border-white/8 px-4 py-3">
                 <h2 className="text-[10px] font-black uppercase tracking-[0.18em] text-[#d8b75b]">
@@ -1030,7 +1053,7 @@ export default function Home() {
             </section>
           ) : null}
 
-          {match.round !== "Group Stage" ? (
+          {matchComplete && match.round !== "Group Stage" ? (
             <section className="mt-5 rounded-2xl border border-white/10 bg-[#101713]/90 p-4">
               <h2 className="mb-3 text-[10px] font-black uppercase tracking-[0.18em] text-[#d8b75b]">
                 Tournament bracket
