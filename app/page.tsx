@@ -1090,63 +1090,72 @@ export default function Home() {
               {finish}
             </div>
 
+            <section className="mt-8 rounded-[1.75rem] border border-emerald-300/15 bg-emerald-300/[0.035] p-4 text-left sm:p-6">
+              <h2 className="text-sm font-black uppercase tracking-[0.2em] text-[#8cf2a7]">
+                Your Team Awards
+              </h2>
+              <div className="mt-4 grid gap-2 sm:grid-cols-2 lg:grid-cols-5">
+                <AwardCard
+                  title="Your Top Scorer"
+                  value={
+                    topScorer
+                      ? `${topScorer[0]} · ${topScorer[1]} goals`
+                      : "No goals scored"
+                  }
+                  detail={selectedNation.name}
+                />
+                <AwardCard
+                  title="Your MVP"
+                  value={mvp?.name ?? "–"}
+                  detail={selectedNation.name}
+                />
+                <AwardCard
+                  title="Your Record"
+                  value={`${stats.wins}W · ${stats.draws}D · ${stats.losses}L`}
+                  detail={`${stats.wins + stats.draws + stats.losses} matches`}
+                />
+                <AwardCard
+                  title="Goals For / Against"
+                  value={`${stats.goalsFor} / ${stats.goalsAgainst}`}
+                  detail="Tournament total"
+                />
+                <AwardCard title="Your Finish" value={finish} detail="World Cup 2026" />
+              </div>
+            </section>
+
             {awards ? (
-              <div className="mt-8 rounded-2xl border border-[#d8b75b]/15 bg-[#d8b75b]/5 p-5">
-                <p className="text-[9px] font-black uppercase tracking-[0.2em] text-[#d8b75b]">
-                  World Cup winner
-                </p>
-                <p className="mt-2 text-2xl font-black">
-                  {awards.winner.flag} {awards.winner.name}
-                </p>
-                <p className="mt-1 text-xs text-white/45">
-                  Final: {awards.winner.name} {awards.finalScore} {awards.runnerUp.name}
-                </p>
-              </div>
-            ) : null}
-
-            <div className="mt-8 grid grid-cols-3 gap-2 sm:grid-cols-6">
-              <div className="result-stat"><b>{stats.wins}</b><span>Wins</span></div>
-              <div className="result-stat"><b>{stats.draws}</b><span>Draws</span></div>
-              <div className="result-stat"><b>{stats.losses}</b><span>Losses</span></div>
-              <div className="result-stat"><b>{stats.goalsFor}</b><span>Goals for</span></div>
-              <div className="result-stat"><b>{stats.goalsAgainst}</b><span>Against</span></div>
-              <div className="result-stat"><b>{finish}</b><span>Finish</span></div>
-            </div>
-
-            <div className="mt-4 grid gap-2 text-left sm:grid-cols-2">
-              <div className="rounded-2xl border border-white/8 bg-white/[0.04] p-4">
-                <p className="text-[9px] font-black uppercase tracking-widest text-white/35">Top scorer</p>
-                <p className="mt-1 font-black">{topScorer ? `${topScorer[0]} · ${topScorer[1]} goals` : "No goals scored"}</p>
-              </div>
-              <div className="rounded-2xl border border-white/8 bg-white/[0.04] p-4">
-                <p className="text-[9px] font-black uppercase tracking-widest text-white/35">Tournament MVP</p>
-                <p className="mt-1 font-black">{mvp?.name ?? "–"}</p>
-              </div>
-            </div>
-
-            {awards ? (
-              <div className="mt-5 grid gap-2 text-left sm:grid-cols-2 lg:grid-cols-4">
-                <AwardCard
-                  title="Golden Boot"
-                  value={`${awards.goldenBoot.name} · ${awards.goldenBoot.goals} goals`}
-                  detail={awards.goldenBoot.nation}
-                />
-                <AwardCard
-                  title="Player of the Tournament"
-                  value={awards.playerOfTournament.name}
-                  detail={awards.playerOfTournament.nation}
-                />
-                <AwardCard
-                  title="Best Goalkeeper"
-                  value={awards.bestGoalkeeper.name}
-                  detail={awards.bestGoalkeeper.nation}
-                />
-                <AwardCard
-                  title="Best Young Player"
-                  value={awards.bestYoungPlayer.name}
-                  detail={awards.bestYoungPlayer.nation}
-                />
-              </div>
+              <section className="mt-5 rounded-[1.75rem] border border-[#d8b75b]/20 bg-[#d8b75b]/[0.045] p-4 text-left sm:p-6">
+                <h2 className="text-sm font-black uppercase tracking-[0.2em] text-[#f6dc86]">
+                  World Cup Awards
+                </h2>
+                <div className="mt-4 grid gap-2 sm:grid-cols-2 lg:grid-cols-5">
+                  <AwardCard
+                    title="Tournament Top Scorer"
+                    value={`${awards.goldenBoot.name} · ${awards.goldenBoot.goals} goals`}
+                    detail={awards.goldenBoot.nation}
+                  />
+                  <AwardCard
+                    title="Tournament MVP"
+                    value={awards.playerOfTournament.name}
+                    detail={awards.playerOfTournament.nation}
+                  />
+                  <AwardCard
+                    title="Best Goalkeeper"
+                    value={awards.bestGoalkeeper.name}
+                    detail={awards.bestGoalkeeper.nation}
+                  />
+                  <AwardCard
+                    title="Winner"
+                    value={`${awards.winner.flag} ${awards.winner.name}`}
+                    detail={`Final ${awards.finalScore}`}
+                  />
+                  <AwardCard
+                    title="Runner-up"
+                    value={`${awards.runnerUp.flag} ${awards.runnerUp.name}`}
+                    detail="World Cup finalist"
+                  />
+                </div>
+              </section>
             ) : null}
 
             <div className="mt-7 text-left">
