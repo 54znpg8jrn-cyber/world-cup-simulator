@@ -1,5 +1,4 @@
 import { NATIONS } from "../data/groups";
-import { getPlayersByNation } from "../../data/players";
 import {
   getNationStrength,
   type TournamentForm,
@@ -34,67 +33,6 @@ function fakeOpponentName() {
   return `${randomItem(firstNames)} ${randomItem(lastNames)}`;
 }
 
-function substitutionMinutes(count: number) {
-  const minutes = new Set<number>();
-  while (minutes.size < count) {
-    const roll = Math.random();
-    const minute =
-      roll < 0.08
-        ? 18 + Math.floor(Math.random() * 25)
-        : roll < 0.2
-          ? 46
-          : 55 + Math.floor(Math.random() * 31);
-    minutes.add(minute);
-  }
-  return [...minutes].sort((a, b) => a - b);
-}
-
-function createSubstitutionEvents(
-  squad: Player[],
-  starters: Player[],
-  forUser: boolean,
-) {
-  const count = 3 + Math.floor(Math.random() * 3);
-  const active = [...starters];
-  const bench = squad.filter(
-    (player) => !active.some((starter) => starter.id === player.id),
-  );
-
-  return substitutionMinutes(count).flatMap((minute) => {
-    const replaceable = active.filter((player) => player.position !== "GK");
-    const outgoing = randomItem(replaceable.length ? replaceable : active);
-    const samePosition = bench.filter(
-      (player) => player.position === outgoing.position,
-    );
-    const incoming = randomItem(samePosition.length ? samePosition : bench);
-    if (!outgoing || !incoming) return [];
-
-    active.splice(active.indexOf(outgoing), 1, incoming);
-    bench.splice(bench.indexOf(incoming), 1);
-    bench.push(outgoing);
-
-    return {
-      minute,
-      text: `Substitution ${minute}': ${incoming.name} replaces ${outgoing.name}`,
-      isGoal: false,
-      forUser,
-      phase: "substitution" as const,
-    };
-  });
-}
-
-function substitutionMomentum(starters: Player[], squad: Player[]) {
-  const starterIds = new Set(starters.map((player) => player.id));
-  const bench = squad
-    .filter((player) => !starterIds.has(player.id))
-    .sort((a, b) => b.rating - a.rating)
-    .slice(0, 5);
-  if (!bench.length) return 0;
-  const average =
-    bench.reduce((sum, player) => sum + player.rating, 0) / bench.length;
-  return Math.max(-1.5, Math.min(1.5, (average - 72) / 8));
-}
-
 const chanceTexts: Array<{
   kind: NonNullable<MatchEvent["kind"]>;
   text: string;
@@ -122,29 +60,13 @@ export function createMatch(
   teamRating: number,
   form: TournamentForm = {},
 ): SimMatch {
-  const userSquad = getPlayersByNation(xi[0]?.nation ?? "");
-  const opponentSquad = getPlayersByNation(opponent.name);
-  const opponentStarters = [...opponentSquad]
-    .sort((a, b) => b.rating - a.rating)
-    .slice(0, 11);
-  const userMomentum = substitutionMomentum(xi, userSquad);
-  const opponentMomentum = substitutionMomentum(
-    opponentStarters,
-    opponentSquad,
-  );
   const userNation = NATIONS.find((nation) => nation.name === xi[0]?.nation);
   const userStrength = userNation
     ? getNationStrength(userNation, form, teamRating)
     : teamRating;
   const opponentStrength = getNationStrength(opponent, form);
-  let userGoals = scoreGoals(
-    userStrength + userMomentum,
-    opponentStrength + opponentMomentum,
-  );
-  let opponentGoals = scoreGoals(
-    opponentStrength + opponentMomentum,
-    userStrength + userMomentum,
-  );
+  let userGoals = scoreGoals(userStrength, opponentStrength);
+  let opponentGoals = scoreGoals(opponentStrength, userStrength);
 
   if (round !== "Group Stage" && userGoals === opponentGoals) {
     const favoriteChance = Math.max(
@@ -238,17 +160,6 @@ export function createMatch(
     ];
   });
 
-  const userSubstitutionEvents = createSubstitutionEvents(
-    userSquad,
-    xi,
-    true,
-  );
-  const opponentSubstitutionEvents = createSubstitutionEvents(
-    opponentSquad,
-    opponentStarters,
-    false,
-  );
-  events.push(...userSubstitutionEvents, ...opponentSubstitutionEvents);
   events.sort(
     (a, b) =>
       a.minute - b.minute ||
@@ -261,8 +172,6 @@ export function createMatch(
     userGoals,
     opponentGoals,
     events,
-    userSubstitutions: userSubstitutionEvents.length,
-    opponentSubstitutions: opponentSubstitutionEvents.length,
   };
 }
 

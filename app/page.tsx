@@ -53,7 +53,6 @@ const emptyStats = (): TournamentStats => ({
   goalsAgainst: 0,
   points: 0,
   scorers: {},
-  substitutions: [],
 });
 
 function Modal({
@@ -248,8 +247,8 @@ function PlayerModal({
               }}
               className="mb-1 flex w-full items-center gap-3 rounded-2xl p-3 text-left transition hover:bg-white/[0.06] disabled:cursor-not-allowed disabled:opacity-30"
             >
-              <span className="grid h-12 w-12 place-items-center rounded-2xl bg-[#1d3427] text-lg font-black text-[#8cf2a7]">
-                {player.rating}
+              <span className="grid h-12 w-12 place-items-center rounded-2xl bg-[#1d3427] text-xs font-black text-[#8cf2a7]">
+                {player.position}
               </span>
               <span className="min-w-0 flex-1">
                 <span className="block truncate font-extrabold">{player.name}</span>
@@ -299,7 +298,7 @@ function Pitch({
                 ? "border-[#f6dc86] bg-[#101713] text-[#f6dc86]"
                 : "border-dashed border-white/50 bg-black/25 text-xl text-white/60"
             }`}>
-              {player?.rating ?? "+"}
+              {player ? player.position : "+"}
             </span>
             <span className="mt-1 block truncate rounded-lg bg-black/70 px-1.5 py-1 text-[9px] font-black sm:text-[11px]">
               {player ? player.name.split(" ").at(-1) : slot.label}
@@ -554,7 +553,6 @@ export default function Home() {
       goalsAgainst: stats.goalsAgainst + played.opponentGoals,
       points: stats.points + (played.round === "Group Stage" ? (won ? 3 : drew ? 1 : 0) : 0),
       scorers: { ...stats.scorers },
-      substitutions: [...stats.substitutions, played.userSubstitutions],
     };
     Object.entries(scorerUpdates).forEach(([name, goals]) => {
       nextStats.scorers[name] = (nextStats.scorers[name] ?? 0) + goals;
@@ -774,12 +772,6 @@ export default function Home() {
 
   const topScorer = Object.entries(stats.scorers).sort((a, b) => b[1] - a[1])[0];
   const mvp = [...xi].sort((a, b) => b.rating - a.rating)[0];
-  const averageSubstitutions = stats.substitutions.length
-    ? (
-        stats.substitutions.reduce((sum, count) => sum + count, 0) /
-        stats.substitutions.length
-      ).toFixed(1)
-    : "0.0";
 
   return (
     <main className="stadium-bg min-h-screen overflow-hidden text-white">
@@ -857,7 +849,7 @@ export default function Home() {
               </div>
               <div className="rounded-[1.75rem] border border-white/10 bg-white/[0.035] p-5">
                 <p className="text-xs leading-5 text-white/45">
-                  Tap any position on the pitch to select or replace a player. Every rating updates live.
+                  Tap any position on the pitch to select or replace a player. Team strength updates live.
                 </p>
               </div>
               <button
@@ -978,9 +970,6 @@ export default function Home() {
               >
                 Speed: {speed === "normal" ? "Normal" : "Fast"}
               </button>
-              <span className="grid place-items-center rounded-2xl border border-white/8 bg-black/20 px-3 text-xs font-black text-white/45">
-                Auto subs {match.userSubstitutions}
-              </span>
             </div>
           ) : null}
 
@@ -1098,7 +1087,7 @@ export default function Home() {
               <div className="result-stat"><b>{stats.losses}</b><span>Losses</span></div>
               <div className="result-stat"><b>{stats.goalsFor}</b><span>Goals for</span></div>
               <div className="result-stat"><b>{stats.goalsAgainst}</b><span>Against</span></div>
-              <div className="result-stat"><b>{averageSubstitutions}</b><span>Avg subs</span></div>
+              <div className="result-stat"><b>{finish}</b><span>Finish</span></div>
             </div>
 
             <div className="mt-4 grid gap-2 text-left sm:grid-cols-2">
@@ -1108,7 +1097,7 @@ export default function Home() {
               </div>
               <div className="rounded-2xl border border-white/8 bg-white/[0.04] p-4">
                 <p className="text-[9px] font-black uppercase tracking-widest text-white/35">Tournament MVP</p>
-                <p className="mt-1 font-black">{mvp?.name ?? "–"} · {mvp?.rating ?? "–"}</p>
+                <p className="mt-1 font-black">{mvp?.name ?? "–"}</p>
               </div>
             </div>
 
