@@ -23,7 +23,9 @@ import {
   createBackgroundGroupResults,
   createKnockoutRoundResults,
   createTournamentAwards,
+  createOfficialGroupStage,
   ensureCompleteBracket,
+  simulateKnockoutFixtures,
 } from "./lib/tournament";
 import {
   createTournamentForm,
@@ -389,6 +391,9 @@ export default function Home() {
   const [backgroundGroupResults, setBackgroundGroupResults] = useState<
     TournamentFixture[]
   >([]);
+  const [userGroupResults, setUserGroupResults] = useState<TournamentFixture[]>(
+    [],
+  );
   const [bracketRounds, setBracketRounds] = useState<TournamentRoundResults[]>(
     [],
   );
@@ -514,6 +519,7 @@ export default function Home() {
     setBackgroundGroupResults(
       createBackgroundGroupResults(selectedNation, nextForm),
     );
+    setUserGroupResults([]);
     setBracketRounds([]);
     setPendingRound(null);
     setMatchStatus("ready");
@@ -564,7 +570,7 @@ export default function Home() {
 
   const nextMatch = () => {
     if (!match || !selectedNation || ratings.overall === null) return;
-    const nextStats = applyMatch(match);
+    applyMatch(match);
     const nextTable =
       match.round === "Group Stage"
         ? updateGroupTable(
@@ -576,6 +582,30 @@ export default function Home() {
           )
         : groupTable;
     if (match.round === "Group Stage") setGroupTable(nextTable);
+    const completedGroupFixture: TournamentFixture | null =
+      match.round === "Group Stage"
+        ? {
+            id: `user-group-${groupIndex}`,
+            round: "Group Stage",
+            home: selectedNation,
+            away: match.opponent,
+            homeGoals: match.userGoals,
+            awayGoals: match.opponentGoals,
+            winner:
+              match.userGoals === match.opponentGoals
+                ? undefined
+                : match.userGoals > match.opponentGoals
+                  ? selectedNation
+                  : match.opponent,
+            isUserMatch: true,
+          }
+        : null;
+    const completedUserGroupResults = completedGroupFixture
+      ? [...userGroupResults, completedGroupFixture]
+      : userGroupResults;
+    if (completedGroupFixture) {
+      setUserGroupResults(completedUserGroupResults);
+    }
     if (match.round === "Group Stage") {
     }
 
@@ -598,18 +628,37 @@ export default function Home() {
         setMatchStatus("ready");
         return;
       }
-      const finalPosition =
-        nextTable.findIndex(
-          (row) => row.nation.code === selectedNation.code,
-        ) + 1;
-      const qualified = finalPosition <= 2 || (finalPosition === 3 && nextStats.points >= 4);
+      const officialStage = createOfficialGroupStage(
+        selectedNation,
+        completedUserGroupResults,
+        tournamentForm,
+      );
+      const selectedGroup = getGroupForNation(selectedNation.name)?.[0];
+      if (selectedGroup) setGroupTable(officialStage.tables[selectedGroup]);
+      const qualified = officialStage.qualifiers.some(
+        (team) => team.nation.code === selectedNation.code,
+      );
       if (!qualified) {
         setFinish("Group Stage exit");
         setBracketRounds(ensureCompleteBracket([], selectedNation));
         setView("result");
         return;
       }
-      const opponent = getKnockoutOpponent(selectedNation, previousOpponents);
+      const userRoundOf32 = officialStage.roundOf32.find(
+        (fixture) =>
+          fixture.home.code === selectedNation.code ||
+          fixture.away.code === selectedNation.code,
+      );
+      if (!userRoundOf32) {
+        setFinish("Group Stage exit");
+        setBracketRounds(ensureCompleteBracket([], selectedNation));
+        setView("result");
+        return;
+      }
+      const opponent =
+        userRoundOf32.home.code === selectedNation.code
+          ? userRoundOf32.away
+          : userRoundOf32.home;
       const nextMatch = createMatch(
         KNOCKOUT_ROUNDS[0],
         opponent,
@@ -620,8 +669,9 @@ export default function Home() {
       setPreviousOpponents((current) => [...current, opponent]);
       setMatch(nextMatch);
       setPendingRound(
-        createKnockoutRoundResults(
+        simulateKnockoutFixtures(
           KNOCKOUT_ROUNDS[0],
+          officialStage.roundOf32,
           selectedNation,
           opponent,
           nextMatch.userGoals,
@@ -693,6 +743,7 @@ export default function Home() {
     setFinish("");
     setBracketRounds([]);
     setPendingRound(null);
+    setUserGroupResults([]);
     setView("builder");
   };
 

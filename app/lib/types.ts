@@ -98,6 +98,7 @@ export interface GroupTableRow {
 
 export interface TournamentFixture {
   id: string;
+  matchNumber?: number;
   round: TournamentRound;
   home: Nation;
   away: Nation;
@@ -106,6 +107,20 @@ export interface TournamentFixture {
   winner?: Nation;
   isUserMatch?: boolean;
   isUpset?: boolean;
+}
+
+export interface QualifiedTeam {
+  nation: Nation;
+  group: string;
+  position: 1 | 2 | 3;
+  tableRow: GroupTableRow;
+}
+
+export interface OfficialGroupStage {
+  tables: Record<string, GroupTableRow[]>;
+  qualifiers: QualifiedTeam[];
+  bestThirdPlaced: QualifiedTeam[];
+  roundOf32: TournamentFixture[];
 }
 
 export interface TournamentRoundResults {
