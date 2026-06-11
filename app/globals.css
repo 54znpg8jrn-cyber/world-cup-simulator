@@ -125,3 +125,99 @@ button {
     animation-iteration-count: 1 !important;
   }
 }
+
+@page {
+  size: A4 landscape;
+  margin: 7mm;
+}
+
+@media print {
+  html, body {
+    background: white !important;
+    color: black !important;
+  }
+
+  .no-print {
+    display: none !important;
+  }
+
+  .wall-chart-page,
+  .print-sheet {
+    background: white !important;
+    color: black !important;
+    max-width: none !important;
+    padding: 0 !important;
+  }
+
+  .print-sheet > section:first-child {
+    margin-bottom: 4mm !important;
+  }
+
+  .print-sheet > section:first-child p {
+    color: #444 !important;
+  }
+
+  .wall-groups {
+    display: grid !important;
+    grid-template-columns: repeat(4, 1fr) !important;
+    gap: 3mm !important;
+  }
+
+  .wall-group {
+    break-inside: avoid;
+    border: 1px solid #999 !important;
+    background: white !important;
+    color: black !important;
+    padding: 3mm !important;
+  }
+
+  .wall-group h3,
+  .wall-knockout h2,
+  .wall-knockout p,
+  .group-table tr {
+    color: black !important;
+  }
+
+  .fixture-row {
+    font-size: 6.5pt !important;
+  }
+
+  .score-input {
+    height: 5mm !important;
+    width: 7mm !important;
+    border: 1px solid #555 !important;
+    background: white !important;
+    color: black !important;
+  }
+
+  .group-table {
+    font-size: 5.8pt !important;
+    color: black !important;
+  }
+
+  .wall-knockout {
+    break-before: page;
+  }
+
+  .print-bracket {
+    display: grid !important;
+    grid-template-columns: repeat(5, 1fr);
+    gap: 3mm;
+    color: black;
+  }
+
+  .print-bracket section {
+    border: 1px solid #999;
+    padding: 2mm;
+  }
+
+  .print-bracket h3 {
+    font-size: 8pt;
+    margin-bottom: 2mm;
+  }
+
+  .print-bracket p {
+    font-size: 5.8pt;
+    margin: 1mm 0;
+  }
+}

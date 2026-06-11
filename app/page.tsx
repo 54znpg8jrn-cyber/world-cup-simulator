@@ -2,7 +2,9 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
+import Link from "next/link";
 import { TournamentBracket } from "./components/TournamentBracket";
+import { ShareResult } from "./components/ShareResult";
 import {
   FORMATION_SLOTS,
   NATIONS,
@@ -403,6 +405,13 @@ export default function Home() {
   const [tournamentForm, setTournamentForm] = useState<TournamentForm>({});
   const eventFeedRef = useRef<HTMLDivElement>(null);
 
+  useEffect(() => {
+    if (window.location.search.includes("simulator=1")) {
+      const timer = window.setTimeout(() => setNationModalOpen(true), 0);
+      return () => window.clearTimeout(timer);
+    }
+  }, []);
+
   const slots = FORMATION_SLOTS[formation];
   const xi = slots.map((slot) => selections[slot.id]).filter(Boolean);
   const ratings = useMemo(
@@ -779,11 +788,30 @@ export default function Home() {
     setNationModalOpen(true);
   };
 
+  const goHome = () => {
+    setNationModalOpen(false);
+    setActiveSlot(null);
+    setView("landing");
+  };
+
   const topScorer = Object.entries(stats.scorers).sort((a, b) => b[1] - a[1])[0];
   const mvp = [...xi].sort((a, b) => b.rating - a.rating)[0];
 
   return (
     <main className="stadium-bg min-h-screen overflow-hidden text-white">
+      {view !== "landing" ? (
+        <nav className="no-print fixed right-3 top-3 z-40 flex gap-2 rounded-2xl border border-white/10 bg-[#07100b]/90 p-1.5 backdrop-blur">
+          <button onClick={goHome} className="rounded-xl px-3 py-2 text-[10px] font-black uppercase tracking-wider text-white/55 hover:bg-white/5 hover:text-white">
+            Home
+          </button>
+          <button onClick={() => setNationModalOpen(true)} className="rounded-xl px-3 py-2 text-[10px] font-black uppercase tracking-wider text-white/55 hover:bg-white/5 hover:text-white">
+            Simulator
+          </button>
+          <Link href="/wall-chart" className="rounded-xl bg-[#d8b75b]/10 px-3 py-2 text-[10px] font-black uppercase tracking-wider text-[#f6dc86]">
+            Wall Chart
+          </Link>
+        </nav>
+      ) : null}
       {view === "landing" ? (
         <section className="relative mx-auto flex min-h-screen max-w-6xl flex-col px-5 py-6 sm:px-10">
           <nav className="flex items-center justify-between">
@@ -805,12 +833,18 @@ export default function Home() {
             <p className="mt-6 max-w-md text-base leading-7 text-white/55 sm:text-lg">
               Pick your nation. Build your XI. Simulate the tournament.
             </p>
-            <button
-              onClick={() => setNationModalOpen(true)}
-              className="mt-9 rounded-2xl bg-[#d8b75b] px-8 py-4 text-sm font-black uppercase tracking-[0.16em] text-[#10130f] shadow-[0_15px_50px_rgba(216,183,91,.25)] transition hover:-translate-y-1 hover:bg-[#f6dc86]"
-            >
-              Choose Nation <span className="ml-2">→</span>
-            </button>
+            <div className="mt-9 grid w-full max-w-2xl gap-3 sm:grid-cols-2">
+              <div className="rounded-[1.5rem] border border-[#d8b75b]/25 bg-[#d8b75b]/8 p-5 text-left">
+                <h2 className="font-black">World Cup Simulator</h2>
+                <p className="mt-2 min-h-10 text-xs leading-5 text-white/45">Build your XI and simulate the tournament.</p>
+                <button onClick={() => setNationModalOpen(true)} className="mt-4 w-full rounded-xl bg-[#d8b75b] px-4 py-3 text-xs font-black uppercase tracking-wider text-black">Start Simulator</button>
+              </div>
+              <div className="rounded-[1.5rem] border border-white/10 bg-white/[0.04] p-5 text-left">
+                <h2 className="font-black">World Cup Wall Chart</h2>
+                <p className="mt-2 min-h-10 text-xs leading-5 text-white/45">Fill in results, track tables and complete the bracket.</p>
+                <Link href="/wall-chart" className="mt-4 block w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-center text-xs font-black uppercase tracking-wider">Open Wall Chart</Link>
+              </div>
+            </div>
           </div>
           <div className="grid grid-cols-3 gap-2 border-t border-white/10 pt-5 text-center text-[9px] font-black uppercase tracking-widest text-white/30">
             <span>{NATIONS.length} nations</span><span>12 groups</span><span>Chase glory</span>
@@ -1169,16 +1203,22 @@ export default function Home() {
               />
             </div>
 
-            <div className="mt-6 grid gap-2 sm:grid-cols-3">
+            <div className="mt-6 grid gap-2 sm:grid-cols-2">
               <button onClick={playAgain} className="rounded-2xl bg-[#d8b75b] px-4 py-3 text-xs font-black uppercase tracking-wider text-black hover:bg-[#f6dc86]">Play Again</button>
               <button onClick={changeNation} className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-xs font-black uppercase tracking-wider hover:bg-white/10">Change Nation</button>
-              <button
-                onClick={() => navigator.clipboard?.writeText(`${selectedNation.name}: ${finish} in World Cup Simulator`)}
-                className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-xs font-black uppercase tracking-wider hover:bg-white/10"
-              >
-                Share Result
-              </button>
             </div>
+            {awards ? (
+              <ShareResult
+                data={{
+                  nation: selectedNation,
+                  finish,
+                  stats,
+                  topScorer,
+                  mvp: mvp?.name,
+                  awards,
+                }}
+              />
+            ) : null}
           </div>
         </section>
       ) : null}

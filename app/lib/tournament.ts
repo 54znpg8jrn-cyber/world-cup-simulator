@@ -146,6 +146,47 @@ const thirdPlaceSlotGroups: Record<number, string[]> = {
   87: ["D", "E", "I", "J", "L"],
 };
 
+export function buildOfficialRoundOf32(
+  automaticQualifiers: QualifiedTeam[],
+  bestThirdPlaced: QualifiedTeam[],
+  form: TournamentForm = {},
+) {
+  const thirdSlots = resolveThirdPlaceSlots(bestThirdPlaced, form);
+  const byGroupPosition = (group: string, position: 1 | 2) =>
+    automaticQualifiers.find(
+      (team) => team.group === group && team.position === position,
+    )!.nation;
+  const third = (matchNumber: number) =>
+    thirdSlots.get(matchNumber)!.nation;
+  const slotTeams: Array<[number, Nation, Nation]> = [
+    [73, byGroupPosition("A", 2), byGroupPosition("B", 2)],
+    [74, byGroupPosition("E", 1), third(74)],
+    [75, byGroupPosition("F", 1), byGroupPosition("C", 2)],
+    [76, byGroupPosition("C", 1), byGroupPosition("F", 2)],
+    [77, byGroupPosition("I", 1), third(77)],
+    [78, byGroupPosition("E", 2), byGroupPosition("I", 2)],
+    [79, byGroupPosition("A", 1), third(79)],
+    [80, byGroupPosition("L", 1), third(80)],
+    [81, byGroupPosition("D", 1), third(81)],
+    [82, byGroupPosition("G", 1), third(82)],
+    [83, byGroupPosition("K", 2), byGroupPosition("L", 2)],
+    [84, byGroupPosition("H", 1), byGroupPosition("J", 2)],
+    [85, byGroupPosition("B", 1), third(85)],
+    [86, byGroupPosition("J", 1), byGroupPosition("H", 2)],
+    [87, byGroupPosition("K", 1), third(87)],
+    [88, byGroupPosition("D", 2), byGroupPosition("G", 2)],
+  ];
+  return slotTeams.map(([matchNumber, home, away]) => ({
+    id: `match-${matchNumber}`,
+    matchNumber,
+    round: "Round of 32" as const,
+    home,
+    away,
+    homeGoals: 0,
+    awayGoals: 0,
+  }));
+}
+
 export function resolveThirdPlaceSlots(
   thirdPlacedTeams: QualifiedTeam[],
   form: TournamentForm = {},
@@ -304,40 +345,11 @@ export function createOfficialGroupStage(
     )
     .slice(0, 8);
   const qualifiers = [...automaticQualifiers, ...bestThirdPlaced];
-  const thirdSlots = resolveThirdPlaceSlots(bestThirdPlaced, form);
-  const byGroupPosition = (group: string, position: 1 | 2) =>
-    automaticQualifiers.find(
-      (team) => team.group === group && team.position === position,
-    )!.nation;
-  const third = (matchNumber: number) =>
-    thirdSlots.get(matchNumber)!.nation;
-  const slotTeams: Array<[number, Nation, Nation]> = [
-    [73, byGroupPosition("A", 2), byGroupPosition("B", 2)],
-    [74, byGroupPosition("E", 1), third(74)],
-    [75, byGroupPosition("F", 1), byGroupPosition("C", 2)],
-    [76, byGroupPosition("C", 1), byGroupPosition("F", 2)],
-    [77, byGroupPosition("I", 1), third(77)],
-    [78, byGroupPosition("E", 2), byGroupPosition("I", 2)],
-    [79, byGroupPosition("A", 1), third(79)],
-    [80, byGroupPosition("L", 1), third(80)],
-    [81, byGroupPosition("D", 1), third(81)],
-    [82, byGroupPosition("G", 1), third(82)],
-    [83, byGroupPosition("K", 2), byGroupPosition("L", 2)],
-    [84, byGroupPosition("H", 1), byGroupPosition("J", 2)],
-    [85, byGroupPosition("B", 1), third(85)],
-    [86, byGroupPosition("J", 1), byGroupPosition("H", 2)],
-    [87, byGroupPosition("K", 1), third(87)],
-    [88, byGroupPosition("D", 2), byGroupPosition("G", 2)],
-  ];
-  const roundOf32 = slotTeams.map(([matchNumber, home, away]) => ({
-    id: `match-${matchNumber}`,
-    matchNumber,
-    round: "Round of 32" as const,
-    home,
-    away,
-    homeGoals: 0,
-    awayGoals: 0,
-  }));
+  const roundOf32 = buildOfficialRoundOf32(
+    automaticQualifiers,
+    bestThirdPlaced,
+    form,
+  );
 
   return { tables, qualifiers, bestThirdPlaced, roundOf32 };
 }
