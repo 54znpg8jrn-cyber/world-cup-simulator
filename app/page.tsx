@@ -414,7 +414,8 @@ export default function Home() {
   const liveScore = match
     ? getLiveScore(match, revealedEvents)
     : { user: 0, opponent: 0 };
-  const currentEvent = match?.events[Math.max(0, revealedEvents - 1)];
+  const currentEvent =
+    revealedEvents > 0 ? match?.events[revealedEvents - 1] : undefined;
   const matchMinute = matchComplete ? 90 : currentEvent?.minute ?? 0;
   const awards = useMemo(
     () =>
