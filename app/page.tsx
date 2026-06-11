@@ -4,7 +4,20 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import Link from "next/link";
 import { TournamentBracket } from "./components/TournamentBracket";
+import {
+  LeaderboardModal,
+  SaveToLeaderboardModal,
+} from "./components/Leaderboard";
 import { ShareResult } from "./components/ShareResult";
+import {
+  createLeaderboardEntry,
+  saveLeaderboardEntry,
+} from "./lib/leaderboard";
+import { generateRandomXI } from "./lib/random-xi";
+import {
+  calculateWorldCupScore,
+  getDefeatedOpponents,
+} from "./lib/score";
 import {
   FORMATION_SLOTS,
   NATIONS,
@@ -403,6 +416,9 @@ export default function Home() {
   const [stats, setStats] = useState<TournamentStats>(emptyStats);
   const [finish, setFinish] = useState("");
   const [tournamentForm, setTournamentForm] = useState<TournamentForm>({});
+  const [leaderboardOpen, setLeaderboardOpen] = useState(false);
+  const [saveLeaderboardOpen, setSaveLeaderboardOpen] = useState(false);
+  const [leaderboardSaved, setLeaderboardSaved] = useState(false);
   const eventFeedRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -778,6 +794,7 @@ export default function Home() {
     setBracketRounds([]);
     setPendingRound(null);
     setUserGroupResults([]);
+    setLeaderboardSaved(false);
     setView("builder");
   };
 
@@ -785,6 +802,7 @@ export default function Home() {
     setView("landing");
     setSelectedNation(null);
     setSelections({});
+    setLeaderboardSaved(false);
     setNationModalOpen(true);
   };
 
@@ -796,6 +814,57 @@ export default function Home() {
 
   const topScorer = Object.entries(stats.scorers).sort((a, b) => b[1] - a[1])[0];
   const mvp = [...xi].sort((a, b) => b.rating - a.rating)[0];
+  const defeatedOpponents = useMemo(
+    () =>
+      selectedNation
+        ? getDefeatedOpponents(
+            selectedNation,
+            userGroupResults,
+            bracketRounds,
+          )
+        : [],
+    [selectedNation, userGroupResults, bracketRounds],
+  );
+  const worldCupScore = useMemo(() => {
+    if (view !== "result" || !finish) return null;
+    return calculateWorldCupScore({
+      finish,
+      stats,
+      awards,
+      topScorerName: topScorer?.[0],
+      mvpName: mvp?.name,
+      defeatedOpponents,
+    });
+  }, [
+    view,
+    finish,
+    stats,
+    awards,
+    topScorer,
+    mvp,
+    defeatedOpponents,
+  ]);
+
+  const saveToLeaderboard = (displayName: string) => {
+    if (!selectedNation || !worldCupScore || !finish) return;
+    saveLeaderboardEntry(
+      createLeaderboardEntry({
+        name: displayName,
+        nation: selectedNation.name,
+        nationFlag: selectedNation.flag,
+        finish,
+        score: worldCupScore.score,
+        scoreTitle: worldCupScore.title,
+        record: `${stats.wins}W · ${stats.draws}D · ${stats.losses}L`,
+        goalsFor: stats.goalsFor,
+        goalsAgainst: stats.goalsAgainst,
+        topScorer: topScorer?.[0] ?? "–",
+        mvp: mvp?.name ?? "–",
+      }),
+    );
+    setLeaderboardSaved(true);
+    setSaveLeaderboardOpen(false);
+  };
 
   return (
     <main className="stadium-bg min-h-screen overflow-hidden text-white">
@@ -806,6 +875,12 @@ export default function Home() {
           </button>
           <button onClick={() => setNationModalOpen(true)} className="rounded-xl px-3 py-2 text-[10px] font-black uppercase tracking-wider text-white/55 hover:bg-white/5 hover:text-white">
             Simulator
+          </button>
+          <button
+            onClick={() => setLeaderboardOpen(true)}
+            className="rounded-xl px-3 py-2 text-[10px] font-black uppercase tracking-wider text-white/55 hover:bg-white/5 hover:text-white"
+          >
+            Leaderboard
           </button>
           <Link href="/wall-chart" className="rounded-xl bg-[#d8b75b]/10 px-3 py-2 text-[10px] font-black uppercase tracking-wider text-[#f6dc86]">
             Wall Chart
@@ -819,7 +894,16 @@ export default function Home() {
               <span className="grid h-10 w-10 place-items-center rounded-full border border-[#d8b75b]/50 bg-[#d8b75b]/10 font-black text-[#f6dc86]">W</span>
               <span className="text-sm font-black uppercase tracking-[0.15em]">World Cup Simulator</span>
             </div>
-            <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1.5 text-[9px] font-black uppercase tracking-[0.18em] text-white/50">Version 0.1</span>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => setLeaderboardOpen(true)}
+                className="rounded-full border border-white/10 bg-white/5 px-3 py-1.5 text-[9px] font-black uppercase tracking-[0.18em] text-white/50 hover:bg-white/10 hover:text-white/70"
+              >
+                Leaderboard
+              </button>
+              <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1.5 text-[9px] font-black uppercase tracking-[0.18em] text-white/50">Version 0.1</span>
+            </div>
           </nav>
 
           <div className="flex flex-1 flex-col items-center justify-center py-16 text-center">
@@ -878,6 +962,31 @@ export default function Home() {
                     {option}
                   </button>
                 ))}
+              </div>
+              <div className="mb-3 flex flex-wrap gap-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (!selectedNation) return;
+                    setSelections(
+                      generateRandomXI(selectedNation.name, slots),
+                    );
+                    setActiveSlot(null);
+                  }}
+                  className="rounded-xl bg-gradient-to-r from-[#d8b75b] to-[#f6dc86] px-4 py-2.5 text-xs font-black uppercase tracking-wider text-black shadow-[0_8px_24px_rgba(216,183,91,.25)] transition hover:brightness-110 active:scale-[0.98]"
+                >
+                  Generate Random XI
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSelections({});
+                    setActiveSlot(null);
+                  }}
+                  className="rounded-xl border border-white/10 bg-white/5 px-4 py-2.5 text-xs font-black uppercase tracking-wider text-white/60 hover:bg-white/10 hover:text-white"
+                >
+                  Clear XI
+                </button>
               </div>
               <Pitch formation={formation} selections={selections} onSlotClick={setActiveSlot} />
             </div>
@@ -1125,6 +1234,23 @@ export default function Home() {
               {finish}
             </div>
 
+            {worldCupScore ? (
+              <section className="mx-auto mt-8 max-w-md rounded-[1.75rem] border border-[#d8b75b]/30 bg-[#d8b75b]/[0.06] p-6 text-center shadow-[0_0_60px_rgba(216,183,91,.12)]">
+                <p className="text-[10px] font-black uppercase tracking-[0.3em] text-[#d8b75b]">
+                  World Cup Score
+                </p>
+                <p className="mt-3 text-7xl font-black leading-none text-[#f6dc86] sm:text-8xl">
+                  {worldCupScore.score}
+                </p>
+                <p className="mt-3 text-lg font-black">{worldCupScore.title}</p>
+                {worldCupScore.rarity ? (
+                  <p className="mt-2 text-[10px] font-bold uppercase tracking-wider text-[#8cf2a7]/70">
+                    {worldCupScore.rarity}
+                  </p>
+                ) : null}
+              </section>
+            ) : null}
+
             <section className="mt-8 rounded-[1.75rem] border border-emerald-300/15 bg-emerald-300/[0.035] p-4 text-left sm:p-6">
               <h2 className="text-sm font-black uppercase tracking-[0.2em] text-[#8cf2a7]">
                 Your Team Awards
@@ -1204,19 +1330,35 @@ export default function Home() {
             </div>
 
             <div className="mt-6 grid gap-2 sm:grid-cols-2">
-              <button onClick={playAgain} className="rounded-2xl bg-[#d8b75b] px-4 py-3 text-xs font-black uppercase tracking-wider text-black hover:bg-[#f6dc86]">Play Again</button>
-              <button onClick={changeNation} className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-xs font-black uppercase tracking-wider hover:bg-white/10">Change Nation</button>
+              <button
+                type="button"
+                onClick={() => setSaveLeaderboardOpen(true)}
+                disabled={leaderboardSaved || !worldCupScore}
+                className="rounded-2xl border border-[#d8b75b]/30 bg-[#d8b75b]/10 px-4 py-3 text-xs font-black uppercase tracking-wider text-[#f6dc86] hover:bg-[#d8b75b]/15 disabled:cursor-not-allowed disabled:opacity-40"
+              >
+                {leaderboardSaved ? "Saved to Leaderboard" : "Save to Leaderboard"}
+              </button>
+              <button
+                type="button"
+                onClick={() => setLeaderboardOpen(true)}
+                className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-xs font-black uppercase tracking-wider hover:bg-white/10"
+              >
+                View Leaderboard
+              </button>
             </div>
-            {awards ? (
+            {worldCupScore ? (
               <ShareResult
                 data={{
                   nation: selectedNation,
                   finish,
-                  stats,
-                  topScorer,
+                  score: worldCupScore.score,
+                  scoreTitle: worldCupScore.title,
+                  rarity: worldCupScore.rarity,
+                  topScorer: topScorer?.[0],
                   mvp: mvp?.name,
-                  awards,
                 }}
+                onPlayAgain={playAgain}
+                onChangeNation={changeNation}
               />
             ) : null}
           </div>
@@ -1228,6 +1370,16 @@ export default function Home() {
         selected={selectedNation}
         onClose={() => setNationModalOpen(false)}
         onSelect={chooseNation}
+      />
+      <LeaderboardModal
+        open={leaderboardOpen}
+        onClose={() => setLeaderboardOpen(false)}
+      />
+      <SaveToLeaderboardModal
+        open={saveLeaderboardOpen}
+        defaultName="Anonymous"
+        onClose={() => setSaveLeaderboardOpen(false)}
+        onSave={saveToLeaderboard}
       />
       <PlayerModal
         open={activeSlot !== null}
