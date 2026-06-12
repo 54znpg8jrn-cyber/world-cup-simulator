@@ -126,13 +126,18 @@ button {
   }
 }
 
+.print-wall-chart {
+  display: none;
+}
+
 @page {
   size: A4 landscape;
-  margin: 7mm;
+  margin: 6mm;
 }
 
 @media print {
-  html, body {
+  html,
+  body {
     background: white !important;
     color: black !important;
   }
@@ -141,83 +146,222 @@ button {
     display: none !important;
   }
 
-  .wall-chart-page,
-  .print-sheet {
-    background: white !important;
-    color: black !important;
-    max-width: none !important;
-    padding: 0 !important;
-  }
-
-  .print-sheet > section:first-child {
-    margin-bottom: 4mm !important;
-  }
-
-  .print-sheet > section:first-child p {
-    color: #444 !important;
-  }
-
-  .wall-groups {
-    display: grid !important;
-    grid-template-columns: repeat(4, 1fr) !important;
-    gap: 3mm !important;
-  }
-
-  .wall-group {
-    break-inside: avoid;
-    border: 1px solid #999 !important;
-    background: white !important;
-    color: black !important;
-    padding: 3mm !important;
-  }
-
-  .wall-group h3,
-  .wall-knockout h2,
-  .wall-knockout p,
-  .group-table tr {
-    color: black !important;
-  }
-
-  .fixture-row {
-    font-size: 6.5pt !important;
-  }
-
-  .score-input {
-    height: 5mm !important;
-    width: 7mm !important;
-    border: 1px solid #555 !important;
+  .wall-chart-page {
+    min-height: 0 !important;
     background: white !important;
     color: black !important;
   }
 
-  .group-table {
-    font-size: 5.8pt !important;
-    color: black !important;
-  }
-
-  .wall-knockout {
-    break-before: page;
-  }
-
-  .print-bracket {
-    display: grid !important;
-    grid-template-columns: repeat(5, 1fr);
-    gap: 3mm;
+  .print-wall-chart {
+    display: block !important;
     color: black;
+    font-family: Arial, Helvetica, sans-serif;
   }
 
-  .print-bracket section {
-    border: 1px solid #999;
-    padding: 2mm;
+  body[data-wall-chart-print="groups"] .print-knockout-page,
+  body[data-wall-chart-print="knockout"] .print-groups-page {
+    display: none !important;
   }
 
-  .print-bracket h3 {
-    font-size: 8pt;
-    margin-bottom: 2mm;
+  .print-page {
+    box-sizing: border-box;
+    height: 198mm;
+    overflow: hidden;
+    break-after: page;
+    page-break-after: always;
   }
 
-  .print-bracket p {
-    font-size: 5.8pt;
-    margin: 1mm 0;
+  .print-page:last-child {
+    break-after: auto;
+    page-break-after: auto;
+  }
+
+  .print-page-header {
+    height: 13mm;
+    border-bottom: 0.4mm solid black;
+    text-align: center;
+  }
+
+  .print-page-header p {
+    margin: 0;
+    font-size: 5.5pt;
+    font-weight: 800;
+    letter-spacing: 0.18em;
+  }
+
+  .print-page-header h1 {
+    margin: 0.5mm 0 0;
+    font-size: 15pt;
+    line-height: 1;
+  }
+
+  .print-page-header span {
+    font-size: 6pt;
+  }
+
+  .print-group-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    grid-template-rows: repeat(3, 1fr);
+    height: 181mm;
+    gap: 2mm;
+    padding-top: 2mm;
+  }
+
+  .print-group-card {
+    min-width: 0;
+    border: 0.25mm solid #777;
+    padding: 1.5mm;
+    break-inside: avoid;
+  }
+
+  .print-group-card h2 {
+    margin: 0 0 0.8mm;
+    border-bottom: 0.2mm solid #aaa;
+    font-size: 7.5pt;
+    text-align: center;
+    text-transform: uppercase;
+  }
+
+  .print-fixtures {
+    display: grid;
+    gap: 0.45mm;
+  }
+
+  .print-fixture {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 4mm 2mm 4mm minmax(0, 1fr);
+    align-items: center;
+    gap: 0.5mm;
+    font-size: 4.8pt;
+    line-height: 1;
+  }
+
+  .print-fixture span:first-child {
+    text-align: right;
+  }
+
+  .print-fixture span {
+    overflow: hidden;
+    white-space: nowrap;
+  }
+
+  .print-fixture i,
+  .print-team-line i {
+    display: block;
+    box-sizing: border-box;
+    height: 3.5mm;
+    border: 0.25mm solid #333;
+    background: white;
+  }
+
+  .print-fixture b {
+    text-align: center;
+    font-size: 6pt;
+  }
+
+  .print-table {
+    width: 100%;
+    margin-top: 1mm;
+    border-collapse: collapse;
+    table-layout: fixed;
+    font-size: 4.8pt;
+  }
+
+  .print-table th,
+  .print-table td {
+    height: 3.6mm;
+    border: 0.2mm solid #888;
+    padding: 0 0.5mm;
+    text-align: center;
+  }
+
+  .print-table th:nth-child(2),
+  .print-table td:nth-child(2) {
+    width: 42%;
+    text-align: left;
+  }
+
+  .print-knockout-grid {
+    display: grid;
+    grid-template-columns: 1.65fr 1.25fr 1fr 0.9fr 0.9fr;
+    height: 181mm;
+    gap: 2mm;
+    padding-top: 2mm;
+  }
+
+  .print-round {
+    display: flex;
+    min-width: 0;
+    flex-direction: column;
+  }
+
+  .print-round > h2 {
+    margin: 0 0 1mm;
+    border: 0.25mm solid #333;
+    padding: 1mm;
+    font-size: 7pt;
+    text-align: center;
+    text-transform: uppercase;
+  }
+
+  .print-round > div {
+    display: flex;
+    min-height: 0;
+    flex: 1;
+    flex-direction: column;
+    justify-content: space-around;
+    gap: 0.6mm;
+  }
+
+  .print-knockout-match {
+    border: 0.2mm solid #888;
+    padding: 0.6mm 0.8mm;
+    break-inside: avoid;
+  }
+
+  .print-knockout-match small {
+    display: block;
+    margin-bottom: 0.3mm;
+    color: #555;
+    font-size: 4.2pt;
+    font-weight: 700;
+    text-transform: uppercase;
+  }
+
+  .print-team-line {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 4mm;
+    align-items: center;
+    gap: 0.8mm;
+    min-height: 3.7mm;
+    border-top: 0.15mm solid #bbb;
+    font-size: 4.7pt;
+    line-height: 1;
+  }
+
+  .print-team-line span {
+    display: grid;
+    grid-template-columns: auto minmax(5mm, 1fr);
+    align-items: end;
+    gap: 0.7mm;
+    overflow: hidden;
+  }
+
+  .print-team-line b {
+    overflow: hidden;
+    font-size: 4.1pt;
+    font-weight: 400;
+    white-space: nowrap;
+  }
+
+  .print-team-line em {
+    display: block;
+    min-width: 5mm;
+    border-bottom: 0.2mm solid #555;
+  }
+
+  .print-team-line i {
+    height: 3mm;
   }
 }

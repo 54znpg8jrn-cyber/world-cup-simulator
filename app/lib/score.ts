@@ -21,7 +21,7 @@ export interface WorldCupScoreResult {
   rarity?: string;
 }
 
-const SHARE_URL = "https://worldcupsimulator.app";
+const SHARE_URL = "https://world-cup-simulator-xi.vercel.app";
 
 export function getShareUrl(): string {
   if (typeof window !== "undefined" && window.location.origin) {
@@ -218,7 +218,7 @@ export function buildChallengeText({
     "",
     "Can you beat my score?",
     "",
-    `Play World Cup Simulator:`,
+    "Play here:",
     url,
   ].join("\n");
 }

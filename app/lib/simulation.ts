@@ -9,6 +9,7 @@ import type {
   Nation,
   Player,
   SimMatch,
+  TournamentFixture,
   TournamentRound,
 } from "./types";
 
@@ -202,6 +203,52 @@ export function createGroupTable(group: Nation[]): GroupTableRow[] {
   }));
 }
 
+export interface GroupMatchdayFixtures {
+  userFixture: [Nation, Nation];
+  otherFixture: [Nation, Nation];
+}
+
+export function getGroupMatchdayFixtures(
+  groupTeams: Nation[],
+  selectedNation: Nation,
+  matchdayIndex: number,
+): GroupMatchdayFixtures {
+  if (groupTeams.length !== 4) {
+    throw new Error("Group matchdays require exactly four teams.");
+  }
+
+  const matchdays: Array<Array<[Nation, Nation]>> = [
+    [
+      [groupTeams[0], groupTeams[1]],
+      [groupTeams[2], groupTeams[3]],
+    ],
+    [
+      [groupTeams[0], groupTeams[2]],
+      [groupTeams[1], groupTeams[3]],
+    ],
+    [
+      [groupTeams[0], groupTeams[3]],
+      [groupTeams[1], groupTeams[2]],
+    ],
+  ];
+  const fixtures = matchdays[matchdayIndex];
+  if (!fixtures) {
+    throw new Error(`Invalid group matchday index: ${matchdayIndex}`);
+  }
+
+  const userFixture = fixtures.find(([home, away]) =>
+    [home.code, away.code].includes(selectedNation.code),
+  );
+  const otherFixture = fixtures.find(([home, away]) =>
+    ![home.code, away.code].includes(selectedNation.code),
+  );
+  if (!userFixture || !otherFixture) {
+    throw new Error(`Selected nation ${selectedNation.code} is not in the group.`);
+  }
+
+  return { userFixture, otherFixture };
+}
+
 function applyResult(row: GroupTableRow, goalsFor: number, goalsAgainst: number) {
   return {
     ...row,
@@ -221,16 +268,8 @@ export function updateGroupTable(
   opponent: Nation,
   userGoals: number,
   opponentGoals: number,
+  otherFixture: TournamentFixture,
 ) {
-  const otherTeams = table
-    .map((row) => row.nation)
-    .filter(
-      (nation) =>
-        nation.code !== selectedNation.code && nation.code !== opponent.code,
-    );
-  const otherHomeGoals = Math.floor(Math.random() * 4);
-  const otherAwayGoals = Math.floor(Math.random() * 4);
-
   return table
     .map((row) => {
       if (row.nation.code === selectedNation.code) {
@@ -239,11 +278,19 @@ export function updateGroupTable(
       if (row.nation.code === opponent.code) {
         return applyResult(row, opponentGoals, userGoals);
       }
-      if (row.nation.code === otherTeams[0]?.code) {
-        return applyResult(row, otherHomeGoals, otherAwayGoals);
+      if (row.nation.code === otherFixture.home.code) {
+        return applyResult(
+          row,
+          otherFixture.homeGoals,
+          otherFixture.awayGoals,
+        );
       }
-      if (row.nation.code === otherTeams[1]?.code) {
-        return applyResult(row, otherAwayGoals, otherHomeGoals);
+      if (row.nation.code === otherFixture.away.code) {
+        return applyResult(
+          row,
+          otherFixture.awayGoals,
+          otherFixture.homeGoals,
+        );
       }
       return row;
     })

@@ -29,6 +29,7 @@ import { calculateTeamRatings } from "./lib/ratings";
 import {
   createGroupTable,
   createMatch,
+  getGroupMatchdayFixtures,
   getLiveScore,
   updateGroupTable,
 } from "./lib/simulation";
@@ -449,20 +450,24 @@ export default function Home() {
         : null,
     [bracketRounds, selectedNation, stats.scorers],
   );
-  const selectedGroupCodes = new Set(
-    selectedNation
-      ? (getGroupForNation(selectedNation.name)?.[1] ?? []).map(
-          (nation) => nation.code,
+  const currentGroupMatchday =
+    selectedNation && match?.round === "Group Stage"
+      ? getGroupMatchdayFixtures(
+          getGroupForNation(selectedNation.name)?.[1] ?? [],
+          selectedNation,
+          groupIndex,
         )
-      : [],
-  );
-  const visibleOtherGroupResults = backgroundGroupResults
-    .filter(
-      (fixture) =>
-        selectedGroupCodes.has(fixture.home.code) &&
-        selectedGroupCodes.has(fixture.away.code),
-    )
-    .slice(0, Math.min(groupIndex + 1, 3));
+      : null;
+  const visibleOtherGroupResult = currentGroupMatchday
+    ? backgroundGroupResults.find(
+        (fixture) =>
+          [fixture.home.code, fixture.away.code].sort().join("-") ===
+          currentGroupMatchday.otherFixture
+            .map((nation) => nation.code)
+            .sort()
+            .join("-"),
+      )
+    : undefined;
 
   useEffect(() => {
     if (
@@ -535,9 +540,16 @@ export default function Home() {
     const groupEntry = getGroupForNation(selectedNation.name);
     if (!groupEntry) return;
     const [, group] = groupEntry;
-    const opponents = group.filter(
-      (nation) => nation.code !== selectedNation.code,
-    );
+    const opponents = [0, 1, 2].map((matchdayIndex) => {
+      const { userFixture } = getGroupMatchdayFixtures(
+        group,
+        selectedNation,
+        matchdayIndex,
+      );
+      return userFixture.find(
+        (nation) => nation.code !== selectedNation.code,
+      )!;
+    });
     const nextForm = createTournamentForm();
     setTournamentForm(nextForm);
     setGroupOpponents(opponents);
@@ -598,14 +610,33 @@ export default function Home() {
   const nextMatch = () => {
     if (!match || !selectedNation || ratings.overall === null) return;
     applyMatch(match);
-    const nextTable =
+    const groupMatchday =
       match.round === "Group Stage"
+        ? getGroupMatchdayFixtures(
+            getGroupForNation(selectedNation.name)?.[1] ?? [],
+            selectedNation,
+            groupIndex,
+          )
+        : null;
+    const otherGroupFixture = groupMatchday
+      ? backgroundGroupResults.find(
+          (fixture) =>
+            [fixture.home.code, fixture.away.code].sort().join("-") ===
+            groupMatchday.otherFixture
+              .map((nation) => nation.code)
+              .sort()
+              .join("-"),
+        )
+      : undefined;
+    const nextTable =
+      match.round === "Group Stage" && otherGroupFixture
         ? updateGroupTable(
             groupTable,
             selectedNation,
             match.opponent,
             match.userGoals,
             match.opponentGoals,
+            otherGroupFixture,
           )
         : groupTable;
     if (match.round === "Group Stage") setGroupTable(nextTable);
@@ -1191,9 +1222,9 @@ export default function Home() {
                   isUserMatch: true,
                 }}
               />
-              {visibleOtherGroupResults.map((fixture) => (
-                <ResultCard key={fixture.id} fixture={fixture} />
-              ))}
+              {visibleOtherGroupResult ? (
+                <ResultCard fixture={visibleOtherGroupResult} />
+              ) : null}
             </section>
           ) : null}
 
