@@ -21,43 +21,53 @@ export function TournamentBracket({
 
   const fixturesFor = (round: Exclude<TournamentRound, "Group Stage">) =>
     rounds.find((item) => item.round === round)?.fixtures ?? [];
-  const splitRound = (
-    round: Exclude<TournamentRound, "Group Stage" | "Final">,
-  ) => {
-    const fixtures = fixturesFor(round);
-    const middle = Math.ceil(fixtures.length / 2);
-    return [fixtures.slice(0, middle), fixtures.slice(middle)] as const;
-  };
-  const [left32, right32] = splitRound("Round of 32");
-  const [left16, right16] = splitRound("Round of 16");
-  const [leftQuarter, rightQuarter] = splitRound("Quarter-final");
-  const [leftSemi, rightSemi] = splitRound("Semi-final");
+  const fixturesByMatch = new Map(
+    rounds
+      .flatMap((round) => round.fixtures)
+      .map((fixture) => [fixture.matchNumber, fixture]),
+  );
+  const matches = (matchNumbers: number[]) =>
+    matchNumbers
+      .map((matchNumber) => fixturesByMatch.get(matchNumber))
+      .filter((fixture): fixture is TournamentFixture => Boolean(fixture));
+  const left32 = matches([73, 75, 74, 77, 83, 84, 81, 82]);
+  const right32 = matches([76, 78, 79, 80, 86, 88, 85, 87]);
+  const left16 = matches([89, 90, 93, 94]);
+  const right16 = matches([91, 92, 95, 96]);
+  const leftQuarter = matches([97, 98]);
+  const rightQuarter = matches([99, 100]);
+  const leftSemi = matches([101]);
+  const rightSemi = matches([102]);
   const final = fixturesFor("Final")[0];
 
   return (
     <div className="overflow-x-auto pb-4">
-      <div className="grid min-w-[92rem] grid-cols-[repeat(4,10rem)_13rem_repeat(4,10rem)] gap-3">
+      <div className="tournament-bracket-grid">
         <BracketColumn
           title="Round of 32"
           fixtures={left32}
           selectedNationCode={selectedNationCode}
+          side="left"
         />
         <BracketColumn
           title="Round of 16"
           fixtures={left16}
           selectedNationCode={selectedNationCode}
+          side="left"
           inset
         />
         <BracketColumn
           title="Quarter-finals"
           fixtures={leftQuarter}
           selectedNationCode={selectedNationCode}
+          side="left"
           inset
         />
         <BracketColumn
           title="Semi-finals"
           fixtures={leftSemi}
           selectedNationCode={selectedNationCode}
+          side="left"
           inset
         />
 
@@ -85,24 +95,28 @@ export function TournamentBracket({
           title="Semi-finals"
           fixtures={rightSemi}
           selectedNationCode={selectedNationCode}
+          side="right"
           inset
         />
         <BracketColumn
           title="Quarter-finals"
           fixtures={rightQuarter}
           selectedNationCode={selectedNationCode}
+          side="right"
           inset
         />
         <BracketColumn
           title="Round of 16"
           fixtures={right16}
           selectedNationCode={selectedNationCode}
+          side="right"
           inset
         />
         <BracketColumn
           title="Round of 32"
           fixtures={right32}
           selectedNationCode={selectedNationCode}
+          side="right"
         />
       </div>
     </div>
@@ -113,15 +127,17 @@ function BracketColumn({
   title,
   fixtures,
   selectedNationCode,
+  side,
   inset = false,
 }: {
   title: string;
   fixtures: TournamentFixture[];
   selectedNationCode: string;
+  side: "left" | "right";
   inset?: boolean;
 }) {
   return (
-    <section className="flex min-h-[31rem] flex-col">
+    <section className={`tournament-bracket-column ${side} flex min-h-[36rem] flex-col`}>
       <h3 className="mb-2 text-center text-[9px] font-black uppercase tracking-[0.14em] text-[#d8b75b]">
         {title}
       </h3>
@@ -164,7 +180,7 @@ function FixtureCard({
 
   return (
     <div
-      className={`w-full rounded-xl border p-2 text-[10px] ${
+      className={`tournament-bracket-match w-full rounded-xl border p-2 text-[10px] ${
         final && hasWinner
           ? "border-[#d8b75b]/55 bg-[#d8b75b]/15 shadow-[0_0_35px_rgba(216,183,91,.12)]"
           : highlighted

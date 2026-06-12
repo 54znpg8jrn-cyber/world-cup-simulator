@@ -48,28 +48,6 @@ export function ShareResult({
     }
   };
 
-  const downloadImage = async () => {
-    setBusyAction("download");
-    try {
-      const blob = await exportImage();
-      if (!blob) {
-        setMessage("Image export failed. Please try again.");
-        return;
-      }
-      const url = URL.createObjectURL(blob);
-      const anchor = document.createElement("a");
-      anchor.href = url;
-      anchor.download = `${data.nation.name.toLowerCase().replaceAll(" ", "-")}-world-cup-score-${data.score}.png`;
-      document.body.appendChild(anchor);
-      anchor.click();
-      anchor.remove();
-      window.setTimeout(() => URL.revokeObjectURL(url), 1000);
-      setMessage("Result image downloaded!");
-    } finally {
-      setBusyAction(null);
-    }
-  };
-
   const challengeFriend = async () => {
     setBusyAction("challenge");
     try {
@@ -147,17 +125,6 @@ export function ShareResult({
     }
   };
 
-  const copyChallengeText = async () => {
-    setBusyAction("copy");
-    const copied = await copyText(challengeText);
-    setMessage(
-      copied
-        ? "Challenge text copied!"
-        : "Could not copy text. Try downloading the image instead.",
-    );
-    setBusyAction(null);
-  };
-
   return (
     <section className="mt-8 border-t border-white/10 pt-7">
       <h2 className="text-center text-sm font-black uppercase tracking-[0.2em] text-[#f6dc86]">
@@ -186,19 +153,10 @@ export function ShareResult({
           </button>
           <button
             type="button"
-            onClick={downloadImage}
-            disabled={busyAction !== null}
-            className="rounded-2xl border border-[#d8b75b]/30 bg-[#d8b75b]/10 px-4 py-3 text-xs font-black uppercase tracking-wider text-[#f6dc86]"
+            onClick={onChangeNation}
+            className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-xs font-black uppercase tracking-wider hover:bg-white/10"
           >
-            {busyAction === "download" ? "Creating Image..." : "Download Result Image"}
-          </button>
-          <button
-            type="button"
-            onClick={copyChallengeText}
-            disabled={busyAction !== null}
-            className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-xs font-black uppercase tracking-wider"
-          >
-            {busyAction === "copy" ? "Copying..." : "Copy Challenge Text"}
+            Change Nation
           </button>
           <button
             type="button"
@@ -206,13 +164,6 @@ export function ShareResult({
             className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-xs font-black uppercase tracking-wider hover:bg-white/10"
           >
             Play Again
-          </button>
-          <button
-            type="button"
-            onClick={onChangeNation}
-            className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-xs font-black uppercase tracking-wider hover:bg-white/10"
-          >
-            Change Nation
           </button>
         </div>
       </div>

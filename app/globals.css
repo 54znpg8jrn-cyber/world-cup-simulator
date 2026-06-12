@@ -469,6 +469,35 @@ button {
   background: linear-gradient(145deg, rgb(216 183 91 / 13%), #101a14);
 }
 
+.tournament-bracket-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 10rem) 13rem repeat(4, 10rem);
+  min-width: 92rem;
+  gap: .75rem;
+}
+
+.tournament-bracket-column .tournament-bracket-match {
+  position: relative;
+}
+
+.tournament-bracket-column.left .tournament-bracket-match::after,
+.tournament-bracket-column.right .tournament-bracket-match::before {
+  position: absolute;
+  top: 50%;
+  width: .8rem;
+  height: 1px;
+  background: rgb(216 183 91 / 28%);
+  content: "";
+}
+
+.tournament-bracket-column.left .tournament-bracket-match::after {
+  right: -.8rem;
+}
+
+.tournament-bracket-column.right .tournament-bracket-match::before {
+  left: -.8rem;
+}
+
 .print-wall-chart {
   display: none;
 }
@@ -494,7 +523,7 @@ button {
 
 @page {
   size: A4 landscape;
-  margin: 4mm;
+  margin: 0;
 }
 
 @media print {
@@ -528,9 +557,10 @@ button {
 
   .print-page {
     box-sizing: border-box;
-    width: 289mm;
-    height: 202mm;
+    width: 297mm;
+    height: 210mm;
     overflow: hidden;
+    padding: 4mm;
     break-after: page;
     page-break-after: always;
   }
