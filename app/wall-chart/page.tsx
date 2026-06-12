@@ -16,7 +16,41 @@ import type { TournamentFixture } from "../lib/types";
 
 const WALL_CHART_STORAGE_KEY = "world-cup-wall-chart-scores-v1";
 
-type PrintTarget = "all" | "groups" | "knockout";
+const GROUP_COLORS: Record<string, string> = {
+  A: "#36c98f",
+  B: "#6dd3ff",
+  C: "#ffd166",
+  D: "#ff7a8a",
+  E: "#a58cff",
+  F: "#ff9e64",
+  G: "#66d9d0",
+  H: "#ef8ed8",
+  I: "#9cdb69",
+  J: "#7fa8ff",
+  K: "#f5c451",
+  L: "#ef6b6b",
+};
+
+const BRACKET_SIDES = {
+  left: {
+    round32: [73, 75, 74, 77, 83, 84, 81, 82],
+    round16: [89, 90, 93, 94],
+    quarter: [97, 98],
+    semi: [101],
+  },
+  right: {
+    round32: [76, 78, 79, 80, 86, 88, 85, 87],
+    round16: [91, 92, 95, 96],
+    quarter: [99, 100],
+    semi: [102],
+  },
+};
+
+const PLACEHOLDERS_BY_MATCH = new Map(
+  KNOCKOUT_PLACEHOLDER_ROUNDS.flatMap((round) => round.fixtures).map(
+    (fixture) => [fixture.matchNumber, fixture],
+  ),
+);
 
 export default function WallChartPage() {
   const [scores, setScores] = useState<Record<string, ScoreValue>>({});
@@ -37,9 +71,9 @@ export default function WallChartPage() {
       ),
     [knockoutRounds],
   );
-  const drawWarnings = knockoutRounds
+  const hasKnockoutDraw = knockoutRounds
     .flatMap((round) => round.fixtures)
-    .filter((fixture) => {
+    .some((fixture) => {
       const score = scores[fixture.id];
       return (
         score &&
@@ -74,7 +108,7 @@ export default function WallChartPage() {
         JSON.stringify(scores),
       );
     } catch {
-      // Storage can be unavailable in private browsing; inputs still work.
+      // Inputs still work when browser storage is unavailable.
     }
   }, [scores]);
 
@@ -99,7 +133,7 @@ export default function WallChartPage() {
     setSaveMessage("Wall chart reset");
   };
 
-  const printWallChart = (target: PrintTarget) => {
+  const printPage = (target: "groups" | "knockout") => {
     document.body.dataset.wallChartPrint = target;
     const cleanup = () => {
       delete document.body.dataset.wallChartPrint;
@@ -110,32 +144,26 @@ export default function WallChartPage() {
   };
 
   return (
-    <main className="wall-chart-page min-h-screen bg-[#07100b] text-white">
-      <header className="no-print sticky top-0 z-40 border-b border-white/10 bg-[#07100b]/95 px-4 py-3 backdrop-blur">
-        <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-3">
+    <main className="wall-chart-page min-h-screen bg-[#06100c] text-white">
+      <header className="no-print sticky top-0 z-40 border-b border-white/10 bg-[#06100c]/95 px-4 py-3 backdrop-blur-xl">
+        <div className="mx-auto flex max-w-[96rem] flex-wrap items-center justify-between gap-3">
           <div>
-            <p className="text-[9px] font-black uppercase tracking-[0.2em] text-[#d8b75b]">
-              World Cup 2026
+            <p className="text-[9px] font-black uppercase tracking-[0.24em] text-[#d8b75b]">
+              Tournament Planner
             </p>
             <h1 className="font-black">World Cup Wall Chart</h1>
           </div>
           <nav className="flex flex-wrap justify-end gap-2">
-            <Link
-              href="/"
-              className="rounded-xl border border-white/10 px-3 py-2 text-xs font-black"
-            >
+            <Link href="/" className="wall-nav-button">
               Home
             </Link>
-            <Link
-              href="/?simulator=1"
-              className="rounded-xl border border-white/10 px-3 py-2 text-xs font-black"
-            >
+            <Link href="/?simulator=1" className="wall-nav-button">
               Simulator
             </Link>
             <button
               type="button"
               onClick={resetWallChart}
-              className="rounded-xl border border-rose-300/20 px-3 py-2 text-xs font-black text-rose-200"
+              className="wall-nav-button text-rose-200"
             >
               Reset Wall Chart
             </button>
@@ -143,161 +171,156 @@ export default function WallChartPage() {
         </div>
       </header>
 
-      <div className="no-print mx-auto max-w-7xl px-4 py-8">
-        <section className="mb-7 text-center">
-          <p className="text-xs font-black uppercase tracking-[0.3em] text-[#d8b75b]">
-            Interactive tournament tracker
-          </p>
-          <h2 className="mt-2 text-4xl font-black">World Cup Wall Chart</h2>
-          <p className="mt-2 text-sm text-white/45">
-            Enter every score. Tables and the official knockout path update
-            automatically.
-          </p>
-          <p className="mt-2 text-xs font-bold text-[#8cf2a7]" role="status">
-            {saveMessage}
-          </p>
-          <div className="mt-5 flex flex-wrap justify-center gap-2">
-            <PrintButton onClick={() => printWallChart("all")}>
-              Print Wall Chart
-            </PrintButton>
-            <PrintButton onClick={() => printWallChart("groups")}>
-              Print Group Stage Page
-            </PrintButton>
-            <PrintButton onClick={() => printWallChart("knockout")}>
-              Print Knockout Bracket Page
-            </PrintButton>
+      <div className="no-print mx-auto max-w-[96rem] px-4 py-8">
+        <section className="wall-hero">
+          <div>
+            <p className="text-xs font-black uppercase tracking-[0.32em] text-[#d8b75b]">
+              World Cup 2026
+            </p>
+            <h2 className="mt-2 max-w-3xl text-4xl font-black leading-none sm:text-6xl">
+              Every match. Every table. One path to the trophy.
+            </h2>
+            <p className="mt-4 max-w-2xl text-sm leading-6 text-white/50">
+              Enter results in official match-number order. Group tables and the
+              tournament bracket update automatically.
+            </p>
           </div>
-        </section>
-
-        <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-          {Object.keys(WORLD_CUP_GROUPS).map((group) => (
-            <article
-              key={group}
-              className="rounded-2xl border border-white/10 bg-white/[0.035] p-4"
-            >
-              <h3 className="mb-3 text-sm font-black uppercase tracking-wider text-[#f6dc86]">
-                Group {group}
-              </h3>
-              <div className="space-y-1.5">
-                {WALL_CHART_FIXTURES.filter(
-                  (fixture) => fixture.group === group,
-                ).map((fixture) => (
-                  <div
-                    key={fixture.id}
-                    className="grid grid-cols-[1fr_2.5rem_auto_2.5rem_1fr] items-center gap-1 text-[10px]"
-                  >
-                    <span className="truncate text-right">
-                      {fixture.home.flag} {fixture.home.name}
-                    </span>
-                    <ScoreInput
-                      value={scores[fixture.id]?.home ?? ""}
-                      onChange={(value) =>
-                        updateScore(fixture.id, "home", value)
-                      }
-                    />
-                    <span className="text-white/25">-</span>
-                    <ScoreInput
-                      value={scores[fixture.id]?.away ?? ""}
-                      onChange={(value) =>
-                        updateScore(fixture.id, "away", value)
-                      }
-                    />
-                    <span className="truncate">
-                      {fixture.away.name} {fixture.away.flag}
-                    </span>
-                  </div>
-                ))}
-              </div>
-              <table className="mt-4 w-full text-[9px]">
-                <thead className="text-white/30">
-                  <tr>
-                    <th className="text-left"># Team</th>
-                    <th>P</th>
-                    <th>W</th>
-                    <th>D</th>
-                    <th>L</th>
-                    <th>GF</th>
-                    <th>GA</th>
-                    <th>GD</th>
-                    <th>Pts</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {tables[group].map((row, index) => (
-                    <tr
-                      key={row.nation.code}
-                      className={
-                        index < 2
-                          ? "text-[#8cf2a7]"
-                          : index === 2
-                            ? "text-[#f6dc86]"
-                            : "text-white/55"
-                      }
-                    >
-                      <td className="py-1 font-bold">
-                        {index + 1}. {row.nation.flag} {row.nation.name}
-                      </td>
-                      <td>{row.played}</td>
-                      <td>{row.won}</td>
-                      <td>{row.drawn}</td>
-                      <td>{row.lost}</td>
-                      <td>{row.goalsFor}</td>
-                      <td>{row.goalsAgainst}</td>
-                      <td>{row.goalsFor - row.goalsAgainst}</td>
-                      <td className="font-black">{row.points}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </article>
-          ))}
+          <div className="flex flex-col items-start gap-3 sm:items-end">
+            <span className="rounded-full border border-emerald-300/20 bg-emerald-300/10 px-4 py-2 text-xs font-black text-emerald-200">
+              {saveMessage}
+            </span>
+            <div className="flex flex-wrap gap-2">
+              <PrintButton onClick={() => printPage("groups")}>
+                Print Group Stage
+              </PrintButton>
+              <PrintButton onClick={() => printPage("knockout")}>
+                Print Knockout Bracket
+              </PrintButton>
+            </div>
+          </div>
         </section>
 
         <section className="mt-10">
-          <div className="mb-4 flex items-end justify-between gap-3">
-            <div>
-              <p className="text-[9px] font-black uppercase tracking-[0.2em] text-[#d8b75b]">
-                Official path
-              </p>
-              <h2 className="text-2xl font-black">Knockout Bracket</h2>
-            </div>
-            {!roundOf32.length ? (
-              <p className="max-w-xs text-right text-xs text-white/35">
-                Placeholder slots fill with teams when all group scores are
-                complete.
-              </p>
-            ) : null}
+          <SectionTitle
+            eyebrow="Matches 1-72"
+            title="Official Group-Stage Schedule"
+            description="Fixtures follow the official chronological match sequence."
+          />
+          <div className="wall-schedule-grid mt-5">
+            {WALL_CHART_FIXTURES.map((fixture) => (
+              <article
+                key={fixture.id}
+                className="wall-fixture-card"
+                style={
+                  {
+                    "--group-accent": GROUP_COLORS[fixture.group],
+                  } as React.CSSProperties
+                }
+              >
+                <div className="wall-fixture-meta">
+                  <span>Match {fixture.matchNumber}</span>
+                  <b>Group {fixture.group}</b>
+                </div>
+                <div className="wall-fixture-teams">
+                  <span>
+                    {fixture.home.flag} {fixture.home.name}
+                  </span>
+                  <ScoreInput
+                    value={scores[fixture.id]?.home ?? ""}
+                    label={`Match ${fixture.matchNumber}, ${fixture.home.name} score`}
+                    onChange={(value) =>
+                      updateScore(fixture.id, "home", value)
+                    }
+                  />
+                  <i>-</i>
+                  <ScoreInput
+                    value={scores[fixture.id]?.away ?? ""}
+                    label={`Match ${fixture.matchNumber}, ${fixture.away.name} score`}
+                    onChange={(value) =>
+                      updateScore(fixture.id, "away", value)
+                    }
+                  />
+                  <span>
+                    {fixture.away.name} {fixture.away.flag}
+                  </span>
+                </div>
+              </article>
+            ))}
           </div>
+        </section>
 
-          {drawWarnings.length ? (
-            <div className="mb-4 rounded-xl border border-amber-300/25 bg-amber-300/10 p-3 text-sm font-bold text-amber-200">
+        <section className="mt-14">
+          <SectionTitle
+            eyebrow="Live Standings"
+            title="Group Tables"
+            description="The top two qualify automatically; the eight best third-placed teams also advance."
+          />
+          <div className="mt-5 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+            {Object.keys(WORLD_CUP_GROUPS).map((group) => (
+              <article
+                key={group}
+                className="wall-group-card"
+                style={
+                  {
+                    "--group-accent": GROUP_COLORS[group],
+                  } as React.CSSProperties
+                }
+              >
+                <header>
+                  <span>Group</span>
+                  <b>{group}</b>
+                </header>
+                <table>
+                  <thead>
+                    <tr>
+                      <th>Team</th>
+                      <th>P</th>
+                      <th>W</th>
+                      <th>D</th>
+                      <th>L</th>
+                      <th>GD</th>
+                      <th>Pts</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {tables[group].map((row, index) => (
+                      <tr key={row.nation.code}>
+                        <td>
+                          <span>{index + 1}</span> {row.nation.flag}{" "}
+                          {row.nation.name}
+                        </td>
+                        <td>{row.played}</td>
+                        <td>{row.won}</td>
+                        <td>{row.drawn}</td>
+                        <td>{row.lost}</td>
+                        <td>{row.goalsFor - row.goalsAgainst}</td>
+                        <td>{row.points}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </article>
+            ))}
+          </div>
+        </section>
+
+        <section className="mt-14">
+          <SectionTitle
+            eyebrow="Matches 73-104"
+            title="Knockout Bracket"
+            description="Round of 32 fixtures begin at the outside and progress toward the final."
+          />
+          {hasKnockoutDraw ? (
+            <div className="mt-4 rounded-xl border border-amber-300/25 bg-amber-300/10 p-3 text-sm font-bold text-amber-200">
               Knockout games need a winner.
             </div>
           ) : null}
-
-          <div className="overflow-x-auto pb-4">
-            <div className="grid min-w-[1180px] grid-cols-[repeat(5,minmax(190px,1fr))] items-center gap-4">
-              {KNOCKOUT_PLACEHOLDER_ROUNDS.map((round) => (
-                <section key={round.round}>
-                  <h3 className="mb-3 text-center text-xs font-black uppercase tracking-wider text-[#f6dc86]">
-                    {round.round}
-                  </h3>
-                  <div className="flex flex-col justify-around gap-2">
-                    {round.fixtures.map((placeholder) => (
-                      <DigitalKnockoutFixture
-                        key={placeholder.id}
-                        placeholder={placeholder}
-                        fixture={knockoutFixtures.get(
-                          placeholder.matchNumber,
-                        )}
-                        score={scores[placeholder.id]}
-                        onScoreChange={updateScore}
-                      />
-                    ))}
-                  </div>
-                </section>
-              ))}
-            </div>
+          <div className="mt-5">
+            <WallChartBracket
+              fixtures={knockoutFixtures}
+              scores={scores}
+              onScoreChange={updateScore}
+            />
           </div>
         </section>
       </div>
@@ -307,12 +330,34 @@ export default function WallChartPage() {
   );
 }
 
+function SectionTitle({
+  eyebrow,
+  title,
+  description,
+}: {
+  eyebrow: string;
+  title: string;
+  description: string;
+}) {
+  return (
+    <div>
+      <p className="text-[10px] font-black uppercase tracking-[0.24em] text-[#d8b75b]">
+        {eyebrow}
+      </p>
+      <h2 className="mt-1 text-2xl font-black sm:text-3xl">{title}</h2>
+      <p className="mt-1 text-sm text-white/40">{description}</p>
+    </div>
+  );
+}
+
 function ScoreInput({
   value,
+  label,
   onChange,
   disabled = false,
 }: {
   value: string;
+  label: string;
   onChange: (value: string) => void;
   disabled?: boolean;
 }) {
@@ -323,14 +368,151 @@ function ScoreInput({
       inputMode="numeric"
       value={value}
       disabled={disabled}
-      aria-label="Score"
+      aria-label={label}
       onChange={(event) => onChange(event.target.value)}
-      className="h-8 w-10 rounded-lg border border-white/10 bg-black/25 text-center font-black outline-none focus:border-[#d8b75b] disabled:cursor-not-allowed disabled:opacity-30"
+      className="wall-score-input"
     />
   );
 }
 
-function DigitalKnockoutFixture({
+function WallChartBracket({
+  fixtures,
+  scores,
+  onScoreChange,
+}: {
+  fixtures: Map<number | undefined, TournamentFixture>;
+  scores: Record<string, ScoreValue>;
+  onScoreChange: (
+    id: string,
+    side: "home" | "away",
+    value: string,
+  ) => void;
+}) {
+  return (
+    <div className="wall-bracket-scroll">
+      <div className="wall-bracket">
+        <BracketColumn
+          title="Round of 32"
+          side="left"
+          roundClass="round-32"
+          matchNumbers={BRACKET_SIDES.left.round32}
+          fixtures={fixtures}
+          scores={scores}
+          onScoreChange={onScoreChange}
+        />
+        <BracketColumn
+          title="Round of 16"
+          side="left"
+          roundClass="round-16"
+          matchNumbers={BRACKET_SIDES.left.round16}
+          fixtures={fixtures}
+          scores={scores}
+          onScoreChange={onScoreChange}
+        />
+        <BracketColumn
+          title="Quarter-finals"
+          side="left"
+          roundClass="quarter"
+          matchNumbers={BRACKET_SIDES.left.quarter}
+          fixtures={fixtures}
+          scores={scores}
+          onScoreChange={onScoreChange}
+        />
+        <BracketColumn
+          title="Semi-finals"
+          side="left"
+          roundClass="semi"
+          matchNumbers={BRACKET_SIDES.left.semi}
+          fixtures={fixtures}
+          scores={scores}
+          onScoreChange={onScoreChange}
+        />
+        <FinalColumn
+          fixture={fixtures.get(104)}
+          score={scores["match-104"]}
+          onScoreChange={onScoreChange}
+        />
+        <BracketColumn
+          title="Semi-finals"
+          side="right"
+          roundClass="semi"
+          matchNumbers={BRACKET_SIDES.right.semi}
+          fixtures={fixtures}
+          scores={scores}
+          onScoreChange={onScoreChange}
+        />
+        <BracketColumn
+          title="Quarter-finals"
+          side="right"
+          roundClass="quarter"
+          matchNumbers={BRACKET_SIDES.right.quarter}
+          fixtures={fixtures}
+          scores={scores}
+          onScoreChange={onScoreChange}
+        />
+        <BracketColumn
+          title="Round of 16"
+          side="right"
+          roundClass="round-16"
+          matchNumbers={BRACKET_SIDES.right.round16}
+          fixtures={fixtures}
+          scores={scores}
+          onScoreChange={onScoreChange}
+        />
+        <BracketColumn
+          title="Round of 32"
+          side="right"
+          roundClass="round-32"
+          matchNumbers={BRACKET_SIDES.right.round32}
+          fixtures={fixtures}
+          scores={scores}
+          onScoreChange={onScoreChange}
+        />
+      </div>
+    </div>
+  );
+}
+
+function BracketColumn({
+  title,
+  side,
+  roundClass,
+  matchNumbers,
+  fixtures,
+  scores,
+  onScoreChange,
+}: {
+  title: string;
+  side: "left" | "right";
+  roundClass: string;
+  matchNumbers: number[];
+  fixtures: Map<number | undefined, TournamentFixture>;
+  scores: Record<string, ScoreValue>;
+  onScoreChange: (
+    id: string,
+    side: "home" | "away",
+    value: string,
+  ) => void;
+}) {
+  return (
+    <section className={`wall-bracket-column ${side} ${roundClass}`}>
+      <h3>{title}</h3>
+      <div>
+        {matchNumbers.map((matchNumber) => (
+          <DigitalBracketMatch
+            key={matchNumber}
+            placeholder={PLACEHOLDERS_BY_MATCH.get(matchNumber)!}
+            fixture={fixtures.get(matchNumber)}
+            score={scores[`match-${matchNumber}`]}
+            onScoreChange={onScoreChange}
+          />
+        ))}
+      </div>
+    </section>
+  );
+}
+
+function DigitalBracketMatch({
   placeholder,
   fixture,
   score,
@@ -345,54 +527,85 @@ function DigitalKnockoutFixture({
     value: string,
   ) => void;
 }) {
-  const homeName = fixture
-    ? `${fixture.home.flag} ${fixture.home.name}`
-    : placeholder.homeLabel;
-  const awayName = fixture
-    ? `${fixture.away.flag} ${fixture.away.name}`
-    : placeholder.awayLabel;
-
   return (
-    <article className="rounded-xl border border-white/10 bg-white/[0.035] p-3">
-      <p className="mb-2 text-[8px] font-black uppercase tracking-wider text-white/25">
-        Match {placeholder.matchNumber}
-      </p>
-      <KnockoutScoreRow
-        name={homeName}
-        value={score?.home ?? ""}
-        disabled={!fixture}
-        onChange={(value) =>
-          onScoreChange(placeholder.id, "home", value)
+    <article className="wall-bracket-match">
+      <small>Match {placeholder.matchNumber}</small>
+      <BracketTeamRow
+        name={
+          fixture
+            ? `${fixture.home.flag} ${fixture.home.name}`
+            : placeholder.homeLabel
         }
+        score={score?.home ?? ""}
+        disabled={!fixture}
+        label={`Match ${placeholder.matchNumber} home score`}
+        onChange={(value) => onScoreChange(placeholder.id, "home", value)}
       />
-      <KnockoutScoreRow
-        name={awayName}
-        value={score?.away ?? ""}
-        disabled={!fixture}
-        onChange={(value) =>
-          onScoreChange(placeholder.id, "away", value)
+      <BracketTeamRow
+        name={
+          fixture
+            ? `${fixture.away.flag} ${fixture.away.name}`
+            : placeholder.awayLabel
         }
+        score={score?.away ?? ""}
+        disabled={!fixture}
+        label={`Match ${placeholder.matchNumber} away score`}
+        onChange={(value) => onScoreChange(placeholder.id, "away", value)}
       />
     </article>
   );
 }
 
-function KnockoutScoreRow({
+function BracketTeamRow({
   name,
-  value,
+  score,
   disabled,
+  label,
   onChange,
 }: {
   name: string;
-  value: string;
+  score: string;
   disabled: boolean;
+  label: string;
   onChange: (value: string) => void;
 }) {
   return (
-    <div className="mb-1 flex items-center gap-2 text-xs last:mb-0">
-      <span className="min-w-0 flex-1 leading-tight">{name}</span>
-      <ScoreInput value={value} disabled={disabled} onChange={onChange} />
+    <div className="wall-bracket-team">
+      <span>{name}</span>
+      <ScoreInput
+        value={score}
+        label={label}
+        disabled={disabled}
+        onChange={onChange}
+      />
     </div>
+  );
+}
+
+function FinalColumn({
+  fixture,
+  score,
+  onScoreChange,
+}: {
+  fixture?: TournamentFixture;
+  score?: ScoreValue;
+  onScoreChange: (
+    id: string,
+    side: "home" | "away",
+    value: string,
+  ) => void;
+}) {
+  return (
+    <section className="wall-bracket-final">
+      <span className="wall-bracket-trophy">🏆</span>
+      <h3>Final</h3>
+      <DigitalBracketMatch
+        placeholder={PLACEHOLDERS_BY_MATCH.get(104)!}
+        fixture={fixture}
+        score={score}
+        onScoreChange={onScoreChange}
+      />
+    </section>
   );
 }
 
@@ -404,11 +617,7 @@ function PrintButton({
   onClick: () => void;
 }) {
   return (
-    <button
-      type="button"
-      onClick={onClick}
-      className="rounded-xl bg-[#d8b75b] px-4 py-3 text-xs font-black text-black hover:bg-[#f6dc86]"
-    >
+    <button type="button" onClick={onClick} className="wall-print-button">
       {children}
     </button>
   );
@@ -419,27 +628,48 @@ function PrintableWallChart() {
     <div className="print-wall-chart">
       <section className="print-page print-groups-page">
         <PrintPageHeader
-          title="World Cup 2026 Group Stage Planner"
+          eyebrow="Matches 1-72"
+          title="World Cup 2026 Group Stage"
           subtitle="Write each score, then complete the tables by hand."
         />
-        <div className="print-group-grid">
-          {Object.entries(WORLD_CUP_GROUPS).map(([group]) => (
-            <article key={group} className="print-group-card">
+        <div className="print-schedule-grid">
+          {chunk(WALL_CHART_FIXTURES, 18).map((fixtures, column) => (
+            <div key={column} className="print-schedule-column">
+              {fixtures.map((fixture) => (
+                <div
+                  key={fixture.id}
+                  className="print-schedule-match"
+                  style={
+                    {
+                      "--group-accent": GROUP_COLORS[fixture.group],
+                    } as React.CSSProperties
+                  }
+                >
+                  <b>{fixture.matchNumber}</b>
+                  <em>{fixture.group}</em>
+                  <span>{fixture.home.name}</span>
+                  <i />
+                  <strong>-</strong>
+                  <i />
+                  <span>{fixture.away.name}</span>
+                </div>
+              ))}
+            </div>
+          ))}
+        </div>
+        <div className="print-standings-grid">
+          {Object.keys(WORLD_CUP_GROUPS).map((group) => (
+            <article
+              key={group}
+              className="print-standings-card"
+              style={
+                {
+                  "--group-accent": GROUP_COLORS[group],
+                } as React.CSSProperties
+              }
+            >
               <h2>Group {group}</h2>
-              <div className="print-fixtures">
-                {WALL_CHART_FIXTURES.filter(
-                  (fixture) => fixture.group === group,
-                ).map((fixture) => (
-                  <div key={fixture.id} className="print-fixture">
-                    <span>{fixture.home.name}</span>
-                    <i />
-                    <b>-</b>
-                    <i />
-                    <span>{fixture.away.name}</span>
-                  </div>
-                ))}
-              </div>
-              <table className="print-table">
+              <table>
                 <thead>
                   <tr>
                     <th>Pos</th>
@@ -470,54 +700,141 @@ function PrintableWallChart() {
 
       <section className="print-page print-knockout-page">
         <PrintPageHeader
-          title="World Cup 2026 Knockout Bracket Planner"
-          subtitle="Fill in each team and score as the tournament progresses."
+          eyebrow="Matches 73-104"
+          title="World Cup 2026 Knockout Bracket"
+          subtitle="Fill in team names and scores as each round is completed."
         />
-        <div className="print-knockout-grid">
-          {KNOCKOUT_PLACEHOLDER_ROUNDS.map((round) => (
-            <section key={round.round} className="print-round">
-              <h2>{round.round}</h2>
-              <div>
-                {round.fixtures.map((fixture) => (
-                  <article key={fixture.id} className="print-knockout-match">
-                    <small>Match {fixture.matchNumber}</small>
-                    <PrintTeamLine label={fixture.homeLabel} />
-                    <PrintTeamLine label={fixture.awayLabel} />
-                  </article>
-                ))}
-              </div>
-            </section>
-          ))}
-        </div>
+        <PrintableKnockoutBracket />
       </section>
     </div>
   );
 }
 
+function PrintableKnockoutBracket() {
+  return (
+    <div className="print-knockout-bracket">
+      <PrintableBracketColumn
+        title="Round of 32"
+        side="left"
+        roundClass="round-32"
+        matchNumbers={BRACKET_SIDES.left.round32}
+      />
+      <PrintableBracketColumn
+        title="Round of 16"
+        side="left"
+        roundClass="round-16"
+        matchNumbers={BRACKET_SIDES.left.round16}
+      />
+      <PrintableBracketColumn
+        title="Quarter-finals"
+        side="left"
+        roundClass="quarter"
+        matchNumbers={BRACKET_SIDES.left.quarter}
+      />
+      <PrintableBracketColumn
+        title="Semi-finals"
+        side="left"
+        roundClass="semi"
+        matchNumbers={BRACKET_SIDES.left.semi}
+      />
+      <section className="print-final-column">
+        <span>🏆</span>
+        <h2>Final</h2>
+        <PrintableBracketMatch matchNumber={104} />
+      </section>
+      <PrintableBracketColumn
+        title="Semi-finals"
+        side="right"
+        roundClass="semi"
+        matchNumbers={BRACKET_SIDES.right.semi}
+      />
+      <PrintableBracketColumn
+        title="Quarter-finals"
+        side="right"
+        roundClass="quarter"
+        matchNumbers={BRACKET_SIDES.right.quarter}
+      />
+      <PrintableBracketColumn
+        title="Round of 16"
+        side="right"
+        roundClass="round-16"
+        matchNumbers={BRACKET_SIDES.right.round16}
+      />
+      <PrintableBracketColumn
+        title="Round of 32"
+        side="right"
+        roundClass="round-32"
+        matchNumbers={BRACKET_SIDES.right.round32}
+      />
+    </div>
+  );
+}
+
+function PrintableBracketColumn({
+  title,
+  side,
+  roundClass,
+  matchNumbers,
+}: {
+  title: string;
+  side: "left" | "right";
+  roundClass: string;
+  matchNumbers: number[];
+}) {
+  return (
+    <section className={`print-bracket-column ${side} ${roundClass}`}>
+      <h2>{title}</h2>
+      <div>
+        {matchNumbers.map((matchNumber) => (
+          <PrintableBracketMatch key={matchNumber} matchNumber={matchNumber} />
+        ))}
+      </div>
+    </section>
+  );
+}
+
+function PrintableBracketMatch({ matchNumber }: { matchNumber: number }) {
+  const fixture = PLACEHOLDERS_BY_MATCH.get(matchNumber)!;
+  return (
+    <article className="print-bracket-match">
+      <small>M{matchNumber}</small>
+      <PrintTeamSlot label={fixture.homeLabel} />
+      <PrintTeamSlot label={fixture.awayLabel} />
+    </article>
+  );
+}
+
+function PrintTeamSlot({ label }: { label: string }) {
+  return (
+    <div>
+      <span>{label}</span>
+      <em />
+      <i />
+    </div>
+  );
+}
+
 function PrintPageHeader({
+  eyebrow,
   title,
   subtitle,
 }: {
+  eyebrow: string;
   title: string;
   subtitle: string;
 }) {
   return (
     <header className="print-page-header">
-      <p>WORLD CUP WALL CHART</p>
+      <p>{eyebrow}</p>
       <h1>{title}</h1>
       <span>{subtitle}</span>
     </header>
   );
 }
 
-function PrintTeamLine({ label }: { label: string }) {
-  return (
-    <div className="print-team-line">
-      <span>
-        <b>{label}</b>
-        <em />
-      </span>
-      <i />
-    </div>
+function chunk<T>(items: T[], size: number): T[][] {
+  return Array.from(
+    { length: Math.ceil(items.length / size) },
+    (_, index) => items.slice(index * size, (index + 1) * size),
   );
 }

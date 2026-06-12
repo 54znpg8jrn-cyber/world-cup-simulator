@@ -13,6 +13,7 @@ import {
 
 export interface WallChartFixture {
   id: string;
+  matchNumber: number;
   group: string;
   home: Nation;
   away: Nation;
@@ -119,22 +120,47 @@ export const KNOCKOUT_PLACEHOLDER_ROUNDS: KnockoutPlaceholderRound[] = [
   },
 ];
 
-export const WALL_CHART_FIXTURES: WallChartFixture[] = Object.entries(
-  WORLD_CUP_GROUPS,
-).flatMap(([group, nations]) => {
-  const fixtures: WallChartFixture[] = [];
-  for (let home = 0; home < nations.length; home += 1) {
-    for (let away = home + 1; away < nations.length; away += 1) {
-      fixtures.push({
-        id: `group-${group}-${home}-${away}`,
-        group,
-        home: nations[home],
-        away: nations[away],
-      });
-    }
-  }
-  return fixtures;
-});
+type GroupScheduleSeed = [
+  matchNumber: number,
+  group: string,
+  homeIndex: number,
+  awayIndex: number,
+];
+
+const GROUP_STAGE_SCHEDULE: GroupScheduleSeed[] = [
+  [1, "A", 0, 1], [2, "A", 2, 3], [3, "B", 0, 1], [4, "D", 0, 1],
+  [5, "C", 2, 3], [6, "D", 2, 3], [7, "C", 0, 1], [8, "B", 2, 3],
+  [9, "E", 2, 3], [10, "E", 0, 1], [11, "F", 0, 1], [12, "F", 2, 3],
+  [13, "H", 2, 3], [14, "H", 0, 1], [15, "G", 2, 3], [16, "G", 0, 1],
+  [17, "I", 0, 1], [18, "I", 2, 3], [19, "J", 0, 1], [20, "J", 2, 3],
+  [21, "L", 2, 3], [22, "L", 0, 1], [23, "K", 0, 1], [24, "K", 2, 3],
+  [25, "A", 3, 1], [26, "B", 3, 1], [27, "B", 0, 2], [28, "A", 0, 2],
+  [29, "C", 0, 2], [30, "C", 3, 1], [31, "D", 3, 1], [32, "D", 0, 2],
+  [33, "E", 0, 2], [34, "E", 3, 1], [35, "F", 0, 2], [36, "F", 3, 1],
+  [37, "H", 3, 1], [38, "H", 0, 2], [39, "G", 0, 2], [40, "G", 3, 1],
+  [41, "I", 3, 1], [42, "I", 0, 2], [43, "J", 0, 2], [44, "J", 3, 1],
+  [45, "L", 0, 2], [46, "L", 3, 1], [47, "K", 0, 2], [48, "K", 3, 1],
+  [49, "C", 3, 0], [50, "C", 1, 2], [51, "B", 3, 0], [52, "B", 1, 2],
+  [53, "A", 3, 0], [54, "A", 1, 2], [55, "E", 1, 2], [56, "E", 3, 0],
+  [57, "F", 1, 2], [58, "F", 3, 0], [59, "D", 3, 0], [60, "D", 1, 2],
+  [61, "I", 3, 0], [62, "I", 1, 2], [63, "G", 1, 2], [64, "G", 3, 0],
+  [65, "H", 1, 2], [66, "H", 3, 0], [67, "L", 3, 0], [68, "L", 1, 2],
+  [69, "J", 1, 2], [70, "J", 3, 0], [71, "K", 3, 0], [72, "K", 1, 2],
+];
+
+export const WALL_CHART_FIXTURES: WallChartFixture[] =
+  GROUP_STAGE_SCHEDULE.map(([matchNumber, group, homeIndex, awayIndex]) => {
+    const nations = WORLD_CUP_GROUPS[group];
+    const lowIndex = Math.min(homeIndex, awayIndex);
+    const highIndex = Math.max(homeIndex, awayIndex);
+    return {
+      id: `group-${group}-${lowIndex}-${highIndex}`,
+      matchNumber,
+      group,
+      home: nations[homeIndex],
+      away: nations[awayIndex],
+    };
+  });
 
 const emptyRow = (nation: Nation): GroupTableRow => ({
   nation,
