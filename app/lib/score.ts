@@ -6,6 +6,7 @@ import type {
   TournamentStats,
 } from "./types";
 import { getNationFlag } from "./flags";
+import { getUnderdogBonus } from "./engagement";
 
 export interface WorldCupScoreInput {
   finish: string;
@@ -14,12 +15,14 @@ export interface WorldCupScoreInput {
   topScorerName?: string;
   mvpName?: string;
   defeatedOpponents: Nation[];
+  selectedNation: Nation;
 }
 
 export interface WorldCupScoreResult {
   score: number;
   title: string;
   rarity?: string;
+  underdogBonus: number;
 }
 
 const SHARE_URL = "https://world-cup-simulator-xi.vercel.app";
@@ -98,16 +101,25 @@ export function getScoreRarity(score: number): string | undefined {
   if (score === 99) return "Top 0.05% run";
   if (score === 98) return "Top 0.2% run";
   if (score === 97) return "Top 0.5% run";
+  if (score >= 95) return "Top 1% run";
   if (score >= 90) return "Top 5% run";
-  if (score >= 80) return "Strong run";
+  if (score >= 85) return "Top 10% run";
+  if (score >= 80) return "Top 20% run";
   return undefined;
 }
 
 export function calculateWorldCupScore(
   input: WorldCupScoreInput,
 ): WorldCupScoreResult {
-  const { finish, stats, awards, topScorerName, mvpName, defeatedOpponents } =
-    input;
+  const {
+    finish,
+    stats,
+    awards,
+    topScorerName,
+    mvpName,
+    defeatedOpponents,
+    selectedNation,
+  } = input;
   const goalDifference = stats.goalsFor - stats.goalsAgainst;
   const matchesPlayed = stats.wins + stats.draws + stats.losses;
 
@@ -143,6 +155,8 @@ export function calculateWorldCupScore(
     awardBonus += 4;
   }
   raw += awardBonus;
+  const underdogBonus = getUnderdogBonus(selectedNation, finish);
+  raw += underdogBonus;
 
   if (matchesPlayed > 0) {
     const winRate = stats.wins / matchesPlayed;
@@ -188,6 +202,7 @@ export function calculateWorldCupScore(
     score,
     title: getScoreTitle(score),
     rarity: getScoreRarity(score),
+    underdogBonus,
   };
 }
 

@@ -3,7 +3,10 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import Link from "next/link";
-import { TournamentBracket } from "./components/TournamentBracket";
+import {
+  KnockoutRoundSummary,
+  TournamentBracket,
+} from "./components/TournamentBracket";
 import {
   LeaderboardModal,
   SaveToLeaderboardModal,
@@ -18,6 +21,11 @@ import {
   calculateWorldCupScore,
   getDefeatedOpponents,
 } from "./lib/score";
+import {
+  getNationTier,
+  recordCompletedTournament,
+  type PersonalBestUpdate,
+} from "./lib/engagement";
 import {
   FORMATION_SLOTS,
   NATIONS,
@@ -467,7 +475,10 @@ export default function Home() {
   const [resumeSnapshot, setResumeSnapshot] =
     useState<MatchScreenSnapshot | null>(null);
   const [reviewingPrevious, setReviewingPrevious] = useState(false);
+  const [personalBestUpdate, setPersonalBestUpdate] =
+    useState<PersonalBestUpdate | null>(null);
   const eventFeedRef = useRef<HTMLDivElement>(null);
+  const recordedResultRef = useRef("");
 
   useEffect(() => {
     if (window.location.search.includes("simulator=1")) {
@@ -494,6 +505,21 @@ export default function Home() {
   const currentEvent =
     revealedEvents > 0 ? match?.events[revealedEvents - 1] : undefined;
   const matchMinute = matchComplete ? 90 : currentEvent?.minute ?? 0;
+  const matchGoals =
+    match?.events.filter((event) => event.isGoal && event.scorer) ?? [];
+  const heroEvent =
+    [...matchGoals].reverse().find((event) => event.forUser) ??
+    matchGoals.at(-1);
+  const lastGoalEvent = matchGoals.at(-1);
+  const matchRating = match
+    ? Math.min(
+        10,
+        6.5 +
+          match.userGoals * 0.7 +
+          (match.userGoals > match.opponentGoals ? 1 : 0) -
+          match.opponentGoals * 0.2,
+      ).toFixed(1)
+    : "–";
   const awards = useMemo(
     () =>
       selectedNation && bracketRounds.length
@@ -979,6 +1005,8 @@ export default function Home() {
     setPreviousResult(null);
     setResumeSnapshot(null);
     setReviewingPrevious(false);
+    setPersonalBestUpdate(null);
+    recordedResultRef.current = "";
     scrollToTop();
   };
 
@@ -993,6 +1021,8 @@ export default function Home() {
     setPreviousResult(null);
     setResumeSnapshot(null);
     setReviewingPrevious(false);
+    setPersonalBestUpdate(null);
+    recordedResultRef.current = "";
     scrollToTop();
   };
 
@@ -1017,7 +1047,7 @@ export default function Home() {
     [selectedNation, userGroupResults, bracketRounds],
   );
   const worldCupScore = useMemo(() => {
-    if (view !== "result" || !finish) return null;
+    if (view !== "result" || !finish || !selectedNation) return null;
     return calculateWorldCupScore({
       finish,
       stats,
@@ -1025,6 +1055,7 @@ export default function Home() {
       topScorerName: topScorer?.[0],
       mvpName: mvp?.name,
       defeatedOpponents,
+      selectedNation,
     });
   }, [
     view,
@@ -1034,7 +1065,58 @@ export default function Home() {
     topScorer,
     mvp,
     defeatedOpponents,
+    selectedNation,
   ]);
+
+  useEffect(() => {
+    if (!worldCupScore || !selectedNation || view !== "result") return;
+    const resultKey = `${selectedNation.code}-${finish}-${worldCupScore.score}-${stats.wins}-${stats.draws}-${stats.losses}`;
+    if (recordedResultRef.current === resultKey) return;
+    recordedResultRef.current = resultKey;
+    setPersonalBestUpdate(
+      recordCompletedTournament({
+        score: worldCupScore.score,
+        finish,
+        nation: selectedNation,
+        goalDifference: stats.goalsFor - stats.goalsAgainst,
+      }),
+    );
+  }, [finish, selectedNation, stats, view, worldCupScore]);
+
+  const startReplayWithNation = (nation: Nation) => {
+    setSelectedNation(nation);
+    setFormation("4-3-3");
+    setSelections(generateRandomXI(nation.name, FORMATION_SLOTS["4-3-3"]));
+    setMatch(null);
+    setFinish("");
+    setStats(emptyStats());
+    setBracketRounds([]);
+    setPendingRound(null);
+    setOverviewType(null);
+    setGroupStageOverview(null);
+    setUserGroupResults([]);
+    setGroupOpponents([]);
+    setGroupTable([]);
+    setBackgroundGroupResults([]);
+    setTournamentForm({});
+    setLeaderboardSaved(false);
+    setPreviousResult(null);
+    setResumeSnapshot(null);
+    setReviewingPrevious(false);
+    setPersonalBestUpdate(null);
+    recordedResultRef.current = "";
+    setView("builder");
+    scrollToTop();
+  };
+
+  const randomReplay = () =>
+    startReplayWithNation(NATIONS[Math.floor(Math.random() * NATIONS.length)]);
+  const underdogReplay = () => {
+    const underdogs = NATIONS.filter((nation) => getNationTier(nation) === 3);
+    startReplayWithNation(
+      underdogs[Math.floor(Math.random() * underdogs.length)],
+    );
+  };
 
   const saveToLeaderboard = (displayName: string) => {
     if (!selectedNation || !worldCupScore || !finish) return;
@@ -1310,6 +1392,28 @@ export default function Home() {
               </p>
             </header>
 
+            {overviewType === "round-intro" && match ? (
+              <div className="progression-pop mx-auto mt-6 max-w-lg rounded-2xl border border-[#d8b75b]/30 bg-[#d8b75b]/10 p-4 text-center">
+                <p className="text-3xl">🏆</p>
+                <p className="mt-2 text-xl font-black uppercase text-[#f6dc86]">
+                  {match.round === "Round of 16"
+                    ? "Round of 16 unlocked"
+                    : match.round === "Quarter-final"
+                      ? "Quarter-final unlocked"
+                      : match.round === "Semi-final"
+                        ? "One win away from the Final"
+                        : match.round === "Final"
+                          ? "World Cup Final unlocked"
+                          : `${match.round} unlocked`}
+                </p>
+                <p className="mt-1 text-xs font-bold text-white/45">
+                  {match.round === "Final"
+                    ? "One match away from glory."
+                    : "The next challenge is ready."}
+                </p>
+              </div>
+            ) : null}
+
             {overviewType === "group-complete" && groupStageOverview ? (
               <section className="mt-8 grid w-full min-w-0 gap-5 lg:grid-cols-[1fr_1.2fr]">
                 <div className="min-w-0">
@@ -1446,6 +1550,25 @@ export default function Home() {
 
       {view === "simulation" && selectedNation && match ? (
         <section className="mx-auto flex min-h-screen w-full max-w-3xl min-w-0 flex-col px-4 py-4 pb-24 sm:px-8 sm:pb-4">
+          {currentEvent?.isGoal ? (
+            <div
+              key={`${currentEvent.minute}-${revealedEvents}`}
+              className="goal-overlay pointer-events-none fixed inset-0 z-[80] grid place-items-center"
+            >
+              <div className="goal-burst rounded-full border border-[#f6dc86]/40 bg-[#0a2316]/95 px-8 py-7 text-center shadow-[0_0_90px_rgba(22,163,74,.55)]">
+                <p className="text-5xl font-black text-[#f6dc86]">
+                  {currentEvent.special === "bicycle-kick"
+                    ? "BICYCLE KICK!"
+                    : currentEvent.special === "free-kick-goal"
+                      ? "FREE-KICK GOAL!"
+                      : currentEvent.special === "late-winner"
+                        ? "LATE WINNER!"
+                        : "GOAL!"}
+                </p>
+                <span className="mt-2 block text-3xl">⚽</span>
+              </div>
+            </div>
+          ) : null}
           {previousResult && !reviewingPrevious && !matchComplete ? (
             <button
               type="button"
@@ -1455,19 +1578,30 @@ export default function Home() {
               View Previous Result
             </button>
           ) : null}
-          <header className="mb-4 flex items-center justify-between">
+          <header className="mb-4 flex items-center justify-between gap-3">
             <div>
               <p className="text-[10px] font-black uppercase tracking-[0.25em] text-[#d8b75b]">{match.round}</p>
               <h1 className="text-2xl font-black">Matchday</h1>
             </div>
-            <span className="rounded-xl bg-white/5 px-3 py-2 text-xs font-black text-white/50">
-              {match.round === "Group Stage"
-                ? `Group ${getGroupForNation(selectedNation.name)?.[0]}`
-                : "Knockout"}
-            </span>
+            <div className="flex items-center gap-2">
+              <span className="rounded-xl bg-white/5 px-3 py-2 text-xs font-black text-white/50">
+                {match.round === "Group Stage"
+                  ? `Group ${getGroupForNation(selectedNation.name)?.[0]}`
+                  : "Knockout"}
+              </span>
+              <button
+                type="button"
+                className="min-h-11 rounded-xl border border-white/8 bg-white/[0.03] px-3 text-[9px] font-black uppercase tracking-wider text-white/35"
+                aria-label="Sound is off"
+              >
+                Sound: Off
+              </button>
+            </div>
           </header>
 
-          <div className="w-full max-w-full min-w-0 overflow-hidden rounded-[2rem] border border-white/10 bg-[#101713]/95 p-4 shadow-2xl sm:p-6">
+          <div className={`w-full max-w-full min-w-0 overflow-hidden rounded-[2rem] border border-white/10 bg-[#101713]/95 p-4 shadow-2xl sm:p-6 ${
+            currentEvent?.isGoal ? "scoreboard-goal" : ""
+          }`}>
             <div className="grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-2 text-center sm:gap-3">
               <div className="min-w-0">
                 <span className="text-3xl sm:text-5xl">{getNationFlag(selectedNation.name)}</span>
@@ -1503,6 +1637,61 @@ export default function Home() {
               </p>
             </div>
 
+            {matchComplete ? (
+              <section className="mb-4 grid grid-cols-3 gap-2 rounded-2xl border border-[#d8b75b]/20 bg-[#d8b75b]/[0.06] p-3 text-center">
+                <div className="min-w-0">
+                  <p className="text-[8px] font-black uppercase tracking-wider text-white/35">
+                    Hero
+                  </p>
+                  <p className="mt-1 truncate text-xs font-black text-[#f6dc86]">
+                    {heroEvent?.scorer ?? "Team effort"}
+                  </p>
+                </div>
+                <div className="min-w-0">
+                  <p className="text-[8px] font-black uppercase tracking-wider text-white/35">
+                    Moment
+                  </p>
+                  <p className="mt-1 truncate text-xs font-black text-[#f6dc86]">
+                    {lastGoalEvent
+                      ? `${lastGoalEvent.minute}' ${
+                          lastGoalEvent.special === "late-winner"
+                            ? "winner"
+                            : "goal"
+                        }`
+                      : "Clean battle"}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-[8px] font-black uppercase tracking-wider text-white/35">
+                    Match Rating
+                  </p>
+                  <p className="mt-1 text-xs font-black text-[#f6dc86]">
+                    {matchRating}
+                  </p>
+                </div>
+              </section>
+            ) : null}
+
+            {matchComplete ? (
+              <button
+                onClick={
+                  reviewingPrevious ? returnFromPreviousResult : nextMatch
+                }
+                className="mb-4 w-full rounded-2xl bg-[#d8b75b] px-5 py-4 text-sm font-black uppercase tracking-[0.14em] text-black transition hover:bg-[#f6dc86]"
+              >
+                {reviewingPrevious
+                  ? "Return to Current Tournament"
+                  : match.round === "Group Stage"
+                    ? groupIndex === 2
+                      ? "View Group Stage Overview"
+                      : `Continue to Matchday ${groupIndex + 2}`
+                    : match.userGoals < match.opponentGoals ||
+                        match.round === "Final"
+                      ? "Tournament Overview"
+                      : `Continue to ${nextRoundLabel(match.round)}`}
+              </button>
+            ) : null}
+
             <div
               ref={eventFeedRef}
               className="h-52 space-y-2 overflow-y-auto overscroll-contain rounded-2xl border border-white/5 bg-black/15 p-2 sm:h-60"
@@ -1510,7 +1699,7 @@ export default function Home() {
               {match.events.slice(0, revealedEvents).map((event, index) => (
                 <div
                   key={`${event.minute}-${index}`}
-                  className={`event-in rounded-2xl border px-4 py-3 text-sm font-bold ${
+                  className={`event-in whitespace-pre-line rounded-2xl border px-4 py-3 text-sm font-bold ${
                     event.isGoal
                       ? event.forUser
                         ? "border-emerald-300/20 bg-emerald-300/10 text-emerald-100"
@@ -1637,58 +1826,22 @@ export default function Home() {
           {matchComplete && match.round !== "Group Stage" ? (
             <section className="mt-5 rounded-2xl border border-white/10 bg-[#101713]/90 p-4">
               <h2 className="mb-3 text-[10px] font-black uppercase tracking-[0.18em] text-[#d8b75b]">
-                Tournament bracket
+                Round overview
               </h2>
-              <div className="mb-4 grid gap-2 sm:grid-cols-2">
-                <div className="rounded-xl border border-emerald-300/15 bg-emerald-300/8 p-3">
-                  <p className="text-[8px] font-black uppercase tracking-wider text-emerald-200/60">
-                    Advances
-                  </p>
-                  <p className="mt-1 font-black text-emerald-100">
-                    {match.userGoals > match.opponentGoals
-                      ? `${getNationFlag(selectedNation.name)} ${selectedNation.name}`
-                      : `${getNationFlag(match.opponent.name)} ${match.opponent.name}`}
-                  </p>
-                </div>
-                <div className="rounded-xl border border-rose-300/15 bg-rose-300/8 p-3">
-                  <p className="text-[8px] font-black uppercase tracking-wider text-rose-200/60">
-                    Eliminated
-                  </p>
-                  <p className="mt-1 font-black text-rose-100">
-                    {match.userGoals < match.opponentGoals
-                      ? `${getNationFlag(selectedNation.name)} ${selectedNation.name}`
-                      : `${getNationFlag(match.opponent.name)} ${match.opponent.name}`}
-                  </p>
-                </div>
-              </div>
-              <TournamentBracket
-                rounds={
-                  matchComplete && pendingRound
-                    ? [...bracketRounds, pendingRound]
-                    : bracketRounds
-                }
-                selectedNationCode={selectedNation.code}
-              />
+              {pendingRound ? (
+                <KnockoutRoundSummary
+                  currentRound={pendingRound}
+                  nextRound={
+                    match.round === "Final"
+                      ? null
+                      : createNextOfficialRound(pendingRound)
+                  }
+                  selectedNationCode={selectedNation.code}
+                />
+              ) : null}
             </section>
           ) : null}
 
-          {matchComplete ? (
-            <button
-              onClick={reviewingPrevious ? returnFromPreviousResult : nextMatch}
-              className="mt-5 rounded-2xl bg-[#d8b75b] px-5 py-4 text-sm font-black uppercase tracking-[0.14em] text-black transition hover:bg-[#f6dc86]"
-            >
-              {reviewingPrevious
-                ? "Return to Current Tournament"
-                : match.round === "Group Stage"
-                ? groupIndex === 2
-                  ? "View Group Stage Overview"
-                  : `Continue to Matchday ${groupIndex + 2}`
-                : match.userGoals < match.opponentGoals ||
-                    match.round === "Final"
-                  ? "Tournament Overview"
-                  : `Continue to ${nextRoundLabel(match.round)}`}
-            </button>
-          ) : null}
         </section>
       ) : null}
 
@@ -1716,6 +1869,38 @@ export default function Home() {
                     {worldCupScore.rarity}
                   </p>
                 ) : null}
+                {worldCupScore.underdogBonus > 0 ? (
+                  <p className="mt-3 rounded-full border border-emerald-300/20 bg-emerald-300/10 px-3 py-2 text-[10px] font-black uppercase tracking-wider text-emerald-200">
+                    Underdog Bonus +{worldCupScore.underdogBonus}
+                  </p>
+                ) : null}
+              </section>
+            ) : null}
+
+            {personalBestUpdate && worldCupScore ? (
+              <section
+                className={`relative mx-auto mt-5 max-w-md overflow-hidden rounded-[1.75rem] border p-5 ${
+                  personalBestUpdate.isNewBest
+                    ? "personal-best-glow border-[#f6dc86]/50 bg-[#d8b75b]/15"
+                    : "border-white/10 bg-white/[0.035]"
+                }`}
+              >
+                {personalBestUpdate.isNewBest ? (
+                  <div className="confetti-dots pointer-events-none absolute inset-0" />
+                ) : null}
+                <p className="text-3xl">
+                  {personalBestUpdate.isNewBest ? "🏆" : "🎯"}
+                </p>
+                <h2 className="mt-2 text-xl font-black uppercase text-[#f6dc86]">
+                  {personalBestUpdate.isNewBest
+                    ? "New Personal Best!"
+                    : "Personal Best"}
+                </h2>
+                <p className="mt-2 text-sm font-bold text-white/60">
+                  {personalBestUpdate.isNewBest
+                    ? `Previous best: ${personalBestUpdate.previousBest || "–"} · New best: ${worldCupScore.score}`
+                    : `Your best score: ${personalBestUpdate.stats.bestScore} · Current score: ${worldCupScore.score}`}
+                </p>
               </section>
             ) : null}
 
@@ -1824,6 +2009,39 @@ export default function Home() {
                 View Previous Result
               </button>
             ) : null}
+            <section className="mx-auto mt-8 max-w-2xl rounded-[1.75rem] border border-white/10 bg-white/[0.03] p-4 sm:p-5">
+              <p className="text-[10px] font-black uppercase tracking-[0.2em] text-[#d8b75b]">
+                Try Next
+              </p>
+              <h2 className="mt-1 text-xl font-black">Chase another great run</h2>
+              <p className="mt-1 text-xs text-white/45">
+                Try winning with an underdog, pick a surprise nation, or chase
+                the 99 again.
+              </p>
+              <div className="mt-4 grid gap-2 sm:grid-cols-3">
+                <button
+                  type="button"
+                  onClick={randomReplay}
+                  className="min-h-12 rounded-xl border border-white/10 bg-white/5 px-3 py-3 text-xs font-black uppercase tracking-wider"
+                >
+                  Random Nation Run
+                </button>
+                <button
+                  type="button"
+                  onClick={underdogReplay}
+                  className="min-h-12 rounded-xl border border-emerald-300/20 bg-emerald-300/10 px-3 py-3 text-xs font-black uppercase tracking-wider text-emerald-200"
+                >
+                  Try Underdog
+                </button>
+                <button
+                  type="button"
+                  onClick={() => startReplayWithNation(selectedNation)}
+                  className="min-h-12 rounded-xl bg-[#d8b75b] px-3 py-3 text-xs font-black uppercase tracking-wider text-black"
+                >
+                  Chase 99 Again
+                </button>
+              </div>
+            </section>
             {worldCupScore ? (
               <ShareResult
                 data={{

@@ -7,6 +7,7 @@ import {
   getLeaderboardEntries,
 } from "../lib/leaderboard";
 import { getNationFlag } from "../lib/flags";
+import { getLocalHallOfFame } from "../lib/engagement";
 
 export function LeaderboardModal({
   open,
@@ -38,6 +39,7 @@ export function LeaderboardModal({
   if (!open) return null;
 
   const top20 = entries.slice(0, 20);
+  const hallOfFame = getLocalHallOfFame();
 
   return createPortal(
     <div className="fixed inset-0 z-[70] flex items-center justify-center p-3 sm:p-6">
@@ -76,6 +78,30 @@ export function LeaderboardModal({
         </header>
 
         <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain p-3">
+          <section className="mb-3 rounded-2xl border border-[#d8b75b]/20 bg-[#d8b75b]/[0.06] p-3">
+            <h3 className="text-[9px] font-black uppercase tracking-[0.18em] text-[#d8b75b]">
+              Hall of Fame on this device
+            </h3>
+            <div className="mt-3 grid grid-cols-2 gap-2 text-center">
+              {[
+                ["Best Score", hallOfFame.bestScore || "–"],
+                ["World Cups Won", hallOfFame.worldCupsWon],
+                ["Tournaments", hallOfFame.tournamentsPlayed],
+                ["Favorite Nation", hallOfFame.favoriteNation],
+                ["Best Underdog", hallOfFame.highestUnderdogScore || "–"],
+              ].map(([label, value]) => (
+                <div
+                  key={label}
+                  className="rounded-xl border border-white/8 bg-black/15 p-2 last:col-span-2"
+                >
+                  <p className="text-lg font-black text-[#f6dc86]">{value}</p>
+                  <p className="text-[8px] font-black uppercase tracking-wider text-white/35">
+                    {label}
+                  </p>
+                </div>
+              ))}
+            </div>
+          </section>
           {top20.length === 0 ? (
             <p className="py-12 text-center text-sm text-white/40">
               No runs saved yet. Complete a tournament and save your score.

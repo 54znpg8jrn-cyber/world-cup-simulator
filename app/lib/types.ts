@@ -62,6 +62,8 @@ export interface MatchEvent {
   phase: "chance" | "outcome";
   scorer?: string;
   kind?: "chance" | "penalty" | "var" | "free-kick" | "counter" | "late";
+  goalStyle?: string;
+  special?: "late-winner" | "bicycle-kick" | "free-kick-goal";
 }
 
 export interface SimMatch {

@@ -114,6 +114,37 @@ button {
   animation: event-in .35s ease-out both;
 }
 
+.goal-overlay {
+  animation: goal-overlay 1.15s ease-out both;
+}
+
+.goal-burst {
+  animation: goal-burst 1.15s cubic-bezier(.2,.8,.2,1) both;
+}
+
+.scoreboard-goal {
+  animation: scoreboard-goal .55s ease-in-out 2;
+}
+
+.progression-pop {
+  animation: progression-pop .65s cubic-bezier(.2,.8,.2,1) both;
+}
+
+.personal-best-glow {
+  animation: personal-best-glow 1.2s ease-in-out 3;
+}
+
+.confetti-dots {
+  opacity: .65;
+  background-image:
+    radial-gradient(circle, #f6dc86 0 2px, transparent 3px),
+    radial-gradient(circle, #22c55e 0 2px, transparent 3px),
+    radial-gradient(circle, #ffffff 0 1.5px, transparent 2.5px);
+  background-position: 12% 20%, 76% 28%, 45% 75%;
+  background-size: 48px 48px, 62px 62px, 38px 38px;
+  animation: confetti-drift 2.4s linear infinite;
+}
+
 .result-stat {
   display: flex;
   flex-direction: column;
@@ -144,6 +175,40 @@ button {
 @keyframes event-in {
   from { opacity: 0; transform: translateY(8px); }
   to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes goal-overlay {
+  0%, 100% { opacity: 0; }
+  12%, 72% { opacity: 1; }
+}
+
+@keyframes goal-burst {
+  0% { opacity: 0; transform: scale(.5) rotate(-4deg); }
+  22% { opacity: 1; transform: scale(1.08) rotate(2deg); }
+  68% { opacity: 1; transform: scale(1); }
+  100% { opacity: 0; transform: scale(1.15); }
+}
+
+@keyframes scoreboard-goal {
+  0%, 100% { transform: translateX(0); box-shadow: 0 0 0 rgba(22,163,74,0); }
+  25% { transform: translateX(-3px); }
+  50% { transform: translateX(3px); box-shadow: 0 0 45px rgba(22,163,74,.3); }
+  75% { transform: translateX(-2px); }
+}
+
+@keyframes progression-pop {
+  from { opacity: 0; transform: translateY(12px) scale(.96); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+@keyframes personal-best-glow {
+  0%, 100% { box-shadow: 0 0 20px rgba(216,183,91,.1); }
+  50% { box-shadow: 0 0 60px rgba(216,183,91,.35); }
+}
+
+@keyframes confetti-drift {
+  from { background-position: 12% 0, 76% 8%, 45% 55%; }
+  to { background-position: 12% 100%, 76% 108%, 45% 155%; }
 }
 
 @media (prefers-reduced-motion: reduce) {

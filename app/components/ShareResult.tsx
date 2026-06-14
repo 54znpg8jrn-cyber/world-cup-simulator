@@ -130,6 +130,9 @@ export function ShareResult({
       <h2 className="text-center text-sm font-black uppercase tracking-[0.2em] text-[#f6dc86]">
         Share Your Result
       </h2>
+      <p className="mt-2 text-center text-xs text-white/45">
+        Send this run and see if they can beat your score.
+      </p>
 
       <ShareCard data={data} exportRef={cardRef} />
 

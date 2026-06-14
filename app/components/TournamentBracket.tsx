@@ -5,6 +5,70 @@ import type {
 } from "../lib/types";
 import { getNationFlag } from "../lib/flags";
 
+export function KnockoutRoundSummary({
+  currentRound,
+  nextRound,
+  selectedNationCode,
+}: {
+  currentRound: TournamentRoundResults;
+  nextRound: TournamentRoundResults | null;
+  selectedNationCode: string;
+}) {
+  return (
+    <div className="space-y-5">
+      <RoundSummarySection
+        title={`${currentRound.round} Results`}
+        round={currentRound}
+        selectedNationCode={selectedNationCode}
+        showScores
+      />
+      {nextRound ? (
+        <RoundSummarySection
+          title={
+            nextRound.round === "Final"
+              ? "World Cup Final"
+              : `${nextRound.round} Fixtures`
+          }
+          round={nextRound}
+          selectedNationCode={selectedNationCode}
+          showScores={false}
+        />
+      ) : null}
+    </div>
+  );
+}
+
+function RoundSummarySection({
+  title,
+  round,
+  selectedNationCode,
+  showScores,
+}: {
+  title: string;
+  round: TournamentRoundResults;
+  selectedNationCode: string;
+  showScores: boolean;
+}) {
+  return (
+    <section className="rounded-2xl border border-white/8 bg-black/15 p-3 sm:p-4">
+      <h3 className="mb-3 text-center text-[10px] font-black uppercase tracking-[0.18em] text-[#d8b75b]">
+        {title}
+      </h3>
+      <div className="grid gap-2 sm:grid-cols-2">
+        {round.fixtures.map((fixture) => (
+          <FixtureCard
+            key={fixture.id}
+            fixture={fixture}
+            selectedNationCode={selectedNationCode}
+            final={round.round === "Final"}
+            showScores={showScores}
+          />
+        ))}
+      </div>
+    </section>
+  );
+}
+
 export function TournamentBracket({
   rounds,
   selectedNationCode,
@@ -194,10 +258,12 @@ function FixtureCard({
   fixture,
   selectedNationCode,
   final = false,
+  showScores = true,
 }: {
   fixture: TournamentFixture;
   selectedNationCode: string;
   final?: boolean;
+  showScores?: boolean;
 }) {
   const highlighted =
     fixture.home.code === selectedNationCode ||
@@ -222,13 +288,13 @@ function FixtureCard({
       <FixtureTeam
         name={fixture.home.name}
         flag={getNationFlag(fixture.home.name)}
-        score={fixture.homeGoals}
+        score={showScores ? fixture.homeGoals : undefined}
         winner={fixture.winner?.code === fixture.home.code}
       />
       <FixtureTeam
         name={fixture.away.name}
         flag={getNationFlag(fixture.away.name)}
-        score={fixture.awayGoals}
+        score={showScores ? fixture.awayGoals : undefined}
         winner={fixture.winner?.code === fixture.away.code}
       />
       {fixture.isUpset ? (
@@ -248,7 +314,7 @@ function FixtureTeam({
 }: {
   name: string;
   flag: string;
-  score: number;
+  score?: number;
   winner: boolean;
 }) {
   return (
@@ -259,7 +325,7 @@ function FixtureTeam({
     >
       <span>{flag}</span>
       <span className="min-w-0 flex-1 truncate">{name}</span>
-      <span>{score}</span>
+      {score === undefined ? null : <span>{score}</span>}
     </div>
   );
 }

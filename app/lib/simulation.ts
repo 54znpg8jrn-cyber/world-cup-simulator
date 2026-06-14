@@ -72,14 +72,52 @@ const chanceTexts: Array<{
   { kind: "free-kick", text: "Free kick in a dangerous area..." },
   { kind: "counter", text: "Counter attack..." },
   { kind: "late", text: "Last minute chance..." },
+  { kind: "chance", text: "Corner coming in..." },
+  { kind: "chance", text: "Long-range strike..." },
+  { kind: "chance", text: "One-on-one with the keeper..." },
+  { kind: "chance", text: "Scramble in the box..." },
+  { kind: "chance", text: "Perfect through ball..." },
+  { kind: "chance", text: "Cross into the danger area..." },
+  { kind: "chance", text: "Keeper rushes out..." },
+  { kind: "chance", text: "Defender slips..." },
+  { kind: "late", text: "Huge chance in stoppage time..." },
 ];
 
 const missedOutcomes = [
   "Saved! The goalkeeper gets down brilliantly.",
   "Missed! It flashes wide.",
   "Off the post! Inches away.",
+  "Cleared off the line!",
   "Offside! The flag cuts the celebration short.",
+  "What a save!",
+  "Just wide!",
   "Blocked! A defender throws everything at it.",
+  "Keeper beaten, but it hits the bar!",
+  "VAR overturns it!",
+];
+
+const goalStyles = [
+  "Tap-in from close range.",
+  "Powerful header into the corner.",
+  "Clean volley beyond the keeper.",
+  "Penalty sent the wrong way.",
+  "Free kick curled into the top corner.",
+  "Long-range strike into the bottom corner.",
+  "Solo run finished with ice-cold composure.",
+  "Lightning counter attack.",
+  "Goalkeeper mistake punished.",
+];
+
+const rareGoalStyles = [
+  "BICYCLE KICK! An outrageous finish.",
+  "FREE-KICK GOAL! Straight into the top corner.",
+];
+
+const dramaTexts = [
+  "The stadium is getting nervous...",
+  "One chance could decide this.",
+  "The pressure is unreal.",
+  "The next goal could change everything.",
 ];
 
 export function createMatch(
@@ -117,6 +155,8 @@ export function createMatch(
     forUser: boolean;
     scorer?: string;
     text: string;
+    goalStyle?: string;
+    special?: MatchEvent["special"];
   }> = [];
   const usedMinutes = new Set<number>();
   const nextMinute = () => {
@@ -134,6 +174,11 @@ export function createMatch(
       xi,
     );
     const minute = nextMinute();
+    const rareStyle = Math.random() < 0.06 ? randomItem(rareGoalStyles) : null;
+    const lateWinner = minute >= 85 && userGoals === opponentGoals + 1;
+    const goalStyle = lateWinner
+      ? "90+ winner! The stadium erupts."
+      : rareStyle ?? randomItem(goalStyles);
     outcomes.push({
       minute,
       isGoal: true,
@@ -141,7 +186,15 @@ export function createMatch(
       scorer: scorer.name,
       text: `GOAL! ${scorer.name} ${minute}'${
         assist ? ` (Assist: ${assist.name})` : ""
-      }`,
+      }\n${goalStyle}`,
+      goalStyle,
+      special: lateWinner
+        ? "late-winner"
+        : rareStyle?.startsWith("BICYCLE")
+          ? "bicycle-kick"
+          : rareStyle?.startsWith("FREE-KICK")
+            ? "free-kick-goal"
+            : undefined,
     });
   }
 
@@ -149,6 +202,11 @@ export function createMatch(
     const scorer = pickScorer(opponent, opponentSquad);
     const assist = pickAssist(opponent, scorer, opponentSquad);
     const minute = nextMinute();
+    const rareStyle = Math.random() < 0.05 ? randomItem(rareGoalStyles) : null;
+    const lateWinner = minute >= 85 && opponentGoals === userGoals + 1;
+    const goalStyle = lateWinner
+      ? "Late winner! A devastating finish."
+      : rareStyle ?? randomItem(goalStyles);
     outcomes.push({
       minute,
       isGoal: true,
@@ -156,7 +214,15 @@ export function createMatch(
       scorer: scorer.name,
       text: `GOAL! ${scorer.name} ${minute}'${
         assist ? ` (Assist: ${assist.name})` : ""
-      }`,
+      }\n${goalStyle}`,
+      goalStyle,
+      special: lateWinner
+        ? "late-winner"
+        : rareStyle?.startsWith("BICYCLE")
+          ? "bicycle-kick"
+          : rareStyle?.startsWith("FREE-KICK")
+            ? "free-kick-goal"
+            : undefined,
     });
   }
 
@@ -194,9 +260,35 @@ export function createMatch(
       forUser: outcome.forUser,
       phase: "outcome",
       scorer: outcome.scorer,
+      goalStyle: outcome.goalStyle,
+      special: outcome.special,
     },
     ];
   });
+
+  const lateScore = outcomes
+    .filter((outcome) => outcome.isGoal && outcome.minute <= 75)
+    .reduce(
+      (score, outcome) => {
+        if (outcome.forUser) score.user += 1;
+        else score.opponent += 1;
+        return score;
+      },
+      { user: 0, opponent: 0 },
+    );
+  if (Math.abs(lateScore.user - lateScore.opponent) <= 1) {
+    events.push({
+      minute: 78,
+      text:
+        round !== "Group Stage" && lateScore.user === lateScore.opponent
+          ? "Extra time is looming... Penalties are getting closer."
+          : randomItem(dramaTexts),
+      isGoal: false,
+      forUser: true,
+      phase: "chance",
+      kind: "late",
+    });
+  }
 
   events.sort(
     (a, b) =>
