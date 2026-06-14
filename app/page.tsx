@@ -63,6 +63,19 @@ import {
 
 type View = "landing" | "builder" | "overview" | "simulation" | "result";
 type OverviewType = "group-complete" | "round-intro";
+type MatchScreenSnapshot = {
+  view: View;
+  match: SimMatch | null;
+  groupIndex: number;
+  groupTable: GroupTableRow[];
+  pendingRound: TournamentRoundResults | null;
+  bracketRounds: TournamentRoundResults[];
+  overviewType: OverviewType | null;
+  revealedEvents: number;
+  matchStatus: "ready" | "playing" | "paused" | "finished";
+};
+
+const PRIMARY_FORMATIONS: Formation[] = ["4-3-3", "4-4-2", "4-2-3-1"];
 
 const emptyStats = (): TournamentStats => ({
   wins: 0,
@@ -236,7 +249,6 @@ function PlayerModal({
   open,
   nation,
   usedIds,
-  currentId,
   slotLabel,
   slotCategory,
   onClose,
@@ -245,7 +257,6 @@ function PlayerModal({
   open: boolean;
   nation: Nation | null;
   usedIds: Set<string>;
-  currentId?: string;
   slotLabel: string;
   slotCategory: PositionCategory;
   onClose: () => void;
@@ -278,16 +289,15 @@ function PlayerModal({
       </div>
       <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain p-3 pt-1">
         {players.map((player) => {
-          const unavailable = usedIds.has(player.id) && currentId !== player.id;
+          const inXI = usedIds.has(player.id);
           return (
             <button
               key={player.id}
-              disabled={unavailable}
               onClick={() => {
                 setSearch("");
                 onSelect(player);
               }}
-              className="mb-1 flex min-h-16 w-full items-center gap-3 rounded-2xl p-3 text-left transition hover:bg-white/[0.06] disabled:cursor-not-allowed disabled:opacity-30"
+              className="mb-1 flex min-h-16 w-full items-center gap-3 rounded-2xl p-3 text-left transition hover:bg-white/[0.06]"
             >
               <span className="grid h-12 w-12 place-items-center rounded-2xl bg-[#1d3427] text-xs font-black text-[#8cf2a7]">
                 {player.position}
@@ -301,7 +311,7 @@ function PlayerModal({
                   {player.caps} caps · {player.goals} goals
                 </span>
               </span>
-              {unavailable ? <span className="text-[10px] font-bold uppercase text-white/40">Selected</span> : null}
+              {inXI ? <span className="text-[10px] font-bold uppercase text-white/40">In XI</span> : null}
             </button>
           );
         })}
@@ -451,6 +461,12 @@ export default function Home() {
   const [leaderboardOpen, setLeaderboardOpen] = useState(false);
   const [saveLeaderboardOpen, setSaveLeaderboardOpen] = useState(false);
   const [leaderboardSaved, setLeaderboardSaved] = useState(false);
+  const [showAllFormations, setShowAllFormations] = useState(false);
+  const [previousResult, setPreviousResult] =
+    useState<MatchScreenSnapshot | null>(null);
+  const [resumeSnapshot, setResumeSnapshot] =
+    useState<MatchScreenSnapshot | null>(null);
+  const [reviewingPrevious, setReviewingPrevious] = useState(false);
   const eventFeedRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -459,6 +475,10 @@ export default function Home() {
       return () => window.clearTimeout(timer);
     }
   }, []);
+
+  useEffect(() => {
+    window.scrollTo(0, 0);
+  }, [view, leaderboardOpen, nationModalOpen]);
 
   const slots = FORMATION_SLOTS[formation];
   const xi = slots.map((slot) => selections[slot.id]).filter(Boolean);
@@ -552,12 +572,58 @@ export default function Home() {
     if (feed) feed.scrollTop = feed.scrollHeight;
   }, [revealedEvents]);
 
+  const scrollToTop = () => {
+    window.requestAnimationFrame(() => window.scrollTo(0, 0));
+  };
+
+  const captureMatchScreen = (): MatchScreenSnapshot => ({
+    view,
+    match,
+    groupIndex,
+    groupTable,
+    pendingRound,
+    bracketRounds,
+    overviewType,
+    revealedEvents,
+    matchStatus,
+  });
+
+  const restoreMatchScreen = (snapshot: MatchScreenSnapshot) => {
+    setMatch(snapshot.match);
+    setGroupIndex(snapshot.groupIndex);
+    setGroupTable(snapshot.groupTable);
+    setPendingRound(snapshot.pendingRound);
+    setBracketRounds(snapshot.bracketRounds);
+    setOverviewType(snapshot.overviewType);
+    setRevealedEvents(snapshot.revealedEvents);
+    setMatchStatus(snapshot.matchStatus);
+    setView(snapshot.view);
+    scrollToTop();
+  };
+
+  const viewPreviousResult = () => {
+    if (!previousResult || reviewingPrevious) return;
+    setResumeSnapshot(captureMatchScreen());
+    setReviewingPrevious(true);
+    restoreMatchScreen(previousResult);
+  };
+
+  const returnFromPreviousResult = () => {
+    if (!resumeSnapshot) return;
+    const nextScreen = resumeSnapshot;
+    setReviewingPrevious(false);
+    setResumeSnapshot(null);
+    restoreMatchScreen(nextScreen);
+  };
+
   const chooseNation = (nation: Nation) => {
     setSelectedNation(nation);
     setNationModalOpen(false);
     setFormation("4-3-3");
+    setShowAllFormations(false);
     setSelections({});
     setView("builder");
+    scrollToTop();
   };
 
   const changeFormation = (next: Formation) => {
@@ -609,6 +675,9 @@ export default function Home() {
     setPendingRound(null);
     setOverviewType(null);
     setGroupStageOverview(null);
+    setPreviousResult(null);
+    setResumeSnapshot(null);
+    setReviewingPrevious(false);
     setMatchStatus("ready");
     setSpeed("normal");
     setFinish("");
@@ -623,6 +692,7 @@ export default function Home() {
     );
     setRevealedEvents(0);
     setView("simulation");
+    scrollToTop();
   };
 
   const applyMatch = (played: SimMatch) => {
@@ -656,6 +726,12 @@ export default function Home() {
 
   const nextMatch = () => {
     if (!match || !selectedNation || ratings.overall === null) return;
+    setPreviousResult({
+      ...captureMatchScreen(),
+      view: "simulation",
+      revealedEvents: match.events.length,
+      matchStatus: "finished",
+    });
     applyMatch(match);
     const groupMatchday =
       match.round === "Group Stage"
@@ -730,6 +806,7 @@ export default function Home() {
         );
         setRevealedEvents(0);
         setMatchStatus("ready");
+        scrollToTop();
         return;
       }
       const officialStage = createOfficialGroupStage(
@@ -750,6 +827,7 @@ export default function Home() {
         setPendingRound(null);
         setOverviewType("group-complete");
         setView("overview");
+        scrollToTop();
         return;
       }
       const userRoundOf32 = officialStage.roundOf32.find(
@@ -763,6 +841,7 @@ export default function Home() {
         setPendingRound(null);
         setOverviewType("group-complete");
         setView("overview");
+        scrollToTop();
         return;
       }
       const opponent =
@@ -792,6 +871,7 @@ export default function Home() {
       setMatchStatus("ready");
       setOverviewType("group-complete");
       setView("overview");
+      scrollToTop();
       return;
     }
 
@@ -808,11 +888,13 @@ export default function Home() {
         completeOfficialBracket(completedRounds, tournamentForm),
       );
       setView("result");
+      scrollToTop();
       return;
     }
     if (match.round === "Final") {
       setFinish("World Cup Winners");
       setView("result");
+      scrollToTop();
       return;
     }
 
@@ -829,6 +911,7 @@ export default function Home() {
       );
       setFinish(`Eliminated in ${match.round}`);
       setView("result");
+      scrollToTop();
       return;
     }
     const opponent =
@@ -858,6 +941,7 @@ export default function Home() {
     setMatchStatus("ready");
     setOverviewType("round-intro");
     setView("overview");
+    scrollToTop();
   };
 
   const continueFromOverview = () => {
@@ -871,12 +955,14 @@ export default function Home() {
       setBracketRounds(completeOfficialBracket([roundOf32], tournamentForm));
       setOverviewType(null);
       setView("result");
+      scrollToTop();
       return;
     }
     if (!match) return;
     setOverviewType(null);
     setMatchStatus("ready");
     setView("simulation");
+    scrollToTop();
   };
 
   const playAgain = () => {
@@ -890,6 +976,10 @@ export default function Home() {
     setUserGroupResults([]);
     setLeaderboardSaved(false);
     setView("builder");
+    setPreviousResult(null);
+    setResumeSnapshot(null);
+    setReviewingPrevious(false);
+    scrollToTop();
   };
 
   const changeNation = () => {
@@ -900,12 +990,17 @@ export default function Home() {
     setGroupStageOverview(null);
     setLeaderboardSaved(false);
     setNationModalOpen(true);
+    setPreviousResult(null);
+    setResumeSnapshot(null);
+    setReviewingPrevious(false);
+    scrollToTop();
   };
 
   const goHome = () => {
     setNationModalOpen(false);
     setActiveSlot(null);
     setView("landing");
+    scrollToTop();
   };
 
   const topScorer = Object.entries(stats.scorers).sort((a, b) => b[1] - a[1])[0];
@@ -966,20 +1061,38 @@ export default function Home() {
     <main className="stadium-bg min-h-screen w-full max-w-full overflow-x-hidden text-white">
       {view !== "landing" ? (
         <nav className="mobile-safe-nav no-print fixed inset-x-2 bottom-2 z-40 grid max-w-full grid-cols-4 gap-1 rounded-2xl border border-white/10 bg-[#07100b]/95 p-1.5 shadow-2xl backdrop-blur sm:inset-x-auto sm:bottom-auto sm:right-3 sm:top-3 sm:flex sm:gap-2">
-          <button onClick={goHome} className="min-h-11 rounded-xl px-2 py-2 text-[9px] font-black uppercase tracking-wide text-white/55 hover:bg-white/5 hover:text-white sm:px-3 sm:text-[10px] sm:tracking-wider">
+          <button onClick={goHome} className="min-h-11 min-w-0 rounded-xl px-1 py-2 text-[9px] font-black uppercase tracking-normal text-white/55 hover:bg-white/5 hover:text-white sm:px-3 sm:text-[10px] sm:tracking-wider">
             Home
           </button>
-          <button onClick={() => setNationModalOpen(true)} className="min-h-11 rounded-xl px-2 py-2 text-[9px] font-black uppercase tracking-wide text-white/55 hover:bg-white/5 hover:text-white sm:px-3 sm:text-[10px] sm:tracking-wider">
-            Simulator
+          <button
+            onClick={() => {
+              setNationModalOpen(true);
+              scrollToTop();
+            }}
+            className={`min-h-11 min-w-0 rounded-xl px-1 py-2 text-[9px] font-black uppercase tracking-normal hover:bg-white/10 sm:px-3 sm:text-[10px] sm:tracking-wider ${
+              leaderboardOpen
+                ? "text-white/55"
+                : "bg-white/5 text-white"
+            }`}
+          >
+            <span className="sm:hidden">Sim</span>
+            <span className="hidden sm:inline">Simulator</span>
           </button>
           <button
-            onClick={() => setLeaderboardOpen(true)}
-            className="min-h-11 rounded-xl px-1 py-2 text-[8px] font-black uppercase tracking-normal text-white/55 hover:bg-white/5 hover:text-white sm:px-3 sm:text-[10px] sm:tracking-wider"
+            onClick={() => {
+              setLeaderboardOpen(true);
+              scrollToTop();
+            }}
+            className={`min-h-11 min-w-0 rounded-xl px-1 py-2 text-[9px] font-black uppercase tracking-normal hover:bg-white/5 sm:px-3 sm:text-[10px] sm:tracking-wider ${
+              leaderboardOpen ? "bg-[#d8b75b]/15 text-[#f6dc86]" : "text-white/55"
+            }`}
           >
-            Leaderboard
+            <span className="sm:hidden">Board</span>
+            <span className="hidden sm:inline">Leaderboard</span>
           </button>
-          <Link href="/wall-chart" className="flex min-h-11 items-center justify-center rounded-xl bg-[#d8b75b]/10 px-1 py-2 text-center text-[8px] font-black uppercase tracking-normal text-[#f6dc86] sm:px-3 sm:text-[10px] sm:tracking-wider">
-            Wall Chart
+          <Link href="/wall-chart" className="flex min-h-11 min-w-0 items-center justify-center rounded-xl px-1 py-2 text-center text-[9px] font-black uppercase tracking-normal text-white/55 hover:bg-white/5 sm:bg-[#d8b75b]/10 sm:px-3 sm:text-[10px] sm:tracking-wider sm:text-[#f6dc86]">
+            <span className="sm:hidden">Overview</span>
+            <span className="hidden sm:inline">Overview</span>
           </Link>
         </nav>
       ) : null}
@@ -1046,7 +1159,52 @@ export default function Home() {
 
           <div className="grid w-full min-w-0 gap-6 lg:grid-cols-[minmax(0,1fr)_20rem]">
             <div className="min-w-0">
-              <div className="mb-3 grid w-full max-w-full min-w-0 grid-cols-2 gap-2 sm:flex sm:overflow-x-auto sm:pb-2">
+              <div className="mb-3 md:hidden">
+                <div className="grid grid-cols-4 gap-2">
+                  {PRIMARY_FORMATIONS.map((option) => (
+                    <button
+                      key={option}
+                      onClick={() => changeFormation(option)}
+                      className={`min-h-11 min-w-0 rounded-xl px-1.5 py-2 text-[10px] font-black transition ${
+                        formation === option ? "bg-[#d8b75b] text-black" : "border border-white/10 bg-white/5 text-white/60"
+                      }`}
+                    >
+                      {option}
+                    </button>
+                  ))}
+                  <button
+                    type="button"
+                    onClick={() => setShowAllFormations((current) => !current)}
+                    className={`min-h-11 min-w-0 rounded-xl px-1.5 py-2 text-[10px] font-black transition ${
+                      !PRIMARY_FORMATIONS.includes(formation)
+                        ? "bg-[#d8b75b] text-black"
+                        : "border border-white/10 bg-white/5 text-white/60"
+                    }`}
+                  >
+                    Other
+                  </button>
+                </div>
+                {showAllFormations ? (
+                  <div className="mt-2 grid grid-cols-2 gap-2">
+                    {FORMATIONS.filter(
+                      (option) => !PRIMARY_FORMATIONS.includes(option),
+                    ).map((option) => (
+                      <button
+                        key={option}
+                        onClick={() => changeFormation(option)}
+                        className={`min-h-11 min-w-0 rounded-xl px-2 py-2 text-xs font-black transition ${
+                          formation === option
+                            ? "bg-[#d8b75b] text-black"
+                            : "border border-white/10 bg-white/5 text-white/60"
+                        }`}
+                      >
+                        {option}
+                      </button>
+                    ))}
+                  </div>
+                ) : null}
+              </div>
+              <div className="mb-3 hidden w-full max-w-full min-w-0 gap-2 overflow-x-auto pb-2 md:flex">
                 {FORMATIONS.map((option) => (
                   <button
                     key={option}
@@ -1114,6 +1272,15 @@ export default function Home() {
 
       {view === "overview" && selectedNation ? (
         <section className="mx-auto min-h-screen w-full max-w-6xl min-w-0 px-4 py-8 pb-24 sm:px-8 sm:py-12 sm:pb-12">
+          {previousResult && !reviewingPrevious ? (
+            <button
+              type="button"
+              onClick={viewPreviousResult}
+              className="mb-4 min-h-11 w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-xs font-black uppercase tracking-wider text-white/60 sm:w-auto"
+            >
+              View Previous Result
+            </button>
+          ) : null}
           <div
             className={`w-full max-w-full min-w-0 overflow-hidden rounded-[2.25rem] border p-5 shadow-2xl sm:p-8 ${
               match?.round === "Final"
@@ -1279,6 +1446,15 @@ export default function Home() {
 
       {view === "simulation" && selectedNation && match ? (
         <section className="mx-auto flex min-h-screen w-full max-w-3xl min-w-0 flex-col px-4 py-4 pb-24 sm:px-8 sm:pb-4">
+          {previousResult && !reviewingPrevious && !matchComplete ? (
+            <button
+              type="button"
+              onClick={viewPreviousResult}
+              className="mb-4 min-h-11 w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-xs font-black uppercase tracking-wider text-white/60 sm:w-auto sm:self-start"
+            >
+              View Previous Result
+            </button>
+          ) : null}
           <header className="mb-4 flex items-center justify-between">
             <div>
               <p className="text-[10px] font-black uppercase tracking-[0.25em] text-[#d8b75b]">{match.round}</p>
@@ -1498,10 +1674,12 @@ export default function Home() {
 
           {matchComplete ? (
             <button
-              onClick={nextMatch}
+              onClick={reviewingPrevious ? returnFromPreviousResult : nextMatch}
               className="mt-5 rounded-2xl bg-[#d8b75b] px-5 py-4 text-sm font-black uppercase tracking-[0.14em] text-black transition hover:bg-[#f6dc86]"
             >
-              {match.round === "Group Stage"
+              {reviewingPrevious
+                ? "Return to Current Tournament"
+                : match.round === "Group Stage"
                 ? groupIndex === 2
                   ? "View Group Stage Overview"
                   : `Continue to Matchday ${groupIndex + 2}`
@@ -1540,6 +1718,24 @@ export default function Home() {
                 ) : null}
               </section>
             ) : null}
+
+            <div className="mx-auto mt-5 grid w-full max-w-md gap-2 sm:grid-cols-2">
+              <button
+                type="button"
+                onClick={() => setSaveLeaderboardOpen(true)}
+                disabled={leaderboardSaved || !worldCupScore}
+                className="min-h-12 rounded-2xl border border-[#d8b75b]/30 bg-[#d8b75b]/10 px-4 py-3 text-xs font-black uppercase tracking-wider text-[#f6dc86] hover:bg-[#d8b75b]/15 disabled:cursor-not-allowed disabled:opacity-40"
+              >
+                {leaderboardSaved ? "Saved to Leaderboard" : "Save to Leaderboard"}
+              </button>
+              <button
+                type="button"
+                onClick={() => setLeaderboardOpen(true)}
+                className="min-h-12 rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-xs font-black uppercase tracking-wider hover:bg-white/10"
+              >
+                View Leaderboard
+              </button>
+            </div>
 
             <section className="mt-8 rounded-[1.75rem] border border-emerald-300/15 bg-emerald-300/[0.035] p-4 text-left sm:p-6">
               <h2 className="text-sm font-black uppercase tracking-[0.2em] text-[#8cf2a7]">
@@ -1619,23 +1815,15 @@ export default function Home() {
               />
             </div>
 
-            <div className="mt-6 grid gap-2 sm:grid-cols-2">
+            {previousResult && !reviewingPrevious ? (
               <button
                 type="button"
-                onClick={() => setSaveLeaderboardOpen(true)}
-                disabled={leaderboardSaved || !worldCupScore}
-                className="min-h-12 rounded-2xl border border-[#d8b75b]/30 bg-[#d8b75b]/10 px-4 py-3 text-xs font-black uppercase tracking-wider text-[#f6dc86] hover:bg-[#d8b75b]/15 disabled:cursor-not-allowed disabled:opacity-40"
+                onClick={viewPreviousResult}
+                className="mx-auto mt-6 min-h-11 w-full max-w-md rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-xs font-black uppercase tracking-wider text-white/60"
               >
-                {leaderboardSaved ? "Saved to Leaderboard" : "Save to Leaderboard"}
+                View Previous Result
               </button>
-              <button
-                type="button"
-                onClick={() => setLeaderboardOpen(true)}
-                className="min-h-12 rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-xs font-black uppercase tracking-wider hover:bg-white/10"
-              >
-                View Leaderboard
-              </button>
-            </div>
+            ) : null}
             {worldCupScore ? (
               <ShareResult
                 data={{
@@ -1675,7 +1863,6 @@ export default function Home() {
         open={activeSlot !== null}
         nation={selectedNation}
         usedIds={new Set(Object.values(selections).map((player) => player.id))}
-        currentId={activeSlot ? selections[activeSlot]?.id : undefined}
         slotLabel={currentSlot?.label ?? "Player"}
         slotCategory={currentSlot?.category ?? "FW"}
         onClose={() => setActiveSlot(null)}

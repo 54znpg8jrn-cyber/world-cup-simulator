@@ -17,6 +17,14 @@ import { getNationFlag } from "../lib/flags";
 
 const WALL_CHART_STORAGE_KEY = "world-cup-wall-chart-scores-v1";
 
+const WALL_CHART_NATION_NAMES: Record<string, string> = {
+  USA: "United States",
+  "Czech Republic": "Czechia",
+};
+
+const wallChartNationName = (name: string) =>
+  WALL_CHART_NATION_NAMES[name] ?? name;
+
 const GROUP_COLORS: Record<string, string> = {
   A: "#36c98f",
   B: "#6dd3ff",
@@ -152,7 +160,7 @@ export default function WallChartPage() {
             <p className="text-[9px] font-black uppercase tracking-[0.24em] text-[#d8b75b]">
               Tournament Planner
             </p>
-            <h1 className="font-black">World Cup Wall Chart</h1>
+            <h1 className="font-black">World Cup Results &amp; Overview</h1>
           </div>
           <nav className="grid w-full grid-cols-3 gap-2 sm:flex sm:w-auto sm:flex-wrap sm:justify-end">
             <Link href="/" className="wall-nav-button">
@@ -190,21 +198,35 @@ export default function WallChartPage() {
             <span className="rounded-full border border-emerald-300/20 bg-emerald-300/10 px-4 py-2 text-xs font-black text-emerald-200">
               {saveMessage}
             </span>
-            <div className="grid w-full gap-2 sm:flex sm:w-auto sm:flex-wrap">
-              <PrintButton onClick={() => printPage("groups")}>
-                Print Group Stage
-              </PrintButton>
-              <PrintButton onClick={() => printPage("knockout")}>
-                Print Knockout Bracket
-              </PrintButton>
-            </div>
+          </div>
+        </section>
+
+        <section className="mt-6 w-full max-w-full min-w-0 rounded-2xl border border-[#d8b75b]/20 bg-[#d8b75b]/[0.055] p-4 sm:flex sm:items-center sm:justify-between sm:gap-5 sm:p-5">
+          <div className="min-w-0">
+            <p className="text-[10px] font-black uppercase tracking-[0.22em] text-[#d8b75b]">
+              Print at home
+            </p>
+            <h2 className="mt-1 text-xl font-black">
+              Printable World Cup Wall Chart
+            </h2>
+            <p className="mt-1 text-xs text-white/45">
+              One-page group stage planner and knockout bracket.
+            </p>
+          </div>
+          <div className="mt-4 grid w-full gap-2 sm:mt-0 sm:w-auto sm:grid-cols-2">
+            <PrintButton onClick={() => printPage("groups")}>
+              Print Group Stage
+            </PrintButton>
+            <PrintButton onClick={() => printPage("knockout")}>
+              Print Knockout Bracket
+            </PrintButton>
           </div>
         </section>
 
         <section className="mt-10 w-full max-w-full min-w-0">
           <SectionTitle
             eyebrow="Matches 1-72"
-            title="Official Group-Stage Schedule"
+            title="Match Schedule"
             description="Fixtures follow the official chronological match sequence."
           />
           <div className="wall-schedule-grid mt-5">
@@ -224,11 +246,12 @@ export default function WallChartPage() {
                 </div>
                 <div className="wall-fixture-teams">
                   <span>
-                    {getNationFlag(fixture.home.name)} {fixture.home.name}
+                    {getNationFlag(fixture.home.name)}{" "}
+                    {wallChartNationName(fixture.home.name)}
                   </span>
                   <ScoreInput
                     value={scores[fixture.id]?.home ?? ""}
-                    label={`Match ${fixture.matchNumber}, ${fixture.home.name} score`}
+                    label={`Match ${fixture.matchNumber}, ${wallChartNationName(fixture.home.name)} score`}
                     onChange={(value) =>
                       updateScore(fixture.id, "home", value)
                     }
@@ -236,13 +259,14 @@ export default function WallChartPage() {
                   <i>-</i>
                   <ScoreInput
                     value={scores[fixture.id]?.away ?? ""}
-                    label={`Match ${fixture.matchNumber}, ${fixture.away.name} score`}
+                    label={`Match ${fixture.matchNumber}, ${wallChartNationName(fixture.away.name)} score`}
                     onChange={(value) =>
                       updateScore(fixture.id, "away", value)
                     }
                   />
                   <span>
-                    {fixture.away.name} {getNationFlag(fixture.away.name)}
+                    {wallChartNationName(fixture.away.name)}{" "}
+                    {getNationFlag(fixture.away.name)}
                   </span>
                 </div>
               </article>
@@ -675,11 +699,11 @@ function PrintableWallChart() {
                 >
                   <b>{fixture.matchNumber}</b>
                   <em>{fixture.group}</em>
-                  <span>{fixture.home.name}</span>
+                  <span>{wallChartNationName(fixture.home.name)}</span>
                   <i />
                   <strong>-</strong>
                   <i />
-                  <span>{fixture.away.name}</span>
+                  <span>{wallChartNationName(fixture.away.name)}</span>
                 </div>
               ))}
             </div>

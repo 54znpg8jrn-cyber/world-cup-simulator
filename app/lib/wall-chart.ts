@@ -14,6 +14,7 @@ import {
 export interface WallChartFixture {
   id: string;
   matchNumber: number;
+  order: number;
   group: string;
   home: Nation;
   away: Nation;
@@ -127,10 +128,10 @@ type GroupScheduleSeed = [
   awayIndex: number,
 ];
 
-const GROUP_STAGE_SCHEDULE: GroupScheduleSeed[] = [
+export const officialGroupStageSchedule: GroupScheduleSeed[] = [
   [1, "A", 0, 1], [2, "A", 2, 3], [3, "B", 0, 1], [4, "D", 0, 1],
-  [5, "C", 2, 3], [6, "D", 2, 3], [7, "C", 0, 1], [8, "B", 2, 3],
-  [9, "E", 2, 3], [10, "E", 0, 1], [11, "F", 0, 1], [12, "F", 2, 3],
+  [5, "B", 2, 3], [6, "C", 0, 1], [7, "C", 2, 3], [8, "D", 2, 3],
+  [9, "E", 0, 1], [10, "F", 0, 1], [11, "E", 2, 3], [12, "F", 2, 3],
   [13, "H", 2, 3], [14, "H", 0, 1], [15, "G", 2, 3], [16, "G", 0, 1],
   [17, "I", 0, 1], [18, "I", 2, 3], [19, "J", 0, 1], [20, "J", 2, 3],
   [21, "L", 2, 3], [22, "L", 0, 1], [23, "K", 0, 1], [24, "K", 2, 3],
@@ -149,13 +150,14 @@ const GROUP_STAGE_SCHEDULE: GroupScheduleSeed[] = [
 ];
 
 export const WALL_CHART_FIXTURES: WallChartFixture[] =
-  GROUP_STAGE_SCHEDULE.map(([matchNumber, group, homeIndex, awayIndex]) => {
+  officialGroupStageSchedule.map(([matchNumber, group, homeIndex, awayIndex]) => {
     const nations = WORLD_CUP_GROUPS[group];
     const lowIndex = Math.min(homeIndex, awayIndex);
     const highIndex = Math.max(homeIndex, awayIndex);
     return {
       id: `group-${group}-${lowIndex}-${highIndex}`,
       matchNumber,
+      order: matchNumber,
       group,
       home: nations[homeIndex],
       away: nations[awayIndex],
