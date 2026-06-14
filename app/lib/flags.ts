@@ -15,7 +15,7 @@ const NATION_FLAGS: Record<string, string> = {
   "DR Congo": "🇨🇩",
   Ecuador: "🇪🇨",
   Egypt: "🇪🇬",
-  England: "ENG",
+  England: "🏴",
   France: "🇫🇷",
   Germany: "🇩🇪",
   Ghana: "🇬🇭",
@@ -36,7 +36,7 @@ const NATION_FLAGS: Record<string, string> = {
   Portugal: "🇵🇹",
   Qatar: "🇶🇦",
   "Saudi Arabia": "🇸🇦",
-  Scotland: "SCO",
+  Scotland: "🏴",
   Senegal: "🇸🇳",
   "South Africa": "🇿🇦",
   "South Korea": "🇰🇷",
@@ -48,7 +48,7 @@ const NATION_FLAGS: Record<string, string> = {
   Uruguay: "🇺🇾",
   USA: "🇺🇸",
   Uzbekistan: "🇺🇿",
-  Wales: "WAL",
+  Wales: "🏴",
 };
 
 export function getNationFlag(nation: string): string {

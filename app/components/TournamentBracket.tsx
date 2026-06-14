@@ -3,7 +3,7 @@ import type {
   TournamentRound,
   TournamentRoundResults,
 } from "../lib/types";
-import { getNationFlag } from "../lib/flags";
+import { NationFlag } from "./NationFlag";
 
 export function KnockoutRoundSummary({
   currentRound,
@@ -35,6 +35,27 @@ export function KnockoutRoundSummary({
         />
       ) : null}
     </div>
+  );
+}
+
+export function KnockoutRoundFixtures({
+  round,
+  selectedNationCode,
+}: {
+  round: TournamentRoundResults;
+  selectedNationCode: string;
+}) {
+  return (
+    <RoundSummarySection
+      title={
+        round.round === "Final"
+          ? "World Cup Final"
+          : `${round.round} Fixtures`
+      }
+      round={round}
+      selectedNationCode={selectedNationCode}
+      showScores={false}
+    />
   );
 }
 
@@ -72,9 +93,11 @@ function RoundSummarySection({
 export function TournamentBracket({
   rounds,
   selectedNationCode,
+  alwaysWide = false,
 }: {
   rounds: TournamentRoundResults[];
   selectedNationCode: string;
+  alwaysWide?: boolean;
 }) {
   if (!rounds.length) {
     return (
@@ -107,7 +130,7 @@ export function TournamentBracket({
 
   return (
     <>
-      <div className="w-full max-w-full min-w-0 space-y-5 overflow-hidden md:hidden">
+      <div className={`${alwaysWide ? "hidden" : "w-full max-w-full min-w-0 space-y-5 overflow-hidden md:hidden"}`}>
         {rounds.map((round) => (
           <section
             key={round.round}
@@ -130,7 +153,7 @@ export function TournamentBracket({
         ))}
       </div>
 
-      <div className="tournament-bracket-scroll hidden pb-4 md:block">
+      <div className={`tournament-bracket-scroll pb-4 ${alwaysWide ? "block" : "hidden md:block"}`}>
         <div className="tournament-bracket-grid">
         <BracketColumn
           title="Round of 32"
@@ -287,13 +310,11 @@ function FixtureCard({
       ) : null}
       <FixtureTeam
         name={fixture.home.name}
-        flag={getNationFlag(fixture.home.name)}
         score={showScores ? fixture.homeGoals : undefined}
         winner={fixture.winner?.code === fixture.home.code}
       />
       <FixtureTeam
         name={fixture.away.name}
-        flag={getNationFlag(fixture.away.name)}
         score={showScores ? fixture.awayGoals : undefined}
         winner={fixture.winner?.code === fixture.away.code}
       />
@@ -308,12 +329,10 @@ function FixtureCard({
 
 function FixtureTeam({
   name,
-  flag,
   score,
   winner,
 }: {
   name: string;
-  flag: string;
   score?: number;
   winner: boolean;
 }) {
@@ -323,7 +342,7 @@ function FixtureTeam({
         winner ? "font-black text-[#f6dc86]" : "text-white/55"
       }`}
     >
-      <span>{flag}</span>
+      <NationFlag nation={name} className="text-base" />
       <span className="min-w-0 flex-1 truncate">{name}</span>
       {score === undefined ? null : <span>{score}</span>}
     </div>

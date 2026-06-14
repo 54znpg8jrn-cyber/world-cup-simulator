@@ -28,9 +28,6 @@ export interface WorldCupScoreResult {
 const SHARE_URL = "https://world-cup-simulator-xi.vercel.app";
 
 export function getShareUrl(): string {
-  if (typeof window !== "undefined" && window.location.origin) {
-    return window.location.origin;
-  }
   return SHARE_URL;
 }
 

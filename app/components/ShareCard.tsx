@@ -2,7 +2,7 @@
 
 import type { RefObject } from "react";
 import type { Nation } from "../lib/types";
-import { getNationFlag } from "../lib/flags";
+import { NationFlag } from "./NationFlag";
 
 export interface ShareCardData {
   nation: Nation;
@@ -24,7 +24,7 @@ export function ShareCard({
   return (
     <div
       ref={exportRef}
-      className="share-card relative mx-auto flex aspect-[9/16] w-full max-w-[18rem] flex-col overflow-hidden rounded-[2rem] border border-[#d8b75b]/25 bg-[linear-gradient(160deg,#18301f,#07100b_55%,#020503)] p-5 text-center shadow-[0_25px_80px_rgba(0,0,0,.45)]"
+      className="share-card relative mx-auto mt-5 flex aspect-[9/16] w-full max-w-[18rem] flex-col overflow-hidden rounded-[2rem] border border-[#d8b75b]/25 bg-[linear-gradient(160deg,#18301f,#07100b_55%,#020503)] p-5 text-center shadow-[0_25px_80px_rgba(0,0,0,.45)]"
     >
       <div
         className="pointer-events-none absolute inset-0 opacity-30"
@@ -39,7 +39,7 @@ export function ShareCard({
         World Cup Simulator
       </p>
 
-      <span className="mt-4 text-5xl">{getNationFlag(data.nation.name)}</span>
+      <NationFlag nation={data.nation.name} className="mt-4 text-5xl" />
       <h3 className="mt-2 text-xl font-black uppercase">{data.nation.name}</h3>
       <p className="mt-1 text-[10px] font-black uppercase tracking-wider text-[#f6dc86]">
         {data.finish}

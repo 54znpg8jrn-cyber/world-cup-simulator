@@ -6,8 +6,8 @@ import {
   clearLeaderboardEntries,
   getLeaderboardEntries,
 } from "../lib/leaderboard";
-import { getNationFlag } from "../lib/flags";
 import { getLocalHallOfFame } from "../lib/engagement";
+import { NationFlag } from "./NationFlag";
 
 export function LeaderboardModal({
   open,
@@ -119,8 +119,9 @@ export function LeaderboardModal({
                     </span>
                     <div className="min-w-0 flex-1">
                       <div className="flex items-center justify-between gap-2">
-                        <p className="truncate font-black">
-                          {getNationFlag(entry.nation)} {entry.name}
+                        <p className="flex min-w-0 items-center gap-1.5 font-black">
+                          <NationFlag nation={entry.nation} className="text-base" />
+                          <span className="truncate">{entry.name}</span>
                         </p>
                         <span className="shrink-0 text-xl font-black text-[#f6dc86]">
                           {entry.score}

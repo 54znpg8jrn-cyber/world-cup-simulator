@@ -1,31 +1,27 @@
 "use client";
 
 import { useRef, useState } from "react";
-import { buildChallengeText, getShareUrl } from "../lib/score";
+import { getShareUrl } from "../lib/score";
 import type { ShareCardData } from "./ShareCard";
 import { ShareCard } from "./ShareCard";
 
 export function ShareResult({
   data,
-  onPlayAgain,
-  onChangeNation,
 }: {
   data: ShareCardData;
-  onPlayAgain: () => void;
-  onChangeNation: () => void;
 }) {
   const [message, setMessage] = useState("");
   const [busyAction, setBusyAction] = useState<string | null>(null);
   const cardRef = useRef<HTMLDivElement>(null);
 
-  const challengeText = buildChallengeText({
-    nation: data.nation,
-    finish: data.finish,
-    score: data.score,
-    scoreTitle: data.scoreTitle,
-    topScorer: data.topScorer,
-    mvp: data.mvp,
-  });
+  const challengeText = [
+    `I scored ${data.score} in World Cup Simulator.`,
+    "",
+    "Can you beat my score?",
+    "",
+    "Play here:",
+    getShareUrl(),
+  ].join("\n");
 
   const exportImage = async (): Promise<Blob | null> => {
     const element = cardRef.current;
@@ -82,28 +78,21 @@ export function ShareResult({
   const shareResult = async () => {
     setBusyAction("share");
     try {
-      if (navigator.share) {
-        const blob = await exportImage();
-        const file = blob
-          ? new File([blob], "world-cup-simulator-result.png", {
-              type: "image/png",
-            })
-          : null;
+      const blob = await exportImage();
+      if (!blob) {
+        setMessage("Could not create the result image. Try again.");
+        return;
+      }
+      const file = new File([blob], "world-cup-simulator-result.png", {
+        type: "image/png",
+      });
 
+      if (navigator.share && navigator.canShare?.({ files: [file] })) {
         try {
-          if (file && navigator.canShare?.({ files: [file] })) {
-            await navigator.share({
-              title: "World Cup Simulator Result",
-              text: challengeText,
-              files: [file],
-            });
-          } else {
-            await navigator.share({
-              title: "World Cup Simulator Result",
-              text: challengeText,
-              url: getShareUrl(),
-            });
-          }
+          await navigator.share({
+            title: "World Cup Simulator Result",
+            files: [file],
+          });
           setMessage("Result shared!");
           return;
         } catch (error) {
@@ -114,12 +103,13 @@ export function ShareResult({
         }
       }
 
-      const copied = await copyText(challengeText);
-      setMessage(
-        copied
-          ? "Share text copied!"
-          : "Sharing is unavailable. Try downloading the image.",
-      );
+      const imageUrl = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = imageUrl;
+      link.download = "world-cup-simulator-result.png";
+      link.click();
+      window.setTimeout(() => URL.revokeObjectURL(imageUrl), 1000);
+      setMessage("Result image downloaded!");
     } finally {
       setBusyAction(null);
     }
@@ -128,13 +118,11 @@ export function ShareResult({
   return (
     <section className="mt-8 border-t border-white/10 pt-7">
       <h2 className="text-center text-sm font-black uppercase tracking-[0.2em] text-[#f6dc86]">
-        Share Your Result
+        Challenge / Share
       </h2>
       <p className="mt-2 text-center text-xs text-white/45">
-        Send this run and see if they can beat your score.
+        Invite a friend to play, or post your result card.
       </p>
-
-      <ShareCard data={data} exportRef={cardRef} />
 
       <div className="mx-auto mt-5 grid w-full max-w-md gap-3">
         <button
@@ -153,23 +141,8 @@ export function ShareResult({
         >
           {busyAction === "share" ? "Preparing Share..." : "Share Result"}
         </button>
-        <div className="grid grid-cols-2 gap-3">
-          <button
-            type="button"
-            onClick={onPlayAgain}
-            className="min-h-12 rounded-2xl border border-white/10 bg-white/5 px-3 py-3 text-[10px] font-black uppercase tracking-wide hover:bg-white/10 sm:px-4 sm:text-xs sm:tracking-wider"
-          >
-            Play Again
-          </button>
-          <button
-            type="button"
-            onClick={onChangeNation}
-            className="min-h-12 rounded-2xl border border-white/10 bg-white/5 px-3 py-3 text-[10px] font-black uppercase tracking-wide hover:bg-white/10 sm:px-4 sm:text-xs sm:tracking-wider"
-          >
-            Change Nation
-          </button>
-        </div>
       </div>
+      <ShareCard data={data} exportRef={cardRef} />
       {message ? (
         <p
           className="mt-3 text-center text-xs font-bold text-white/60"

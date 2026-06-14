@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { WORLD_CUP_GROUPS } from "../data/groups";
 import {
   KNOCKOUT_PLACEHOLDER_ROUNDS,
@@ -13,7 +13,7 @@ import {
   type ScoreValue,
 } from "../lib/wall-chart";
 import type { TournamentFixture } from "../lib/types";
-import { getNationFlag } from "../lib/flags";
+import { NationFlag } from "../components/NationFlag";
 
 const WALL_CHART_STORAGE_KEY = "world-cup-wall-chart-scores-v1";
 
@@ -246,7 +246,7 @@ export default function WallChartPage() {
                 </div>
                 <div className="wall-fixture-teams">
                   <span>
-                    {getNationFlag(fixture.home.name)}{" "}
+                    <NationFlag nation={fixture.home.name} className="mr-1 text-base" />
                     {wallChartNationName(fixture.home.name)}
                   </span>
                   <ScoreInput
@@ -266,7 +266,7 @@ export default function WallChartPage() {
                   />
                   <span>
                     {wallChartNationName(fixture.away.name)}{" "}
-                    {getNationFlag(fixture.away.name)}
+                    <NationFlag nation={fixture.away.name} className="ml-1 text-base" />
                   </span>
                 </div>
               </article>
@@ -312,7 +312,7 @@ export default function WallChartPage() {
                       <tr key={row.nation.code}>
                         <td>
                           <span>{index + 1}</span>{" "}
-                          {getNationFlag(row.nation.name)}{" "}
+                          <NationFlag nation={row.nation.name} className="mr-1 text-base" />
                           {row.nation.name}
                         </td>
                         <td>{row.played}</td>
@@ -585,7 +585,12 @@ function DigitalBracketMatch({
       <BracketTeamRow
         name={
           fixture
-            ? `${getNationFlag(fixture.home.name)} ${fixture.home.name}`
+            ? (
+                <span className="flex min-w-0 items-center gap-1">
+                  <NationFlag nation={fixture.home.name} className="text-base" />
+                  <span className="truncate">{fixture.home.name}</span>
+                </span>
+              )
             : placeholder.homeLabel
         }
         score={score?.home ?? ""}
@@ -596,7 +601,12 @@ function DigitalBracketMatch({
       <BracketTeamRow
         name={
           fixture
-            ? `${getNationFlag(fixture.away.name)} ${fixture.away.name}`
+            ? (
+                <span className="flex min-w-0 items-center gap-1">
+                  <NationFlag nation={fixture.away.name} className="text-base" />
+                  <span className="truncate">{fixture.away.name}</span>
+                </span>
+              )
             : placeholder.awayLabel
         }
         score={score?.away ?? ""}
@@ -615,7 +625,7 @@ function BracketTeamRow({
   label,
   onChange,
 }: {
-  name: string;
+  name: ReactNode;
   score: string;
   disabled: boolean;
   label: string;

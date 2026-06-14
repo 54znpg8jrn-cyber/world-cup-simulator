@@ -1,9 +1,10 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import Link from "next/link";
 import {
+  KnockoutRoundFixtures,
   KnockoutRoundSummary,
   TournamentBracket,
 } from "./components/TournamentBracket";
@@ -12,6 +13,7 @@ import {
   SaveToLeaderboardModal,
 } from "./components/Leaderboard";
 import { ShareResult } from "./components/ShareResult";
+import { NationFlag } from "./components/NationFlag";
 import {
   createLeaderboardEntry,
   saveLeaderboardEntry,
@@ -71,6 +73,12 @@ import {
 
 type View = "landing" | "builder" | "overview" | "simulation" | "result";
 type OverviewType = "group-complete" | "round-intro";
+type NationDrawMode = "random" | "underdog";
+type NationDrawState = {
+  mode: NationDrawMode;
+  current: Nation;
+  revealed: boolean;
+};
 type MatchScreenSnapshot = {
   view: View;
   match: SimMatch | null;
@@ -185,11 +193,13 @@ function NationModal({
   selected,
   onClose,
   onSelect,
+  onRandomize,
 }: {
   open: boolean;
   selected: Nation | null;
   onClose: () => void;
   onSelect: (nation: Nation) => void;
+  onRandomize: (mode: NationDrawMode) => void;
 }) {
   const [search, setSearch] = useState("");
   const query = search.trim().toLowerCase();
@@ -205,6 +215,30 @@ function NationModal({
   return (
     <Modal open={open} title="Choose your nation" eyebrow="The road begins" onClose={onClose}>
       <div className="shrink-0 p-4 pb-2">
+        <section className="mb-4 rounded-2xl border border-[#d8b75b]/20 bg-[#d8b75b]/[0.06] p-3">
+          <p className="text-[9px] font-black uppercase tracking-[0.2em] text-[#d8b75b]">
+            Choose your path
+          </p>
+          <div className="mt-3 grid grid-cols-2 gap-2">
+            <button
+              type="button"
+              onClick={() => onRandomize("random")}
+              className="min-h-12 rounded-xl bg-[#d8b75b] px-3 py-3 text-[10px] font-black uppercase tracking-wider text-black"
+            >
+              Random Nation
+            </button>
+            <button
+              type="button"
+              onClick={() => onRandomize("underdog")}
+              className="min-h-12 rounded-xl border border-emerald-300/20 bg-emerald-300/10 px-3 py-3 text-[10px] font-black uppercase tracking-wider text-emerald-200"
+            >
+              Underdog Run
+            </button>
+          </div>
+        </section>
+        <p className="mb-2 text-[9px] font-black uppercase tracking-[0.2em] text-white/35">
+          Choose your nation
+        </p>
         <input
           value={search}
           onChange={(event) => setSearch(event.target.value)}
@@ -236,7 +270,7 @@ function NationModal({
                       : "hover:bg-white/[0.06]"
                   }`}
                 >
-                  <span className="text-2xl">{getNationFlag(nation.name)}</span>
+                  <NationFlag nation={nation.name} className="text-2xl" />
                   <span className="min-w-0 flex-1 truncate text-sm font-extrabold">
                     {nation.name}
                   </span>
@@ -251,6 +285,44 @@ function NationModal({
       </div>
     </Modal>
   );
+}
+
+function NationDrawOverlay({ draw }: { draw: NationDrawState | null }) {
+  if (!draw) return null;
+
+  return createPortal(
+    <div className="fixed inset-0 z-[100] grid place-items-center bg-[#020617]/95 p-5 backdrop-blur">
+      <div className="w-full max-w-sm rounded-[2rem] border border-[#d8b75b]/25 bg-[#101713] p-7 text-center shadow-2xl">
+        <p className="text-[10px] font-black uppercase tracking-[0.28em] text-[#d8b75b]">
+          {draw.revealed
+            ? "Your Nation"
+            : draw.mode === "underdog"
+              ? "Finding your underdog story..."
+              : "Finding your nation..."}
+        </p>
+        <div
+          key={draw.current.code}
+          className="progression-pop mt-6 flex min-h-36 flex-col items-center justify-center"
+        >
+          <NationFlag nation={draw.current.name} className="text-7xl" />
+          <p className="mt-5 text-3xl font-black">{draw.current.name}</p>
+          {draw.revealed ? (
+            <p className="mt-2 text-xs font-black uppercase tracking-wider text-[#8cf2a7]">
+              {getNationDifficulty(draw.current)}
+            </p>
+          ) : null}
+        </div>
+      </div>
+    </div>,
+    document.body,
+  );
+}
+
+function getNationDifficulty(nation: Nation) {
+  const tier = getNationTier(nation);
+  if (tier === 1) return "Tournament Favorite";
+  if (tier === 2) return "Balanced Contender";
+  return "Underdog Run";
 }
 
 function PlayerModal({
@@ -400,14 +472,16 @@ function ResultCard({ fixture }: { fixture: TournamentFixture }) {
           : "border-white/5 bg-white/[0.03]"
       }`}
     >
-      <span className="truncate font-bold">
-        {getNationFlag(fixture.home.name)} {fixture.home.name}
+      <span className="flex min-w-0 items-center gap-1 font-bold">
+        <NationFlag nation={fixture.home.name} className="text-base" />
+        <span className="truncate">{fixture.home.name}</span>
       </span>
       <span className="font-black text-[#f6dc86]">
         {fixture.homeGoals} - {fixture.awayGoals}
       </span>
-      <span className="truncate text-right font-bold">
-        {fixture.away.name} {getNationFlag(fixture.away.name)}
+      <span className="flex min-w-0 items-center justify-end gap-1 text-right font-bold">
+        <span className="truncate">{fixture.away.name}</span>
+        <NationFlag nation={fixture.away.name} className="text-base" />
       </span>
     </div>
   );
@@ -419,7 +493,7 @@ function AwardCard({
   detail,
 }: {
   title: string;
-  value: string;
+  value: ReactNode;
   detail: string;
 }) {
   return (
@@ -477,8 +551,10 @@ export default function Home() {
   const [reviewingPrevious, setReviewingPrevious] = useState(false);
   const [personalBestUpdate, setPersonalBestUpdate] =
     useState<PersonalBestUpdate | null>(null);
+  const [nationDraw, setNationDraw] = useState<NationDrawState | null>(null);
   const eventFeedRef = useRef<HTMLDivElement>(null);
   const recordedResultRef = useRef("");
+  const nationDrawTimersRef = useRef<number[]>([]);
 
   useEffect(() => {
     if (window.location.search.includes("simulator=1")) {
@@ -490,6 +566,15 @@ export default function Home() {
   useEffect(() => {
     window.scrollTo(0, 0);
   }, [view, leaderboardOpen, nationModalOpen]);
+
+  useEffect(
+    () => () => {
+      nationDrawTimersRef.current.forEach((timer) =>
+        window.clearTimeout(timer),
+      );
+    },
+    [],
+  );
 
   const slots = FORMATION_SLOTS[formation];
   const xi = slots.map((slot) => selections[slot.id]).filter(Boolean);
@@ -650,6 +735,51 @@ export default function Home() {
     setSelections({});
     setView("builder");
     scrollToTop();
+  };
+
+  const runNationDraw = (
+    mode: NationDrawMode,
+    onComplete: (nation: Nation) => void,
+  ) => {
+    nationDrawTimersRef.current.forEach((timer) => window.clearTimeout(timer));
+    nationDrawTimersRef.current = [];
+    setNationModalOpen(false);
+
+    const pool =
+      mode === "underdog"
+        ? NATIONS.filter((nation) => getNationTier(nation) === 3)
+        : NATIONS;
+    const finalNation = pool[Math.floor(Math.random() * pool.length)];
+    const delays = [70, 70, 80, 90, 105, 120, 145, 180, 230];
+    let elapsed = 0;
+
+    setNationDraw({
+      mode,
+      current: pool[Math.floor(Math.random() * pool.length)],
+      revealed: false,
+    });
+
+    delays.forEach((delay, index) => {
+      elapsed += delay;
+      const timer = window.setTimeout(() => {
+        const isFinal = index === delays.length - 1;
+        setNationDraw({
+          mode,
+          current: isFinal
+            ? finalNation
+            : pool[Math.floor(Math.random() * pool.length)],
+          revealed: isFinal,
+        });
+        if (isFinal) {
+          const finishTimer = window.setTimeout(() => {
+            setNationDraw(null);
+            onComplete(finalNation);
+          }, 600);
+          nationDrawTimersRef.current.push(finishTimer);
+        }
+      }, elapsed);
+      nationDrawTimersRef.current.push(timer);
+    });
   };
 
   const changeFormation = (next: Formation) => {
@@ -991,25 +1121,6 @@ export default function Home() {
     scrollToTop();
   };
 
-  const playAgain = () => {
-    setMatch(null);
-    setStats(emptyStats());
-    setFinish("");
-    setBracketRounds([]);
-    setPendingRound(null);
-    setOverviewType(null);
-    setGroupStageOverview(null);
-    setUserGroupResults([]);
-    setLeaderboardSaved(false);
-    setView("builder");
-    setPreviousResult(null);
-    setResumeSnapshot(null);
-    setReviewingPrevious(false);
-    setPersonalBestUpdate(null);
-    recordedResultRef.current = "";
-    scrollToTop();
-  };
-
   const changeNation = () => {
     setView("landing");
     setSelectedNation(null);
@@ -1110,13 +1221,9 @@ export default function Home() {
   };
 
   const randomReplay = () =>
-    startReplayWithNation(NATIONS[Math.floor(Math.random() * NATIONS.length)]);
-  const underdogReplay = () => {
-    const underdogs = NATIONS.filter((nation) => getNationTier(nation) === 3);
-    startReplayWithNation(
-      underdogs[Math.floor(Math.random() * underdogs.length)],
-    );
-  };
+    runNationDraw("random", startReplayWithNation);
+  const underdogReplay = () =>
+    runNationDraw("underdog", startReplayWithNation);
 
   const saveToLeaderboard = (displayName: string) => {
     if (!selectedNation || !worldCupScore || !finish) return;
@@ -1229,13 +1336,20 @@ export default function Home() {
 
       {view === "builder" && selectedNation ? (
         <section className="simulator-builder mx-auto min-h-screen w-full max-w-6xl min-w-0 overflow-x-hidden px-4 py-5 pb-24 sm:px-8 sm:pb-5">
-          <header className="mb-6 flex min-w-0 items-center justify-between gap-3">
+          <header className="mb-6 min-w-0">
             <div className="min-w-0">
               <p className="text-[9px] font-black uppercase tracking-[0.25em] text-[#d8b75b]">World Cup Simulator</p>
               <h1 className="text-xl font-black sm:text-2xl">Build your starting XI</h1>
             </div>
-            <button onClick={() => setNationModalOpen(true)} className="flex min-h-11 items-center gap-2 rounded-2xl border border-white/10 bg-white/5 px-3 py-2.5 text-sm font-black hover:bg-white/10">
-              <span className="text-xl">{getNationFlag(selectedNation.name)}</span><span className="hidden sm:inline">{selectedNation.name}</span>
+            <button onClick={() => setNationModalOpen(true)} className="mt-4 flex min-h-16 w-full items-center gap-3 rounded-2xl border border-[#d8b75b]/25 bg-[#d8b75b]/[0.07] px-4 py-3 text-left hover:bg-[#d8b75b]/10 sm:max-w-sm">
+              <NationFlag nation={selectedNation.name} className="text-4xl" />
+              <span className="min-w-0 flex-1">
+                <span className="block truncate text-lg font-black">{selectedNation.name}</span>
+                <span className="block text-[10px] font-black uppercase tracking-wider text-[#8cf2a7]">
+                  {getNationDifficulty(selectedNation)}
+                </span>
+              </span>
+              <span className="text-xs font-black text-white/35">Change</span>
             </button>
           </header>
 
@@ -1438,7 +1552,8 @@ export default function Home() {
                         >
                           <span>{index + 1}</span>
                           <span className="truncate font-bold">
-                            {getNationFlag(row.nation.name)} {row.nation.name}
+                            <NationFlag nation={row.nation.name} className="mr-1 text-base" />
+                            {row.nation.name}
                           </span>
                           <span className="text-center">
                             {row.goalsFor - row.goalsAgainst}
@@ -1466,7 +1581,7 @@ export default function Home() {
                       <p className="mt-2 text-sm text-white/55">
                         Round of 32 opponent:{" "}
                         <strong className="text-white">
-                          {getNationFlag(match.opponent.name)}{" "}
+                          <NationFlag nation={match.opponent.name} className="mr-1 text-base" />
                           {match.opponent.name}
                         </strong>
                       </p>
@@ -1483,7 +1598,8 @@ export default function Home() {
                           key={team.nation.code}
                           className="rounded-full border border-white/8 bg-white/5 px-2.5 py-1 text-[10px] font-bold"
                         >
-                          {getNationFlag(team.nation.name)} {team.nation.name}
+                          <NationFlag nation={team.nation.name} className="mr-1 text-base" />
+                          {team.nation.name}
                         </span>
                       ))}
                     </div>
@@ -1504,27 +1620,20 @@ export default function Home() {
               <>
                 <div className="mx-auto mt-7 grid max-w-xl grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-2 rounded-2xl border border-[#d8b75b]/20 bg-black/20 p-4 text-center sm:gap-4 sm:p-5">
                   <div className="min-w-0">
-                    <span className="text-4xl">
-                      {getNationFlag(selectedNation.name)}
-                    </span>
+                    <NationFlag nation={selectedNation.name} className="text-4xl" />
                     <p className="mt-2 truncate text-sm font-black sm:text-base">{selectedNation.name}</p>
                   </div>
                   <span className="text-xs font-black uppercase tracking-widest text-white/25">
                     vs
                   </span>
                   <div className="min-w-0">
-                    <span className="text-4xl">
-                      {getNationFlag(match.opponent.name)}
-                    </span>
+                    <NationFlag nation={match.opponent.name} className="text-4xl" />
                     <p className="mt-2 truncate text-sm font-black sm:text-base">{match.opponent.name}</p>
                   </div>
                 </div>
                 <div className="mt-7 w-full max-w-full min-w-0 overflow-hidden">
-                  <TournamentBracket
-                    rounds={[
-                      ...bracketRounds,
-                      bracketPreviewRound(pendingRound),
-                    ]}
+                  <KnockoutRoundFixtures
+                    round={bracketPreviewRound(pendingRound)}
                     selectedNationCode={selectedNation.code}
                   />
                 </div>
@@ -1604,12 +1713,12 @@ export default function Home() {
           }`}>
             <div className="grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-2 text-center sm:gap-3">
               <div className="min-w-0">
-                <span className="text-3xl sm:text-5xl">{getNationFlag(selectedNation.name)}</span>
+                <NationFlag nation={selectedNation.name} className="text-3xl sm:text-5xl" />
                 <h2 className="mt-2 truncate text-sm font-black sm:text-lg">{selectedNation.name}</h2>
               </div>
               <div className="text-xs font-black uppercase tracking-[0.2em] text-white/25">vs</div>
               <div className="min-w-0">
-                <span className="text-3xl sm:text-5xl">{getNationFlag(match.opponent.name)}</span>
+                <NationFlag nation={match.opponent.name} className="text-3xl sm:text-5xl" />
                 <h2 className="mt-2 truncate text-sm font-black sm:text-lg">{match.opponent.name}</h2>
               </div>
             </div>
@@ -1783,7 +1892,8 @@ export default function Home() {
                 >
                   <span className="text-white/30">{index + 1}</span>
                   <span className="truncate font-bold">
-                    {getNationFlag(row.nation.name)} {row.nation.name}
+                    <NationFlag nation={row.nation.name} className="mr-1 text-base" />
+                    {row.nation.name}
                   </span>
                   <span className="text-center text-white/45">{row.played}</span>
                   <span className="text-center text-white/45">
@@ -1849,7 +1959,7 @@ export default function Home() {
         <section className="mx-auto min-h-screen w-full max-w-6xl min-w-0 px-4 py-8 pb-24 sm:px-8 sm:py-10 sm:pb-10">
           <div className="w-full max-w-full min-w-0 overflow-hidden rounded-[2.25rem] border border-[#d8b75b]/20 bg-[#101713]/95 p-5 text-center shadow-2xl sm:p-9">
             <p className="text-[10px] font-black uppercase tracking-[0.3em] text-[#d8b75b]">Tournament complete</p>
-            <span className="mt-5 block text-6xl sm:text-7xl">{getNationFlag(selectedNation.name)}</span>
+            <NationFlag nation={selectedNation.name} className="mt-5 text-6xl sm:text-7xl" />
             <h1 className="mt-3 break-words text-2xl font-black sm:text-3xl">{selectedNation.name}</h1>
             <div className="mx-auto mt-3 inline-block rounded-full bg-[#d8b75b]/10 px-4 py-2 text-sm font-black uppercase tracking-wider text-[#f6dc86]">
               {finish}
@@ -1922,6 +2032,60 @@ export default function Home() {
               </button>
             </div>
 
+            {worldCupScore ? (
+              <ShareResult
+                data={{
+                  nation: selectedNation,
+                  finish,
+                  score: worldCupScore.score,
+                  scoreTitle: worldCupScore.title,
+                  rarity: worldCupScore.rarity,
+                  topScorer: topScorer?.[0],
+                  mvp: mvp?.name,
+                }}
+              />
+            ) : null}
+
+            <section className="mx-auto mt-8 max-w-2xl rounded-[1.75rem] border border-white/10 bg-white/[0.03] p-4 sm:p-5">
+              <p className="text-[10px] font-black uppercase tracking-[0.2em] text-[#d8b75b]">
+                Replay
+              </p>
+              <h2 className="mt-1 text-xl font-black">Play Again</h2>
+              <p className="mt-1 text-xs text-white/45">
+                Chase a 99 with the same nation or start a completely new story.
+              </p>
+              <div className="mt-4 grid grid-cols-2 gap-2">
+                <button
+                  type="button"
+                  onClick={() => startReplayWithNation(selectedNation)}
+                  className="min-h-14 rounded-xl bg-[#d8b75b] px-3 py-3 text-[10px] font-black uppercase tracking-wide text-black sm:text-xs sm:tracking-wider"
+                >
+                  Chase 99 Again
+                </button>
+                <button
+                  type="button"
+                  onClick={randomReplay}
+                  className="min-h-14 rounded-xl border border-white/10 bg-white/5 px-3 py-3 text-[10px] font-black uppercase tracking-wide sm:text-xs sm:tracking-wider"
+                >
+                  Random Nation Run
+                </button>
+                <button
+                  type="button"
+                  onClick={underdogReplay}
+                  className="min-h-14 rounded-xl border border-emerald-300/20 bg-emerald-300/10 px-3 py-3 text-[10px] font-black uppercase tracking-wide text-emerald-200 sm:text-xs sm:tracking-wider"
+                >
+                  Underdog Run
+                </button>
+                <button
+                  type="button"
+                  onClick={changeNation}
+                  className="min-h-14 rounded-xl border border-white/10 bg-white/5 px-3 py-3 text-[10px] font-black uppercase tracking-wide sm:text-xs sm:tracking-wider"
+                >
+                  Change Nation
+                </button>
+              </div>
+            </section>
+
             <section className="mt-8 rounded-[1.75rem] border border-emerald-300/15 bg-emerald-300/[0.035] p-4 text-left sm:p-6">
               <h2 className="text-sm font-black uppercase tracking-[0.2em] text-[#8cf2a7]">
                 Your Team Awards
@@ -1978,25 +2142,36 @@ export default function Home() {
                   />
                   <AwardCard
                     title="Winner"
-                    value={`${getNationFlag(awards.winner.name)} ${awards.winner.name}`}
+                    value={
+                      <span className="flex items-center gap-1.5">
+                        <NationFlag nation={awards.winner.name} className="text-lg" />
+                        {awards.winner.name}
+                      </span>
+                    }
                     detail={`Final ${awards.finalScore}`}
                   />
                   <AwardCard
                     title="Runner-up"
-                    value={`${getNationFlag(awards.runnerUp.name)} ${awards.runnerUp.name}`}
+                    value={
+                      <span className="flex items-center gap-1.5">
+                        <NationFlag nation={awards.runnerUp.name} className="text-lg" />
+                        {awards.runnerUp.name}
+                      </span>
+                    }
                     detail="World Cup finalist"
                   />
                 </div>
               </section>
             ) : null}
 
-            <div className="mt-7 w-full max-w-full min-w-0 overflow-hidden text-left">
+            <div className="mt-7 w-full max-w-full min-w-0 overflow-x-auto overscroll-x-contain text-left">
               <h2 className="mb-3 text-[10px] font-black uppercase tracking-[0.2em] text-[#d8b75b]">
                 Full tournament bracket
               </h2>
               <TournamentBracket
                 rounds={bracketRounds}
                 selectedNationCode={selectedNation.code}
+                alwaysWide
               />
             </div>
 
@@ -2009,54 +2184,6 @@ export default function Home() {
                 View Previous Result
               </button>
             ) : null}
-            <section className="mx-auto mt-8 max-w-2xl rounded-[1.75rem] border border-white/10 bg-white/[0.03] p-4 sm:p-5">
-              <p className="text-[10px] font-black uppercase tracking-[0.2em] text-[#d8b75b]">
-                Try Next
-              </p>
-              <h2 className="mt-1 text-xl font-black">Chase another great run</h2>
-              <p className="mt-1 text-xs text-white/45">
-                Try winning with an underdog, pick a surprise nation, or chase
-                the 99 again.
-              </p>
-              <div className="mt-4 grid gap-2 sm:grid-cols-3">
-                <button
-                  type="button"
-                  onClick={randomReplay}
-                  className="min-h-12 rounded-xl border border-white/10 bg-white/5 px-3 py-3 text-xs font-black uppercase tracking-wider"
-                >
-                  Random Nation Run
-                </button>
-                <button
-                  type="button"
-                  onClick={underdogReplay}
-                  className="min-h-12 rounded-xl border border-emerald-300/20 bg-emerald-300/10 px-3 py-3 text-xs font-black uppercase tracking-wider text-emerald-200"
-                >
-                  Try Underdog
-                </button>
-                <button
-                  type="button"
-                  onClick={() => startReplayWithNation(selectedNation)}
-                  className="min-h-12 rounded-xl bg-[#d8b75b] px-3 py-3 text-xs font-black uppercase tracking-wider text-black"
-                >
-                  Chase 99 Again
-                </button>
-              </div>
-            </section>
-            {worldCupScore ? (
-              <ShareResult
-                data={{
-                  nation: selectedNation,
-                  finish,
-                  score: worldCupScore.score,
-                  scoreTitle: worldCupScore.title,
-                  rarity: worldCupScore.rarity,
-                  topScorer: topScorer?.[0],
-                  mvp: mvp?.name,
-                }}
-                onPlayAgain={playAgain}
-                onChangeNation={changeNation}
-              />
-            ) : null}
           </div>
         </section>
       ) : null}
@@ -2066,7 +2193,9 @@ export default function Home() {
         selected={selectedNation}
         onClose={() => setNationModalOpen(false)}
         onSelect={chooseNation}
+        onRandomize={(mode) => runNationDraw(mode, chooseNation)}
       />
+      <NationDrawOverlay draw={nationDraw} />
       <LeaderboardModal
         open={leaderboardOpen}
         onClose={() => setLeaderboardOpen(false)}
