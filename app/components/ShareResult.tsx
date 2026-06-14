@@ -133,37 +133,37 @@ export function ShareResult({
 
       <ShareCard data={data} exportRef={cardRef} />
 
-      <div className="mt-5 grid gap-2">
+      <div className="mx-auto mt-5 grid w-full max-w-md gap-3">
         <button
           type="button"
           onClick={challengeFriend}
           disabled={busyAction !== null}
-          className="rounded-2xl bg-[#d8b75b] px-4 py-4 text-sm font-black uppercase tracking-wider text-black hover:bg-[#f6dc86]"
+          className="min-h-12 rounded-2xl bg-[#d8b75b] px-4 py-4 text-sm font-black uppercase tracking-wider text-black hover:bg-[#f6dc86]"
         >
           {busyAction === "challenge" ? "Opening Share..." : "Challenge a Friend"}
         </button>
-        <div className="grid gap-2 sm:grid-cols-2">
+        <button
+          type="button"
+          onClick={shareResult}
+          disabled={busyAction !== null}
+          className="min-h-12 rounded-2xl border border-[#d8b75b]/30 bg-[#d8b75b]/10 px-4 py-3 text-xs font-black uppercase tracking-wider text-[#f6dc86]"
+        >
+          {busyAction === "share" ? "Preparing Share..." : "Share Result"}
+        </button>
+        <div className="grid grid-cols-2 gap-3">
           <button
             type="button"
-            onClick={shareResult}
-            disabled={busyAction !== null}
-            className="rounded-2xl border border-[#d8b75b]/30 bg-[#d8b75b]/10 px-4 py-3 text-xs font-black uppercase tracking-wider text-[#f6dc86]"
+            onClick={onPlayAgain}
+            className="min-h-12 rounded-2xl border border-white/10 bg-white/5 px-3 py-3 text-[10px] font-black uppercase tracking-wide hover:bg-white/10 sm:px-4 sm:text-xs sm:tracking-wider"
           >
-            {busyAction === "share" ? "Preparing Share..." : "Share Result"}
+            Play Again
           </button>
           <button
             type="button"
             onClick={onChangeNation}
-            className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-xs font-black uppercase tracking-wider hover:bg-white/10"
+            className="min-h-12 rounded-2xl border border-white/10 bg-white/5 px-3 py-3 text-[10px] font-black uppercase tracking-wide hover:bg-white/10 sm:px-4 sm:text-xs sm:tracking-wider"
           >
             Change Nation
-          </button>
-          <button
-            type="button"
-            onClick={onPlayAgain}
-            className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-xs font-black uppercase tracking-wider hover:bg-white/10"
-          >
-            Play Again
           </button>
         </div>
       </div>

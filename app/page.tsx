@@ -26,6 +26,7 @@ import {
 } from "./lib/data";
 import { getPlayersByNation } from "../data/players";
 import { calculateTeamRatings } from "./lib/ratings";
+import { getNationFlag } from "./lib/flags";
 import {
   createGroupTable,
   createMatch,
@@ -54,12 +55,14 @@ import {
   type Player,
   type PositionCategory,
   type SimMatch,
+  type OfficialGroupStage,
   type TournamentStats,
   type TournamentFixture,
   type TournamentRoundResults,
 } from "./lib/types";
 
-type View = "landing" | "builder" | "simulation" | "result";
+type View = "landing" | "builder" | "overview" | "simulation" | "result";
+type OverviewType = "group-complete" | "round-intro";
 
 const emptyStats = (): TournamentStats => ({
   wins: 0,
@@ -69,6 +72,29 @@ const emptyStats = (): TournamentStats => ({
   goalsAgainst: 0,
   points: 0,
   scorers: {},
+});
+
+const nextRoundLabel = (round: SimMatch["round"]) =>
+  ({
+    "Group Stage": "Round of 32",
+    "Round of 32": "Round of 16",
+    "Round of 16": "Quarter-final",
+    "Quarter-final": "Semi-final",
+    "Semi-final": "Final",
+    Final: "Tournament Overview",
+  })[round];
+
+const bracketPreviewRound = (
+  round: TournamentRoundResults,
+): TournamentRoundResults => ({
+  ...round,
+  fixtures: round.fixtures.map((fixture) => ({
+    ...fixture,
+    homeGoals: 0,
+    awayGoals: 0,
+    winner: undefined,
+    isUpset: false,
+  })),
 });
 
 function Modal({
@@ -106,7 +132,7 @@ function Modal({
         aria-label="Close modal"
       />
       <section
-        className="relative flex max-h-[80vh] w-full max-w-lg flex-col overflow-hidden rounded-[1.75rem] border border-white/10 bg-[#101713] shadow-2xl"
+        className="relative flex max-h-[92dvh] w-full max-w-lg flex-col overflow-hidden rounded-[1.5rem] border border-white/10 bg-[#101713] shadow-2xl sm:max-h-[80vh] sm:rounded-[1.75rem]"
         role="dialog"
         aria-modal="true"
       >
@@ -120,7 +146,7 @@ function Modal({
           <button
             type="button"
             onClick={onClose}
-            className="grid h-10 w-10 place-items-center rounded-full border border-white/10 bg-white/5 text-xl text-white/70 hover:bg-white/10 hover:text-white"
+            className="grid h-11 w-11 place-items-center rounded-full border border-white/10 bg-white/5 text-xl text-white/70 hover:bg-white/10 hover:text-white"
             aria-label="Close"
           >
             ×
@@ -162,12 +188,12 @@ function NationModal({
           value={search}
           onChange={(event) => setSearch(event.target.value)}
           placeholder="Search nations..."
-          className="w-full rounded-2xl border border-white/10 bg-black/30 px-4 py-3 text-sm outline-none placeholder:text-white/30 focus:border-[#d8b75b]/60"
+          className="min-h-11 w-full rounded-2xl border border-white/10 bg-black/30 px-4 py-3 text-sm outline-none placeholder:text-white/30 focus:border-[#d8b75b]/60"
           autoFocus
         />
       </div>
       <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain p-3 pt-1">
-        <div className="grid gap-3 sm:grid-cols-2">
+        <div className="grid gap-3 min-[420px]:grid-cols-2">
           {visibleGroups.map(({ group, nations }) => (
             <section
               key={group}
@@ -183,13 +209,13 @@ function NationModal({
                     setSearch("");
                     onSelect(nation);
                   }}
-                  className={`flex w-full items-center gap-3 rounded-xl p-2.5 text-left transition ${
+                  className={`flex min-h-11 w-full items-center gap-3 rounded-xl p-2.5 text-left transition ${
                     selected?.code === nation.code
                       ? "bg-[#d8b75b]/15 ring-1 ring-[#d8b75b]/40"
                       : "hover:bg-white/[0.06]"
                   }`}
                 >
-                  <span className="text-2xl">{nation.flag}</span>
+                  <span className="text-2xl">{getNationFlag(nation.name)}</span>
                   <span className="min-w-0 flex-1 truncate text-sm font-extrabold">
                     {nation.name}
                   </span>
@@ -246,7 +272,7 @@ function PlayerModal({
           value={search}
           onChange={(event) => setSearch(event.target.value)}
           placeholder="Search players or positions..."
-          className="w-full rounded-2xl border border-white/10 bg-black/30 px-4 py-3 text-sm outline-none placeholder:text-white/30 focus:border-[#d8b75b]/60"
+          className="min-h-11 w-full rounded-2xl border border-white/10 bg-black/30 px-4 py-3 text-sm outline-none placeholder:text-white/30 focus:border-[#d8b75b]/60"
           autoFocus
         />
       </div>
@@ -261,7 +287,7 @@ function PlayerModal({
                 setSearch("");
                 onSelect(player);
               }}
-              className="mb-1 flex w-full items-center gap-3 rounded-2xl p-3 text-left transition hover:bg-white/[0.06] disabled:cursor-not-allowed disabled:opacity-30"
+              className="mb-1 flex min-h-16 w-full items-center gap-3 rounded-2xl p-3 text-left transition hover:bg-white/[0.06] disabled:cursor-not-allowed disabled:opacity-30"
             >
               <span className="grid h-12 w-12 place-items-center rounded-2xl bg-[#1d3427] text-xs font-black text-[#8cf2a7]">
                 {player.position}
@@ -294,35 +320,37 @@ function Pitch({
   onSlotClick: (id: string) => void;
 }) {
   return (
-    <div className="pitch relative aspect-[3/4] w-full overflow-hidden rounded-[2rem] border border-emerald-300/20 shadow-[0_30px_90px_rgba(0,0,0,.5)]">
-      <div className="pointer-events-none absolute inset-4 rounded-2xl border-2 border-white/25" />
-      <div className="pointer-events-none absolute inset-x-4 top-1/2 border-t-2 border-white/25" />
-      <div className="pointer-events-none absolute left-1/2 top-1/2 aspect-square w-[24%] -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-white/25" />
-      <div className="pointer-events-none absolute left-1/2 top-4 h-[15%] w-[48%] -translate-x-1/2 border-2 border-t-0 border-white/25" />
-      <div className="pointer-events-none absolute bottom-4 left-1/2 h-[15%] w-[48%] -translate-x-1/2 border-2 border-b-0 border-white/25" />
-      {FORMATION_SLOTS[formation].map((slot) => {
-        const player = selections[slot.id];
-        return (
-          <button
-            key={slot.id}
-            onClick={() => onSlotClick(slot.id)}
-            style={{ top: `${slot.top}%`, left: `${slot.left}%` }}
-            className="group absolute z-10 w-[4.5rem] -translate-x-1/2 -translate-y-1/2 sm:w-24"
-          >
-            <span className={`mx-auto grid h-12 w-12 place-items-center rounded-full border-2 text-sm font-black shadow-lg transition group-hover:scale-105 sm:h-14 sm:w-14 ${
-              player
-                ? "border-[#f6dc86] bg-[#101713] text-[#f6dc86]"
-                : "border-dashed border-white/50 bg-black/25 text-xl text-white/60"
-            }`}>
-              {player ? player.position : "+"}
-            </span>
-            <span className="mt-1 block truncate rounded-lg bg-black/70 px-1.5 py-1 text-[9px] font-black sm:text-[11px]">
-              {player ? player.name.split(" ").at(-1) : slot.label}
-            </span>
-            {player ? <span className="text-[8px] font-bold text-white/60">{slot.label} · {player.position}</span> : null}
-          </button>
-        );
-      })}
+    <div className="pitch-wrapper mx-auto w-full max-w-full min-w-0 overflow-hidden sm:max-w-xl">
+      <div className="pitch relative aspect-[3/4] w-full max-w-full overflow-hidden rounded-[1.5rem] border border-emerald-300/20 shadow-[0_30px_90px_rgba(0,0,0,.5)] sm:rounded-[2rem]">
+        <div className="pointer-events-none absolute inset-4 rounded-2xl border-2 border-white/25" />
+        <div className="pointer-events-none absolute inset-x-4 top-1/2 border-t-2 border-white/25" />
+        <div className="pointer-events-none absolute left-1/2 top-1/2 aspect-square w-[24%] -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-white/25" />
+        <div className="pointer-events-none absolute left-1/2 top-4 h-[15%] w-[48%] -translate-x-1/2 border-2 border-t-0 border-white/25" />
+        <div className="pointer-events-none absolute bottom-4 left-1/2 h-[15%] w-[48%] -translate-x-1/2 border-2 border-b-0 border-white/25" />
+        {FORMATION_SLOTS[formation].map((slot) => {
+          const player = selections[slot.id];
+          return (
+            <button
+              key={slot.id}
+              onClick={() => onSlotClick(slot.id)}
+              style={{ top: `${slot.top}%`, left: `${slot.left}%` }}
+              className="player-slot group absolute z-10 min-h-11 w-16 sm:w-24"
+            >
+              <span className={`mx-auto grid h-12 w-12 place-items-center rounded-full border-2 text-sm font-black shadow-lg transition group-hover:scale-105 sm:h-14 sm:w-14 ${
+                player
+                  ? "border-[#f6dc86] bg-[#101713] text-[#f6dc86]"
+                  : "border-dashed border-white/50 bg-black/25 text-xl text-white/60"
+              }`}>
+                {player ? player.position : "+"}
+              </span>
+              <span className="mt-1 block truncate rounded-lg bg-black/70 px-1.5 py-1 text-[9px] font-black sm:text-[11px]">
+                {player ? player.name.split(" ").at(-1) : slot.label}
+              </span>
+              {player ? <span className="text-[8px] font-bold text-white/60">{slot.label} · {player.position}</span> : null}
+            </button>
+          );
+        })}
+      </div>
     </div>
   );
 }
@@ -355,13 +383,13 @@ function ResultCard({ fixture }: { fixture: TournamentFixture }) {
       }`}
     >
       <span className="truncate font-bold">
-        {fixture.home.flag} {fixture.home.name}
+        {getNationFlag(fixture.home.name)} {fixture.home.name}
       </span>
       <span className="font-black text-[#f6dc86]">
         {fixture.homeGoals} - {fixture.awayGoals}
       </span>
       <span className="truncate text-right font-bold">
-        {fixture.away.name} {fixture.away.flag}
+        {fixture.away.name} {getNationFlag(fixture.away.name)}
       </span>
     </div>
   );
@@ -413,6 +441,9 @@ export default function Home() {
   );
   const [pendingRound, setPendingRound] =
     useState<TournamentRoundResults | null>(null);
+  const [overviewType, setOverviewType] = useState<OverviewType | null>(null);
+  const [groupStageOverview, setGroupStageOverview] =
+    useState<OfficialGroupStage | null>(null);
   const [groupIndex, setGroupIndex] = useState(0);
   const [stats, setStats] = useState<TournamentStats>(emptyStats);
   const [finish, setFinish] = useState("");
@@ -468,6 +499,20 @@ export default function Home() {
             .join("-"),
       )
     : undefined;
+  const visibleGroupTable =
+    matchComplete &&
+    match?.round === "Group Stage" &&
+    selectedNation &&
+    visibleOtherGroupResult
+      ? updateGroupTable(
+          groupTable,
+          selectedNation,
+          match.opponent,
+          match.userGoals,
+          match.opponentGoals,
+          visibleOtherGroupResult,
+        )
+      : groupTable;
 
   useEffect(() => {
     if (
@@ -562,6 +607,8 @@ export default function Home() {
     setUserGroupResults([]);
     setBracketRounds([]);
     setPendingRound(null);
+    setOverviewType(null);
+    setGroupStageOverview(null);
     setMatchStatus("ready");
     setSpeed("normal");
     setFinish("");
@@ -693,20 +740,16 @@ export default function Home() {
       );
       const selectedGroup = getGroupForNation(selectedNation.name)?.[0];
       if (selectedGroup) setGroupTable(officialStage.tables[selectedGroup]);
+      setGroupStageOverview(officialStage);
       const qualified = officialStage.qualifiers.some(
         (team) => team.nation.code === selectedNation.code,
       );
       if (!qualified) {
         setFinish("Group Stage exit");
-        const roundOf32 = simulateAutomaticKnockoutRound(
-          "Round of 32",
-          officialStage.roundOf32,
-          tournamentForm,
-        );
-        setBracketRounds(
-          completeOfficialBracket([roundOf32], tournamentForm),
-        );
-        setView("result");
+        setMatch(null);
+        setPendingRound(null);
+        setOverviewType("group-complete");
+        setView("overview");
         return;
       }
       const userRoundOf32 = officialStage.roundOf32.find(
@@ -716,15 +759,10 @@ export default function Home() {
       );
       if (!userRoundOf32) {
         setFinish("Group Stage exit");
-        const roundOf32 = simulateAutomaticKnockoutRound(
-          "Round of 32",
-          officialStage.roundOf32,
-          tournamentForm,
-        );
-        setBracketRounds(
-          completeOfficialBracket([roundOf32], tournamentForm),
-        );
-        setView("result");
+        setMatch(null);
+        setPendingRound(null);
+        setOverviewType("group-complete");
+        setView("overview");
         return;
       }
       const opponent =
@@ -752,6 +790,8 @@ export default function Home() {
       );
       setRevealedEvents(0);
       setMatchStatus("ready");
+      setOverviewType("group-complete");
+      setView("overview");
       return;
     }
 
@@ -816,6 +856,27 @@ export default function Home() {
     );
     setRevealedEvents(0);
     setMatchStatus("ready");
+    setOverviewType("round-intro");
+    setView("overview");
+  };
+
+  const continueFromOverview = () => {
+    if (!selectedNation) return;
+    if (overviewType === "group-complete" && !match && groupStageOverview) {
+      const roundOf32 = simulateAutomaticKnockoutRound(
+        "Round of 32",
+        groupStageOverview.roundOf32,
+        tournamentForm,
+      );
+      setBracketRounds(completeOfficialBracket([roundOf32], tournamentForm));
+      setOverviewType(null);
+      setView("result");
+      return;
+    }
+    if (!match) return;
+    setOverviewType(null);
+    setMatchStatus("ready");
+    setView("simulation");
   };
 
   const playAgain = () => {
@@ -824,6 +885,8 @@ export default function Home() {
     setFinish("");
     setBracketRounds([]);
     setPendingRound(null);
+    setOverviewType(null);
+    setGroupStageOverview(null);
     setUserGroupResults([]);
     setLeaderboardSaved(false);
     setView("builder");
@@ -833,6 +896,8 @@ export default function Home() {
     setView("landing");
     setSelectedNation(null);
     setSelections({});
+    setOverviewType(null);
+    setGroupStageOverview(null);
     setLeaderboardSaved(false);
     setNationModalOpen(true);
   };
@@ -882,7 +947,7 @@ export default function Home() {
       createLeaderboardEntry({
         name: displayName,
         nation: selectedNation.name,
-        nationFlag: selectedNation.flag,
+        nationFlag: getNationFlag(selectedNation.name),
         finish,
         score: worldCupScore.score,
         scoreTitle: worldCupScore.title,
@@ -898,42 +963,42 @@ export default function Home() {
   };
 
   return (
-    <main className="stadium-bg min-h-screen overflow-hidden text-white">
+    <main className="stadium-bg min-h-screen w-full max-w-full overflow-x-hidden text-white">
       {view !== "landing" ? (
-        <nav className="no-print fixed right-3 top-3 z-40 flex gap-2 rounded-2xl border border-white/10 bg-[#07100b]/90 p-1.5 backdrop-blur">
-          <button onClick={goHome} className="rounded-xl px-3 py-2 text-[10px] font-black uppercase tracking-wider text-white/55 hover:bg-white/5 hover:text-white">
+        <nav className="mobile-safe-nav no-print fixed inset-x-2 bottom-2 z-40 grid max-w-full grid-cols-4 gap-1 rounded-2xl border border-white/10 bg-[#07100b]/95 p-1.5 shadow-2xl backdrop-blur sm:inset-x-auto sm:bottom-auto sm:right-3 sm:top-3 sm:flex sm:gap-2">
+          <button onClick={goHome} className="min-h-11 rounded-xl px-2 py-2 text-[9px] font-black uppercase tracking-wide text-white/55 hover:bg-white/5 hover:text-white sm:px-3 sm:text-[10px] sm:tracking-wider">
             Home
           </button>
-          <button onClick={() => setNationModalOpen(true)} className="rounded-xl px-3 py-2 text-[10px] font-black uppercase tracking-wider text-white/55 hover:bg-white/5 hover:text-white">
+          <button onClick={() => setNationModalOpen(true)} className="min-h-11 rounded-xl px-2 py-2 text-[9px] font-black uppercase tracking-wide text-white/55 hover:bg-white/5 hover:text-white sm:px-3 sm:text-[10px] sm:tracking-wider">
             Simulator
           </button>
           <button
             onClick={() => setLeaderboardOpen(true)}
-            className="rounded-xl px-3 py-2 text-[10px] font-black uppercase tracking-wider text-white/55 hover:bg-white/5 hover:text-white"
+            className="min-h-11 rounded-xl px-1 py-2 text-[8px] font-black uppercase tracking-normal text-white/55 hover:bg-white/5 hover:text-white sm:px-3 sm:text-[10px] sm:tracking-wider"
           >
             Leaderboard
           </button>
-          <Link href="/wall-chart" className="rounded-xl bg-[#d8b75b]/10 px-3 py-2 text-[10px] font-black uppercase tracking-wider text-[#f6dc86]">
+          <Link href="/wall-chart" className="flex min-h-11 items-center justify-center rounded-xl bg-[#d8b75b]/10 px-1 py-2 text-center text-[8px] font-black uppercase tracking-normal text-[#f6dc86] sm:px-3 sm:text-[10px] sm:tracking-wider">
             Wall Chart
           </Link>
         </nav>
       ) : null}
       {view === "landing" ? (
-        <section className="relative mx-auto flex min-h-screen max-w-6xl flex-col px-5 py-6 sm:px-10">
-          <nav className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
+        <section className="relative mx-auto flex min-h-screen w-full max-w-6xl min-w-0 flex-col px-5 py-6 sm:px-10">
+          <nav className="flex items-center justify-between gap-3">
+            <div className="flex min-w-0 items-center gap-2 sm:gap-3">
               <span className="grid h-10 w-10 place-items-center rounded-full border border-[#d8b75b]/50 bg-[#d8b75b]/10 font-black text-[#f6dc86]">W</span>
-              <span className="text-sm font-black uppercase tracking-[0.15em]">World Cup Simulator</span>
+              <span className="truncate text-[11px] font-black uppercase tracking-[0.1em] sm:text-sm sm:tracking-[0.15em]">World Cup Simulator</span>
             </div>
             <div className="flex items-center gap-2">
               <button
                 type="button"
                 onClick={() => setLeaderboardOpen(true)}
-                className="rounded-full border border-white/10 bg-white/5 px-3 py-1.5 text-[9px] font-black uppercase tracking-[0.18em] text-white/50 hover:bg-white/10 hover:text-white/70"
+                className="min-h-11 rounded-full border border-white/10 bg-white/5 px-3 py-2 text-[9px] font-black uppercase tracking-[0.12em] text-white/50 hover:bg-white/10 hover:text-white/70 sm:min-h-0 sm:py-1.5 sm:tracking-[0.18em]"
               >
                 Leaderboard
               </button>
-              <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1.5 text-[9px] font-black uppercase tracking-[0.18em] text-white/50">Version 0.1</span>
+              <span className="hidden rounded-full border border-white/10 bg-white/5 px-3 py-1.5 text-[9px] font-black uppercase tracking-[0.18em] text-white/50 sm:inline">Version 0.1</span>
             </div>
           </nav>
 
@@ -942,22 +1007,22 @@ export default function Home() {
               <div className="ball-mark h-16 w-16 rounded-full border-2 border-[#f6dc86]" />
             </div>
             <p className="mb-4 text-xs font-black uppercase tracking-[0.4em] text-[#d8b75b]">Your nation. Your legacy.</p>
-            <h1 className="max-w-4xl text-5xl font-black uppercase leading-[0.88] tracking-[-0.055em] sm:text-7xl lg:text-8xl">
+            <h1 className="max-w-4xl text-4xl font-black uppercase leading-[0.9] tracking-[-0.045em] sm:text-7xl sm:leading-[0.88] sm:tracking-[-0.055em] lg:text-8xl">
               World Cup<br /><span className="text-gradient">Simulator</span>
             </h1>
             <p className="mt-6 max-w-md text-base leading-7 text-white/55 sm:text-lg">
               Pick your nation. Build your XI. Simulate the tournament.
             </p>
-            <div className="mt-9 grid w-full max-w-2xl gap-3 sm:grid-cols-2">
-              <div className="rounded-[1.5rem] border border-[#d8b75b]/25 bg-[#d8b75b]/8 p-5 text-left">
+            <div className="mt-9 grid w-full max-w-2xl min-w-0 gap-3 sm:grid-cols-2">
+              <div className="min-w-0 rounded-[1.5rem] border border-[#d8b75b]/25 bg-[#d8b75b]/8 p-5 text-left">
                 <h2 className="font-black">World Cup Simulator</h2>
                 <p className="mt-2 min-h-10 text-xs leading-5 text-white/45">Build your XI and simulate the tournament.</p>
-                <button onClick={() => setNationModalOpen(true)} className="mt-4 w-full rounded-xl bg-[#d8b75b] px-4 py-3 text-xs font-black uppercase tracking-wider text-black">Start Simulator</button>
+                <button onClick={() => setNationModalOpen(true)} className="mt-4 min-h-11 w-full rounded-xl bg-[#d8b75b] px-4 py-3 text-xs font-black uppercase tracking-wider text-black">Start Simulator</button>
               </div>
-              <div className="rounded-[1.5rem] border border-white/10 bg-white/[0.04] p-5 text-left">
+              <div className="min-w-0 rounded-[1.5rem] border border-white/10 bg-white/[0.04] p-5 text-left">
                 <h2 className="font-black">World Cup Wall Chart</h2>
                 <p className="mt-2 min-h-10 text-xs leading-5 text-white/45">Fill in results, track tables and complete the bracket.</p>
-                <Link href="/wall-chart" className="mt-4 block w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-center text-xs font-black uppercase tracking-wider">Open Wall Chart</Link>
+                <Link href="/wall-chart" className="mt-4 flex min-h-11 w-full items-center justify-center rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-center text-xs font-black uppercase tracking-wider">Open Wall Chart</Link>
               </div>
             </div>
           </div>
@@ -968,25 +1033,25 @@ export default function Home() {
       ) : null}
 
       {view === "builder" && selectedNation ? (
-        <section className="mx-auto min-h-screen max-w-6xl px-4 py-5 sm:px-8">
-          <header className="mb-6 flex items-center justify-between gap-3">
-            <div>
+        <section className="simulator-builder mx-auto min-h-screen w-full max-w-6xl min-w-0 overflow-x-hidden px-4 py-5 pb-24 sm:px-8 sm:pb-5">
+          <header className="mb-6 flex min-w-0 items-center justify-between gap-3">
+            <div className="min-w-0">
               <p className="text-[9px] font-black uppercase tracking-[0.25em] text-[#d8b75b]">World Cup Simulator</p>
               <h1 className="text-xl font-black sm:text-2xl">Build your starting XI</h1>
             </div>
-            <button onClick={() => setNationModalOpen(true)} className="flex items-center gap-2 rounded-2xl border border-white/10 bg-white/5 px-3 py-2.5 text-sm font-black hover:bg-white/10">
-              <span className="text-xl">{selectedNation.flag}</span><span className="hidden sm:inline">{selectedNation.name}</span>
+            <button onClick={() => setNationModalOpen(true)} className="flex min-h-11 items-center gap-2 rounded-2xl border border-white/10 bg-white/5 px-3 py-2.5 text-sm font-black hover:bg-white/10">
+              <span className="text-xl">{getNationFlag(selectedNation.name)}</span><span className="hidden sm:inline">{selectedNation.name}</span>
             </button>
           </header>
 
-          <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_20rem]">
-            <div>
-              <div className="mb-3 flex gap-2 overflow-x-auto pb-2">
+          <div className="grid w-full min-w-0 gap-6 lg:grid-cols-[minmax(0,1fr)_20rem]">
+            <div className="min-w-0">
+              <div className="mb-3 grid w-full max-w-full min-w-0 grid-cols-2 gap-2 sm:flex sm:overflow-x-auto sm:pb-2">
                 {FORMATIONS.map((option) => (
                   <button
                     key={option}
                     onClick={() => changeFormation(option)}
-                    className={`shrink-0 rounded-xl px-3 py-2 text-xs font-black transition ${
+                    className={`min-h-11 shrink-0 rounded-xl px-3 py-2 text-xs font-black transition ${
                       formation === option ? "bg-[#d8b75b] text-black" : "border border-white/10 bg-white/5 text-white/60 hover:text-white"
                     }`}
                   >
@@ -994,7 +1059,7 @@ export default function Home() {
                   </button>
                 ))}
               </div>
-              <div className="mb-3 flex flex-wrap gap-2">
+              <div className="mb-3 grid w-full max-w-full min-w-0 grid-cols-1 gap-2 min-[360px]:grid-cols-2 sm:flex sm:flex-wrap">
                 <button
                   type="button"
                   onClick={() => {
@@ -1004,7 +1069,7 @@ export default function Home() {
                     );
                     setActiveSlot(null);
                   }}
-                  className="rounded-xl bg-gradient-to-r from-[#d8b75b] to-[#f6dc86] px-4 py-2.5 text-xs font-black uppercase tracking-wider text-black shadow-[0_8px_24px_rgba(216,183,91,.25)] transition hover:brightness-110 active:scale-[0.98]"
+                  className="min-h-11 rounded-xl bg-gradient-to-r from-[#d8b75b] to-[#f6dc86] px-3 py-2.5 text-[10px] font-black uppercase tracking-wide text-black shadow-[0_8px_24px_rgba(216,183,91,.25)] transition hover:brightness-110 active:scale-[0.98] sm:px-4 sm:text-xs sm:tracking-wider"
                 >
                   Generate Random XI
                 </button>
@@ -1014,7 +1079,7 @@ export default function Home() {
                     setSelections({});
                     setActiveSlot(null);
                   }}
-                  className="rounded-xl border border-white/10 bg-white/5 px-4 py-2.5 text-xs font-black uppercase tracking-wider text-white/60 hover:bg-white/10 hover:text-white"
+                  className="min-h-11 rounded-xl border border-white/10 bg-white/5 px-3 py-2.5 text-[10px] font-black uppercase tracking-wide text-white/60 hover:bg-white/10 hover:text-white sm:px-4 sm:text-xs sm:tracking-wider"
                 >
                   Clear XI
                 </button>
@@ -1022,7 +1087,7 @@ export default function Home() {
               <Pitch formation={formation} selections={selections} onSlotClick={setActiveSlot} />
             </div>
 
-            <aside className="flex flex-col gap-4 lg:pt-12">
+            <aside className="min-w-0 flex flex-col gap-4 lg:pt-12">
               <div className="rounded-[1.75rem] border border-white/10 bg-[#101713]/90 p-4">
                 <div className="mb-3 flex items-center justify-between">
                   <h2 className="text-xs font-black uppercase tracking-[0.18em] text-white/50">Team ratings</h2>
@@ -1047,8 +1112,173 @@ export default function Home() {
         </section>
       ) : null}
 
+      {view === "overview" && selectedNation ? (
+        <section className="mx-auto min-h-screen w-full max-w-6xl min-w-0 px-4 py-8 pb-24 sm:px-8 sm:py-12 sm:pb-12">
+          <div
+            className={`w-full max-w-full min-w-0 overflow-hidden rounded-[2.25rem] border p-5 shadow-2xl sm:p-8 ${
+              match?.round === "Final"
+                ? "border-[#d8b75b]/45 bg-[radial-gradient(circle_at_top,#3a2f13,#101713_48%)]"
+                : "border-white/10 bg-[#101713]/95"
+            }`}
+          >
+            <header className="text-center">
+              <p className="text-[10px] font-black uppercase tracking-[0.3em] text-[#d8b75b]">
+                {overviewType === "group-complete"
+                  ? "Tournament update"
+                  : "Next challenge"}
+              </p>
+              <h1 className="mt-3 break-words text-2xl font-black uppercase sm:text-4xl lg:text-6xl">
+                {overviewType === "group-complete"
+                  ? "Group Stage Complete"
+                  : match?.round === "Final"
+                    ? "The World Cup Final"
+                    : match?.round}
+              </h1>
+              <p className="mt-3 text-sm text-white/50">
+                {match?.round === "Final"
+                  ? "One match away from glory."
+                  : overviewType === "group-complete"
+                    ? "The final group standings are confirmed."
+                    : "The bracket is updated. Your next opponent awaits."}
+              </p>
+            </header>
+
+            {overviewType === "group-complete" && groupStageOverview ? (
+              <section className="mt-8 grid w-full min-w-0 gap-5 lg:grid-cols-[1fr_1.2fr]">
+                <div className="min-w-0">
+                  <div className="rounded-2xl border border-white/10 bg-black/20 p-4">
+                    <div className="flex items-center justify-between">
+                      <h2 className="text-sm font-black uppercase tracking-wider text-[#f6dc86]">
+                        Final Group Table
+                      </h2>
+                      <span className="text-xs font-bold text-white/35">
+                        Group {getGroupForNation(selectedNation.name)?.[0]}
+                      </span>
+                    </div>
+                    <div className="mt-3">
+                      {groupTable.map((row, index) => (
+                        <div
+                          key={row.nation.code}
+                          className={`grid grid-cols-[1.5rem_1fr_2rem_2rem] items-center gap-2 border-t border-white/5 py-2 text-xs ${
+                            row.nation.code === selectedNation.code
+                              ? "text-[#f6dc86]"
+                              : "text-white/55"
+                          }`}
+                        >
+                          <span>{index + 1}</span>
+                          <span className="truncate font-bold">
+                            {getNationFlag(row.nation.name)} {row.nation.name}
+                          </span>
+                          <span className="text-center">
+                            {row.goalsFor - row.goalsAgainst}
+                          </span>
+                          <span className="text-center font-black">
+                            {row.points}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div className="mt-4 rounded-2xl border border-[#d8b75b]/20 bg-[#d8b75b]/8 p-4">
+                    <p className="text-[9px] font-black uppercase tracking-wider text-[#d8b75b]">
+                      Qualification
+                    </p>
+                    <p className="mt-1 text-xl font-black">
+                      {groupStageOverview.qualifiers.some(
+                        (team) => team.nation.code === selectedNation.code,
+                      )
+                        ? "Qualified for the Round of 32"
+                        : "Eliminated in the Group Stage"}
+                    </p>
+                    {match ? (
+                      <p className="mt-2 text-sm text-white/55">
+                        Round of 32 opponent:{" "}
+                        <strong className="text-white">
+                          {getNationFlag(match.opponent.name)}{" "}
+                          {match.opponent.name}
+                        </strong>
+                      </p>
+                    ) : null}
+                  </div>
+
+                  <div className="mt-4 rounded-2xl border border-white/10 bg-black/20 p-4">
+                    <p className="text-[9px] font-black uppercase tracking-wider text-white/35">
+                      Best third-placed teams
+                    </p>
+                    <div className="mt-2 flex flex-wrap gap-2">
+                      {groupStageOverview.bestThirdPlaced.map((team) => (
+                        <span
+                          key={team.nation.code}
+                          className="rounded-full border border-white/8 bg-white/5 px-2.5 py-1 text-[10px] font-bold"
+                        >
+                          {getNationFlag(team.nation.name)} {team.nation.name}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+
+                <TournamentBracket
+                  rounds={[
+                    {
+                      round: "Round of 32",
+                      fixtures: groupStageOverview.roundOf32,
+                    },
+                  ]}
+                  selectedNationCode={selectedNation.code}
+                />
+              </section>
+            ) : match && pendingRound ? (
+              <>
+                <div className="mx-auto mt-7 grid max-w-xl grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-2 rounded-2xl border border-[#d8b75b]/20 bg-black/20 p-4 text-center sm:gap-4 sm:p-5">
+                  <div className="min-w-0">
+                    <span className="text-4xl">
+                      {getNationFlag(selectedNation.name)}
+                    </span>
+                    <p className="mt-2 truncate text-sm font-black sm:text-base">{selectedNation.name}</p>
+                  </div>
+                  <span className="text-xs font-black uppercase tracking-widest text-white/25">
+                    vs
+                  </span>
+                  <div className="min-w-0">
+                    <span className="text-4xl">
+                      {getNationFlag(match.opponent.name)}
+                    </span>
+                    <p className="mt-2 truncate text-sm font-black sm:text-base">{match.opponent.name}</p>
+                  </div>
+                </div>
+                <div className="mt-7 w-full max-w-full min-w-0 overflow-hidden">
+                  <TournamentBracket
+                    rounds={[
+                      ...bracketRounds,
+                      bracketPreviewRound(pendingRound),
+                    ]}
+                    selectedNationCode={selectedNation.code}
+                  />
+                </div>
+              </>
+            ) : null}
+
+            <button
+              type="button"
+              onClick={continueFromOverview}
+              className="mx-auto mt-7 block w-full max-w-md rounded-2xl bg-[#d8b75b] px-5 py-4 text-sm font-black uppercase tracking-[0.14em] text-black transition hover:bg-[#f6dc86]"
+            >
+              {overviewType === "group-complete"
+                ? match
+                  ? "Continue to Round of 32"
+                  : "Tournament Overview"
+                : match?.round === "Final"
+                  ? "Start Final"
+                  : `Start ${match?.round} Match`}
+            </button>
+          </div>
+        </section>
+      ) : null}
+
       {view === "simulation" && selectedNation && match ? (
-        <section className="mx-auto flex min-h-screen max-w-3xl flex-col px-4 py-4 sm:px-8">
+        <section className="mx-auto flex min-h-screen w-full max-w-3xl min-w-0 flex-col px-4 py-4 pb-24 sm:px-8 sm:pb-4">
           <header className="mb-4 flex items-center justify-between">
             <div>
               <p className="text-[10px] font-black uppercase tracking-[0.25em] text-[#d8b75b]">{match.round}</p>
@@ -1061,16 +1291,16 @@ export default function Home() {
             </span>
           </header>
 
-          <div className="rounded-[2rem] border border-white/10 bg-[#101713]/95 p-4 shadow-2xl sm:p-6">
-            <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-3 text-center">
-              <div>
-                <span className="text-5xl">{selectedNation.flag}</span>
-                <h2 className="mt-2 text-lg font-black">{selectedNation.name}</h2>
+          <div className="w-full max-w-full min-w-0 overflow-hidden rounded-[2rem] border border-white/10 bg-[#101713]/95 p-4 shadow-2xl sm:p-6">
+            <div className="grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-2 text-center sm:gap-3">
+              <div className="min-w-0">
+                <span className="text-3xl sm:text-5xl">{getNationFlag(selectedNation.name)}</span>
+                <h2 className="mt-2 truncate text-sm font-black sm:text-lg">{selectedNation.name}</h2>
               </div>
               <div className="text-xs font-black uppercase tracking-[0.2em] text-white/25">vs</div>
-              <div>
-                <span className="text-5xl">{match.opponent.flag}</span>
-                <h2 className="mt-2 text-lg font-black">{match.opponent.name}</h2>
+              <div className="min-w-0">
+                <span className="text-3xl sm:text-5xl">{getNationFlag(match.opponent.name)}</span>
+                <h2 className="mt-2 truncate text-sm font-black sm:text-lg">{match.opponent.name}</h2>
               </div>
             </div>
 
@@ -1087,11 +1317,11 @@ export default function Home() {
                       ? "Ready for kick-off"
                       : "Live score"}
               </p>
-              <p className="mt-2 text-xl font-black sm:text-3xl">
-                {selectedNation.name} {liveScore.user}
-                <span className="px-2 text-white/25">-</span>
-                {liveScore.opponent} {match.opponent.name}
-              </p>
+              <div className="mt-2 grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-2 text-lg font-black sm:text-3xl">
+                <span className="truncate text-right">{selectedNation.name} {liveScore.user}</span>
+                <span className="text-white/25">-</span>
+                <span className="truncate text-left">{liveScore.opponent} {match.opponent.name}</span>
+              </div>
               <p className="mt-2 text-[10px] font-black uppercase tracking-[0.2em] text-white/35">
                 {matchMinute}&apos;
               </p>
@@ -1126,25 +1356,25 @@ export default function Home() {
           </div>
 
           {!matchComplete ? (
-            <div className="mt-5 grid grid-cols-2 gap-2 sm:grid-cols-3">
+            <div className="mt-5 grid grid-cols-1 gap-3 sm:grid-cols-3 sm:gap-2">
               {matchStatus === "ready" ? (
                 <button
                   onClick={() => setMatchStatus("playing")}
-                  className="col-span-2 rounded-2xl bg-[#d8b75b] px-5 py-4 text-sm font-black uppercase tracking-[0.14em] text-black sm:col-span-1"
+                  className="min-h-12 rounded-2xl bg-[#d8b75b] px-5 py-4 text-sm font-black uppercase tracking-[0.14em] text-black"
                 >
                   Start
                 </button>
               ) : matchStatus === "playing" ? (
                 <button
                   onClick={() => setMatchStatus("paused")}
-                  className="rounded-2xl bg-[#d8b75b] px-5 py-4 text-sm font-black uppercase tracking-[0.14em] text-black"
+                  className="min-h-12 rounded-2xl bg-[#d8b75b] px-5 py-4 text-sm font-black uppercase tracking-[0.14em] text-black"
                 >
                   Pause
                 </button>
               ) : (
                 <button
                   onClick={() => setMatchStatus("playing")}
-                  className="rounded-2xl bg-[#d8b75b] px-5 py-4 text-sm font-black uppercase tracking-[0.14em] text-black"
+                  className="min-h-12 rounded-2xl bg-[#d8b75b] px-5 py-4 text-sm font-black uppercase tracking-[0.14em] text-black"
                 >
                   Resume
                 </button>
@@ -1155,7 +1385,7 @@ export default function Home() {
                     current === "normal" ? "fast" : "normal",
                   )
                 }
-                className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-xs font-black uppercase tracking-wider"
+                className="min-h-12 rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-xs font-black uppercase tracking-wider"
               >
                 Speed: {speed === "normal" ? "Normal" : "Fast"}
               </button>
@@ -1164,7 +1394,7 @@ export default function Home() {
                   setRevealedEvents(match.events.length);
                   setMatchStatus("finished");
                 }}
-                className="col-span-2 rounded-2xl border border-[#d8b75b]/30 bg-[#d8b75b]/10 px-4 py-3 text-xs font-black uppercase tracking-wider text-[#f6dc86] sm:col-span-1"
+                className="min-h-12 rounded-2xl border border-[#d8b75b]/30 bg-[#d8b75b]/10 px-4 py-3 text-xs font-black uppercase tracking-wider text-[#f6dc86]"
               >
                 Skip Match
               </button>
@@ -1179,16 +1409,16 @@ export default function Home() {
                 </h2>
                 <span className="text-[9px] font-bold text-white/30">P · GD · PTS</span>
               </div>
-              {groupTable.map((row, index) => (
+              {visibleGroupTable.map((row, index) => (
                 <div
                   key={row.nation.code}
-                  className={`grid grid-cols-[1.5rem_1fr_2rem_2rem_2rem] items-center gap-2 border-b border-white/5 px-4 py-2.5 text-xs last:border-0 ${
+                  className={`grid grid-cols-[1.25rem_minmax(0,1fr)_1.75rem_1.75rem_2rem] items-center gap-1 border-b border-white/5 px-3 py-2.5 text-[11px] last:border-0 sm:grid-cols-[1.5rem_1fr_2rem_2rem_2rem] sm:gap-2 sm:px-4 sm:text-xs ${
                     row.nation.code === selectedNation.code ? "bg-[#d8b75b]/8" : ""
                   }`}
                 >
                   <span className="text-white/30">{index + 1}</span>
                   <span className="truncate font-bold">
-                    {row.nation.flag} {row.nation.name}
+                    {getNationFlag(row.nation.name)} {row.nation.name}
                   </span>
                   <span className="text-center text-white/45">{row.played}</span>
                   <span className="text-center text-white/45">
@@ -1233,6 +1463,28 @@ export default function Home() {
               <h2 className="mb-3 text-[10px] font-black uppercase tracking-[0.18em] text-[#d8b75b]">
                 Tournament bracket
               </h2>
+              <div className="mb-4 grid gap-2 sm:grid-cols-2">
+                <div className="rounded-xl border border-emerald-300/15 bg-emerald-300/8 p-3">
+                  <p className="text-[8px] font-black uppercase tracking-wider text-emerald-200/60">
+                    Advances
+                  </p>
+                  <p className="mt-1 font-black text-emerald-100">
+                    {match.userGoals > match.opponentGoals
+                      ? `${getNationFlag(selectedNation.name)} ${selectedNation.name}`
+                      : `${getNationFlag(match.opponent.name)} ${match.opponent.name}`}
+                  </p>
+                </div>
+                <div className="rounded-xl border border-rose-300/15 bg-rose-300/8 p-3">
+                  <p className="text-[8px] font-black uppercase tracking-wider text-rose-200/60">
+                    Eliminated
+                  </p>
+                  <p className="mt-1 font-black text-rose-100">
+                    {match.userGoals < match.opponentGoals
+                      ? `${getNationFlag(selectedNation.name)} ${selectedNation.name}`
+                      : `${getNationFlag(match.opponent.name)} ${match.opponent.name}`}
+                  </p>
+                </div>
+              </div>
               <TournamentBracket
                 rounds={
                   matchComplete && pendingRound
@@ -1249,18 +1501,25 @@ export default function Home() {
               onClick={nextMatch}
               className="mt-5 rounded-2xl bg-[#d8b75b] px-5 py-4 text-sm font-black uppercase tracking-[0.14em] text-black transition hover:bg-[#f6dc86]"
             >
-              Next Match →
+              {match.round === "Group Stage"
+                ? groupIndex === 2
+                  ? "View Group Stage Overview"
+                  : `Continue to Matchday ${groupIndex + 2}`
+                : match.userGoals < match.opponentGoals ||
+                    match.round === "Final"
+                  ? "Tournament Overview"
+                  : `Continue to ${nextRoundLabel(match.round)}`}
             </button>
           ) : null}
         </section>
       ) : null}
 
       {view === "result" && selectedNation ? (
-        <section className="mx-auto min-h-screen max-w-6xl px-4 py-10 sm:px-8">
-          <div className="w-full rounded-[2.25rem] border border-[#d8b75b]/20 bg-[#101713]/95 p-5 text-center shadow-2xl sm:p-9">
+        <section className="mx-auto min-h-screen w-full max-w-6xl min-w-0 px-4 py-8 pb-24 sm:px-8 sm:py-10 sm:pb-10">
+          <div className="w-full max-w-full min-w-0 overflow-hidden rounded-[2.25rem] border border-[#d8b75b]/20 bg-[#101713]/95 p-5 text-center shadow-2xl sm:p-9">
             <p className="text-[10px] font-black uppercase tracking-[0.3em] text-[#d8b75b]">Tournament complete</p>
-            <span className="mt-5 block text-7xl">{selectedNation.flag}</span>
-            <h1 className="mt-3 text-3xl font-black">{selectedNation.name}</h1>
+            <span className="mt-5 block text-6xl sm:text-7xl">{getNationFlag(selectedNation.name)}</span>
+            <h1 className="mt-3 break-words text-2xl font-black sm:text-3xl">{selectedNation.name}</h1>
             <div className="mx-auto mt-3 inline-block rounded-full bg-[#d8b75b]/10 px-4 py-2 text-sm font-black uppercase tracking-wider text-[#f6dc86]">
               {finish}
             </div>
@@ -1338,19 +1597,19 @@ export default function Home() {
                   />
                   <AwardCard
                     title="Winner"
-                    value={`${awards.winner.flag} ${awards.winner.name}`}
+                    value={`${getNationFlag(awards.winner.name)} ${awards.winner.name}`}
                     detail={`Final ${awards.finalScore}`}
                   />
                   <AwardCard
                     title="Runner-up"
-                    value={`${awards.runnerUp.flag} ${awards.runnerUp.name}`}
+                    value={`${getNationFlag(awards.runnerUp.name)} ${awards.runnerUp.name}`}
                     detail="World Cup finalist"
                   />
                 </div>
               </section>
             ) : null}
 
-            <div className="mt-7 text-left">
+            <div className="mt-7 w-full max-w-full min-w-0 overflow-hidden text-left">
               <h2 className="mb-3 text-[10px] font-black uppercase tracking-[0.2em] text-[#d8b75b]">
                 Full tournament bracket
               </h2>
@@ -1365,14 +1624,14 @@ export default function Home() {
                 type="button"
                 onClick={() => setSaveLeaderboardOpen(true)}
                 disabled={leaderboardSaved || !worldCupScore}
-                className="rounded-2xl border border-[#d8b75b]/30 bg-[#d8b75b]/10 px-4 py-3 text-xs font-black uppercase tracking-wider text-[#f6dc86] hover:bg-[#d8b75b]/15 disabled:cursor-not-allowed disabled:opacity-40"
+                className="min-h-12 rounded-2xl border border-[#d8b75b]/30 bg-[#d8b75b]/10 px-4 py-3 text-xs font-black uppercase tracking-wider text-[#f6dc86] hover:bg-[#d8b75b]/15 disabled:cursor-not-allowed disabled:opacity-40"
               >
                 {leaderboardSaved ? "Saved to Leaderboard" : "Save to Leaderboard"}
               </button>
               <button
                 type="button"
                 onClick={() => setLeaderboardOpen(true)}
-                className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-xs font-black uppercase tracking-wider hover:bg-white/10"
+                className="min-h-12 rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-xs font-black uppercase tracking-wider hover:bg-white/10"
               >
                 View Leaderboard
               </button>

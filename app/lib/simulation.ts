@@ -1,4 +1,5 @@
 import { NATIONS } from "../data/groups";
+import { getPlayersByNation } from "../../data/players";
 import {
   getNationStrength,
   type TournamentForm,
@@ -28,10 +29,37 @@ function scoreGoals(rating: number, opponentRating: number) {
   return goals;
 }
 
-function fakeOpponentName() {
-  const firstNames = ["Mateo", "Luca", "Amadou", "Kenji", "Noah", "Sami", "Rafael", "Daniel"];
-  const lastNames = ["Silva", "Diallo", "Kim", "Garcia", "Muller", "Tanaka", "Mensah", "Costa"];
-  return `${randomItem(firstNames)} ${randomItem(lastNames)}`;
+function weightedPlayerPick(players: Player[], weights: Record<Player["position"], number>) {
+  const weighted = players.flatMap((player) =>
+    Array.from({ length: weights[player.position] }, () => player),
+  );
+  return randomItem(weighted.length ? weighted : players);
+}
+
+export function getPlayersForNation(nation: Nation | string): Player[] {
+  return getPlayersByNation(typeof nation === "string" ? nation : nation.name);
+}
+
+export function pickScorer(
+  nation: Nation | string,
+  teamLineupOrSquad?: Player[],
+): Player {
+  const players = teamLineupOrSquad?.length
+    ? teamLineupOrSquad
+    : getPlayersForNation(nation);
+  return weightedPlayerPick(players, { GK: 1, DF: 2, MF: 6, FW: 10 });
+}
+
+export function pickAssist(
+  nation: Nation | string,
+  scorer: Player,
+  teamLineupOrSquad?: Player[],
+): Player | undefined {
+  const players = (
+    teamLineupOrSquad?.length ? teamLineupOrSquad : getPlayersForNation(nation)
+  ).filter((player) => player.id !== scorer.id);
+  if (!players.length) return undefined;
+  return weightedPlayerPick(players, { GK: 1, DF: 3, MF: 10, FW: 7 });
 }
 
 const chanceTexts: Array<{
@@ -81,8 +109,8 @@ export function createMatch(
     }
   }
 
-  const scorerPool = xi.filter((player) => player.position === "FW");
-  const assistPool = xi.filter((player) => player.position !== "GK");
+  const opponentSquad = getPlayersForNation(opponent);
+  const userOutfield = xi.filter((player) => player.position !== "GK");
   const outcomes: Array<{
     minute: number;
     isGoal: boolean;
@@ -99,27 +127,36 @@ export function createMatch(
   };
 
   for (let index = 0; index < userGoals; index += 1) {
-    const scorer = randomItem(scorerPool.length ? scorerPool : assistPool);
-    const possibleAssists = assistPool.filter((player) => player.id !== scorer.id);
-    const assist = randomItem(possibleAssists);
+    const scorer = pickScorer(userNation?.name ?? xi[0]?.nation ?? "", xi);
+    const assist = pickAssist(
+      userNation?.name ?? xi[0]?.nation ?? "",
+      scorer,
+      xi,
+    );
     const minute = nextMinute();
     outcomes.push({
       minute,
       isGoal: true,
       forUser: true,
       scorer: scorer.name,
-      text: `GOAL! ${scorer.name} ${minute}' (Assist: ${assist.name})`,
+      text: `GOAL! ${scorer.name} ${minute}'${
+        assist ? ` (Assist: ${assist.name})` : ""
+      }`,
     });
   }
 
   for (let index = 0; index < opponentGoals; index += 1) {
-    const scorer = fakeOpponentName();
+    const scorer = pickScorer(opponent, opponentSquad);
+    const assist = pickAssist(opponent, scorer, opponentSquad);
     const minute = nextMinute();
     outcomes.push({
       minute,
       isGoal: true,
       forUser: false,
-      text: `GOAL! ${scorer} ${minute}' (Assist: ${fakeOpponentName()})`,
+      scorer: scorer.name,
+      text: `GOAL! ${scorer.name} ${minute}'${
+        assist ? ` (Assist: ${assist.name})` : ""
+      }`,
     });
   }
 
@@ -127,7 +164,7 @@ export function createMatch(
   for (let index = 0; index < misses; index += 1) {
     const minute = nextMinute();
     const forUser = Math.random() > 0.4;
-    const player = forUser ? randomItem(assistPool) : null;
+    const player = forUser ? randomItem(userOutfield) : null;
     outcomes.push({
       minute,
       isGoal: false,

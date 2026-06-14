@@ -3,6 +3,7 @@ import type {
   TournamentRound,
   TournamentRoundResults,
 } from "../lib/types";
+import { getNationFlag } from "../lib/flags";
 
 export function TournamentBracket({
   rounds,
@@ -41,8 +42,32 @@ export function TournamentBracket({
   const final = fixturesFor("Final")[0];
 
   return (
-    <div className="overflow-x-auto pb-4">
-      <div className="tournament-bracket-grid">
+    <>
+      <div className="w-full max-w-full min-w-0 space-y-5 overflow-hidden md:hidden">
+        {rounds.map((round) => (
+          <section
+            key={round.round}
+            className="w-full max-w-full min-w-0 overflow-hidden rounded-2xl border border-white/8 bg-white/[0.025] p-3"
+          >
+            <h3 className="mb-3 text-center text-[10px] font-black uppercase tracking-[0.18em] text-[#d8b75b]">
+              {round.round}
+            </h3>
+            <div className="grid min-w-0 gap-2">
+              {round.fixtures.map((fixture) => (
+                <FixtureCard
+                  key={fixture.id}
+                  fixture={fixture}
+                  selectedNationCode={selectedNationCode}
+                  final={round.round === "Final"}
+                />
+              ))}
+            </div>
+          </section>
+        ))}
+      </div>
+
+      <div className="tournament-bracket-scroll hidden pb-4 md:block">
+        <div className="tournament-bracket-grid">
         <BracketColumn
           title="Round of 32"
           fixtures={left32}
@@ -118,8 +143,9 @@ export function TournamentBracket({
           selectedNationCode={selectedNationCode}
           side="right"
         />
+        </div>
       </div>
-    </div>
+    </>
   );
 }
 
@@ -180,7 +206,7 @@ function FixtureCard({
 
   return (
     <div
-      className={`tournament-bracket-match w-full rounded-xl border p-2 text-[10px] ${
+      className={`tournament-bracket-match w-full rounded-xl border p-2.5 text-xs md:p-2 md:text-[10px] ${
         final && hasWinner
           ? "border-[#d8b75b]/55 bg-[#d8b75b]/15 shadow-[0_0_35px_rgba(216,183,91,.12)]"
           : highlighted
@@ -195,13 +221,13 @@ function FixtureCard({
       ) : null}
       <FixtureTeam
         name={fixture.home.name}
-        flag={fixture.home.flag}
+        flag={getNationFlag(fixture.home.name)}
         score={fixture.homeGoals}
         winner={fixture.winner?.code === fixture.home.code}
       />
       <FixtureTeam
         name={fixture.away.name}
-        flag={fixture.away.flag}
+        flag={getNationFlag(fixture.away.name)}
         score={fixture.awayGoals}
         winner={fixture.winner?.code === fixture.away.code}
       />

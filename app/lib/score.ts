@@ -5,6 +5,7 @@ import type {
   TournamentRoundResults,
   TournamentStats,
 } from "./types";
+import { getNationFlag } from "./flags";
 
 export interface WorldCupScoreInput {
   finish: string;
@@ -207,7 +208,7 @@ export function buildChallengeText({
 }): string {
   const url = getShareUrl();
   return [
-    `I just simulated the World Cup with ${nation.name} ${nation.flag}`,
+    `I just simulated the World Cup with ${nation.name} ${getNationFlag(nation.name)}`,
     "",
     `Finish: ${finish}`,
     `World Cup Score: ${score}`,

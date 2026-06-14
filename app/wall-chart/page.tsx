@@ -13,6 +13,7 @@ import {
   type ScoreValue,
 } from "../lib/wall-chart";
 import type { TournamentFixture } from "../lib/types";
+import { getNationFlag } from "../lib/flags";
 
 const WALL_CHART_STORAGE_KEY = "world-cup-wall-chart-scores-v1";
 
@@ -144,16 +145,16 @@ export default function WallChartPage() {
   };
 
   return (
-    <main className="wall-chart-page min-h-screen bg-[#06100c] text-white">
-      <header className="no-print sticky top-0 z-40 border-b border-white/10 bg-[#06100c]/95 px-4 py-3 backdrop-blur-xl">
-        <div className="mx-auto flex max-w-[96rem] flex-wrap items-center justify-between gap-3">
-          <div>
+    <main className="wall-chart-page min-h-screen w-full max-w-full overflow-x-hidden bg-[#06100c] text-white">
+      <header className="safe-inline-padding no-print sticky top-0 z-40 w-full max-w-full border-b border-white/10 bg-[#06100c]/95 px-4 py-3 backdrop-blur-xl">
+        <div className="mx-auto flex w-full max-w-[96rem] min-w-0 flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
+          <div className="min-w-0">
             <p className="text-[9px] font-black uppercase tracking-[0.24em] text-[#d8b75b]">
               Tournament Planner
             </p>
             <h1 className="font-black">World Cup Wall Chart</h1>
           </div>
-          <nav className="flex flex-wrap justify-end gap-2">
+          <nav className="grid w-full grid-cols-3 gap-2 sm:flex sm:w-auto sm:flex-wrap sm:justify-end">
             <Link href="/" className="wall-nav-button">
               Home
             </Link>
@@ -171,13 +172,13 @@ export default function WallChartPage() {
         </div>
       </header>
 
-      <div className="no-print mx-auto max-w-[96rem] px-4 py-8">
+      <div className="safe-inline-padding no-print mx-auto w-full max-w-[96rem] min-w-0 px-4 py-6 sm:py-8">
         <section className="wall-hero">
-          <div>
+          <div className="min-w-0">
             <p className="text-xs font-black uppercase tracking-[0.32em] text-[#d8b75b]">
               World Cup 2026
             </p>
-            <h2 className="mt-2 max-w-3xl text-4xl font-black leading-none sm:text-6xl">
+            <h2 className="mt-2 max-w-3xl text-3xl font-black leading-none sm:text-6xl">
               Every match. Every table. One path to the trophy.
             </h2>
             <p className="mt-4 max-w-2xl text-sm leading-6 text-white/50">
@@ -185,11 +186,11 @@ export default function WallChartPage() {
               tournament bracket update automatically.
             </p>
           </div>
-          <div className="flex flex-col items-start gap-3 sm:items-end">
+          <div className="flex w-full flex-col items-start gap-3 sm:w-auto sm:items-end">
             <span className="rounded-full border border-emerald-300/20 bg-emerald-300/10 px-4 py-2 text-xs font-black text-emerald-200">
               {saveMessage}
             </span>
-            <div className="flex flex-wrap gap-2">
+            <div className="grid w-full gap-2 sm:flex sm:w-auto sm:flex-wrap">
               <PrintButton onClick={() => printPage("groups")}>
                 Print Group Stage
               </PrintButton>
@@ -200,7 +201,7 @@ export default function WallChartPage() {
           </div>
         </section>
 
-        <section className="mt-10">
+        <section className="mt-10 w-full max-w-full min-w-0">
           <SectionTitle
             eyebrow="Matches 1-72"
             title="Official Group-Stage Schedule"
@@ -223,7 +224,7 @@ export default function WallChartPage() {
                 </div>
                 <div className="wall-fixture-teams">
                   <span>
-                    {fixture.home.flag} {fixture.home.name}
+                    {getNationFlag(fixture.home.name)} {fixture.home.name}
                   </span>
                   <ScoreInput
                     value={scores[fixture.id]?.home ?? ""}
@@ -241,7 +242,7 @@ export default function WallChartPage() {
                     }
                   />
                   <span>
-                    {fixture.away.name} {fixture.away.flag}
+                    {fixture.away.name} {getNationFlag(fixture.away.name)}
                   </span>
                 </div>
               </article>
@@ -255,7 +256,7 @@ export default function WallChartPage() {
             title="Group Tables"
             description="The top two qualify automatically; the eight best third-placed teams also advance."
           />
-          <div className="mt-5 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+          <div className="mt-5 grid w-full max-w-full min-w-0 gap-4 md:grid-cols-2 xl:grid-cols-3">
             {Object.keys(WORLD_CUP_GROUPS).map((group) => (
               <article
                 key={group}
@@ -286,7 +287,8 @@ export default function WallChartPage() {
                     {tables[group].map((row, index) => (
                       <tr key={row.nation.code}>
                         <td>
-                          <span>{index + 1}</span> {row.nation.flag}{" "}
+                          <span>{index + 1}</span>{" "}
+                          {getNationFlag(row.nation.name)}{" "}
                           {row.nation.name}
                         </td>
                         <td>{row.played}</td>
@@ -304,7 +306,7 @@ export default function WallChartPage() {
           </div>
         </section>
 
-        <section className="mt-14">
+        <section className="mt-14 w-full max-w-full min-w-0">
           <SectionTitle
             eyebrow="Matches 73-104"
             title="Knockout Bracket"
@@ -315,7 +317,7 @@ export default function WallChartPage() {
               Knockout games need a winner.
             </div>
           ) : null}
-          <div className="mt-5">
+          <div className="mt-5 w-full max-w-full min-w-0 overflow-hidden">
             <WallChartBracket
               fixtures={knockoutFixtures}
               scores={scores}
@@ -389,8 +391,33 @@ function WallChartBracket({
   ) => void;
 }) {
   return (
-    <div className="wall-bracket-scroll">
-      <div className="wall-bracket">
+    <>
+      <div className="w-full max-w-full min-w-0 space-y-5 overflow-hidden md:hidden">
+        {KNOCKOUT_PLACEHOLDER_ROUNDS.map((round) => (
+          <section
+            key={round.round}
+            className="w-full max-w-full min-w-0 overflow-hidden rounded-2xl border border-white/8 bg-white/[0.025] p-3"
+          >
+            <h3 className="mb-3 text-center text-[10px] font-black uppercase tracking-[0.18em] text-[#d8b75b]">
+              {round.round}
+            </h3>
+            <div className="grid min-w-0 gap-2">
+              {round.fixtures.map((placeholder) => (
+                <DigitalBracketMatch
+                  key={placeholder.matchNumber}
+                  placeholder={placeholder}
+                  fixture={fixtures.get(placeholder.matchNumber)}
+                  score={scores[placeholder.id]}
+                  onScoreChange={onScoreChange}
+                />
+              ))}
+            </div>
+          </section>
+        ))}
+      </div>
+
+      <div className="wall-bracket-scroll hidden md:block">
+        <div className="wall-bracket">
         <BracketColumn
           title="Round of 32"
           side="left"
@@ -468,8 +495,9 @@ function WallChartBracket({
           scores={scores}
           onScoreChange={onScoreChange}
         />
+        </div>
       </div>
-    </div>
+    </>
   );
 }
 
@@ -533,7 +561,7 @@ function DigitalBracketMatch({
       <BracketTeamRow
         name={
           fixture
-            ? `${fixture.home.flag} ${fixture.home.name}`
+            ? `${getNationFlag(fixture.home.name)} ${fixture.home.name}`
             : placeholder.homeLabel
         }
         score={score?.home ?? ""}
@@ -544,7 +572,7 @@ function DigitalBracketMatch({
       <BracketTeamRow
         name={
           fixture
-            ? `${fixture.away.flag} ${fixture.away.name}`
+            ? `${getNationFlag(fixture.away.name)} ${fixture.away.name}`
             : placeholder.awayLabel
         }
         score={score?.away ?? ""}

@@ -1,5 +1,6 @@
 import type { Nation } from "../lib/types";
 import { PLAYER_NATIONS } from "../../data/players";
+import { getNationFlag } from "../lib/flags";
 
 type NationSeed = [
   name: string,
@@ -13,7 +14,7 @@ const playerNationCodes = new Map(
   PLAYER_NATIONS.map((playerNation) => [playerNation.name, playerNation.code]),
 );
 
-const nation = ([name, flag, code, strength, colors]: NationSeed): Nation => {
+const nation = ([name, , code, strength, colors]: NationSeed): Nation => {
   const playerNationCode = playerNationCodes.get(name);
   if (!playerNationCode) {
     throw new Error(`Missing player data for ${name}`);
@@ -24,7 +25,7 @@ const nation = ([name, flag, code, strength, colors]: NationSeed): Nation => {
 
   return {
     name,
-    flag,
+    flag: getNationFlag(name),
     code: playerNationCode,
     strength,
     colors,

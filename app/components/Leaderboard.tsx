@@ -6,6 +6,7 @@ import {
   clearLeaderboardEntries,
   getLeaderboardEntries,
 } from "../lib/leaderboard";
+import { getNationFlag } from "../lib/flags";
 
 export function LeaderboardModal({
   open,
@@ -47,7 +48,7 @@ export function LeaderboardModal({
         aria-label="Close leaderboard"
       />
       <section
-        className="relative flex max-h-[85vh] w-full max-w-lg flex-col overflow-hidden rounded-[1.75rem] border border-white/10 bg-[#101713] shadow-2xl"
+        className="relative flex max-h-[92dvh] w-full max-w-lg flex-col overflow-hidden rounded-[1.5rem] border border-white/10 bg-[#101713] shadow-2xl sm:max-h-[85vh] sm:rounded-[1.75rem]"
         role="dialog"
         aria-modal="true"
         aria-labelledby="leaderboard-title"
@@ -67,7 +68,7 @@ export function LeaderboardModal({
           <button
             type="button"
             onClick={onClose}
-            className="grid h-10 w-10 place-items-center rounded-full border border-white/10 bg-white/5 text-xl text-white/70 hover:bg-white/10"
+            className="grid h-11 w-11 place-items-center rounded-full border border-white/10 bg-white/5 text-xl text-white/70 hover:bg-white/10"
             aria-label="Close"
           >
             ×
@@ -93,7 +94,7 @@ export function LeaderboardModal({
                     <div className="min-w-0 flex-1">
                       <div className="flex items-center justify-between gap-2">
                         <p className="truncate font-black">
-                          {entry.nationFlag} {entry.name}
+                          {getNationFlag(entry.nation)} {entry.name}
                         </p>
                         <span className="shrink-0 text-xl font-black text-[#f6dc86]">
                           {entry.score}
@@ -122,7 +123,7 @@ export function LeaderboardModal({
                 clearLeaderboardEntries();
                 setRefreshKey((current) => current + 1);
               }}
-              className="w-full rounded-xl border border-white/10 px-4 py-2.5 text-[10px] font-black uppercase tracking-wider text-white/40 hover:bg-white/5 hover:text-white/60"
+              className="min-h-11 w-full rounded-xl border border-white/10 px-4 py-2.5 text-[10px] font-black uppercase tracking-wider text-white/40 hover:bg-white/5 hover:text-white/60"
             >
               Clear local leaderboard
             </button>
@@ -201,21 +202,21 @@ function SaveToLeaderboardForm({
           value={name}
           onChange={(event) => setName(event.target.value)}
           placeholder="Anonymous"
-          className="mt-4 w-full rounded-xl border border-white/10 bg-black/30 px-4 py-3 text-sm outline-none focus:border-[#d8b75b]/60"
+          className="mt-4 min-h-11 w-full rounded-xl border border-white/10 bg-black/30 px-4 py-3 text-sm outline-none focus:border-[#d8b75b]/60"
           autoFocus
         />
         <div className="mt-4 grid grid-cols-2 gap-2">
           <button
             type="button"
             onClick={onClose}
-            className="rounded-xl border border-white/10 px-4 py-3 text-xs font-black uppercase tracking-wider"
+            className="min-h-11 rounded-xl border border-white/10 px-4 py-3 text-xs font-black uppercase tracking-wider"
           >
             Cancel
           </button>
           <button
             type="button"
             onClick={() => onSave(name.trim() || "Anonymous")}
-            className="rounded-xl bg-[#d8b75b] px-4 py-3 text-xs font-black uppercase tracking-wider text-black"
+            className="min-h-11 rounded-xl bg-[#d8b75b] px-4 py-3 text-xs font-black uppercase tracking-wider text-black"
           >
             Save
           </button>

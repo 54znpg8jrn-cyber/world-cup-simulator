@@ -16,11 +16,19 @@
   box-sizing: border-box;
 }
 
+html,
+body {
+  width: 100%;
+  max-width: 100%;
+  overflow-x: hidden;
+}
+
 html {
   background: var(--background);
 }
 
 body {
+  position: relative;
   margin: 0;
   background: var(--background);
   color: var(--foreground);
@@ -37,6 +45,9 @@ button {
 }
 
 .stadium-bg {
+  width: 100%;
+  max-width: 100%;
+  overflow-x: hidden;
   background:
     radial-gradient(circle at 50% -10%, rgba(72, 150, 94, 0.2), transparent 35%),
     radial-gradient(circle at 10% 50%, rgba(216, 183, 91, 0.06), transparent 25%),
@@ -71,11 +82,28 @@ button {
 }
 
 .pitch {
+  width: 100%;
+  max-width: 100%;
+  aspect-ratio: 3 / 4;
+  box-sizing: border-box;
   background-color: #1c6938;
   background-image:
     repeating-linear-gradient(90deg, transparent 0 12.5%, rgba(0,0,0,.065) 12.5% 25%),
     radial-gradient(circle at 50% 50%, rgba(107, 255, 150, .12), transparent 55%),
     linear-gradient(180deg, #237844, #14552e);
+}
+
+.pitch-wrapper,
+.simulator-builder {
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  overflow-x: hidden;
+}
+
+.player-slot {
+  transform: translate(-50%, -50%);
+  transform-origin: center;
 }
 
 .live-dot {
@@ -127,6 +155,11 @@ button {
 }
 
 .wall-nav-button {
+  min-width: 0;
+  display: inline-flex;
+  min-height: 44px;
+  align-items: center;
+  justify-content: center;
   border: 1px solid rgb(255 255 255 / 10%);
   border-radius: .75rem;
   padding: .55rem .8rem;
@@ -141,6 +174,9 @@ button {
 }
 
 .wall-hero {
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
   display: flex;
   align-items: end;
   justify-content: space-between;
@@ -156,6 +192,7 @@ button {
 }
 
 .wall-print-button {
+  min-height: 44px;
   border-radius: .9rem;
   background: #d8b75b;
   padding: .8rem 1rem;
@@ -174,12 +211,16 @@ button {
 
 .wall-schedule-grid {
   display: grid;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
   grid-template-columns: repeat(1, minmax(0, 1fr));
   gap: .55rem;
 }
 
 .wall-fixture-card {
   position: relative;
+  min-width: 0;
   overflow: hidden;
   border: 1px solid rgb(255 255 255 / 8%);
   border-radius: 1rem;
@@ -214,6 +255,7 @@ button {
 
 .wall-fixture-teams {
   display: grid;
+  min-width: 0;
   grid-template-columns: minmax(0, 1fr) 2.35rem .6rem 2.35rem minmax(0, 1fr);
   align-items: center;
   gap: .35rem;
@@ -261,6 +303,9 @@ button {
 }
 
 .wall-group-card {
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
   overflow: hidden;
   border: 1px solid rgb(255 255 255 / 9%);
   border-radius: 1.35rem;
@@ -291,7 +336,9 @@ button {
 
 .wall-group-card table {
   width: 100%;
+  max-width: 100%;
   border-collapse: collapse;
+  table-layout: fixed;
   font-size: .62rem;
 }
 
@@ -317,8 +364,11 @@ button {
 }
 
 .wall-group-card td:first-child {
+  overflow: hidden;
   color: white;
   font-weight: 800;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .wall-group-card td:first-child span {
@@ -339,7 +389,11 @@ button {
 }
 
 .wall-bracket-scroll {
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
   overflow-x: auto;
+  overscroll-behavior-x: contain;
   padding: 1rem 0 1.5rem;
 }
 
@@ -476,6 +530,14 @@ button {
   gap: .75rem;
 }
 
+.tournament-bracket-scroll {
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+}
+
 .tournament-bracket-column .tournament-bracket-match {
   position: relative;
 }
@@ -514,16 +576,89 @@ button {
   }
 }
 
-@media (max-width: 760px) {
+@media screen and (max-width: 767px) {
+  .mobile-safe-nav {
+    left: max(.5rem, env(safe-area-inset-left));
+    right: max(.5rem, env(safe-area-inset-right));
+  }
+
+  .safe-inline-padding {
+    padding-left: max(1rem, env(safe-area-inset-left));
+    padding-right: max(1rem, env(safe-area-inset-right));
+  }
+
   .wall-hero {
     align-items: flex-start;
     flex-direction: column;
+  }
+
+  .wall-fixture-card {
+    padding: .7rem .55rem;
+  }
+
+  .wall-fixture-teams {
+    grid-template-columns: minmax(0, 1fr) 2.5rem .45rem 2.5rem minmax(0, 1fr);
+    gap: .2rem;
+    font-size: .62rem;
+  }
+
+  .wall-score-input {
+    width: 2.5rem;
+    height: 2.75rem;
+  }
+
+  .wall-group-card th:nth-child(3),
+  .wall-group-card th:nth-child(4),
+  .wall-group-card th:nth-child(5),
+  .wall-group-card td:nth-child(3),
+  .wall-group-card td:nth-child(4),
+  .wall-group-card td:nth-child(5) {
+    display: none;
+  }
+
+  .wall-group-card th:first-child,
+  .wall-group-card td:first-child {
+    padding-left: .75rem;
+  }
+
+  .wall-bracket-match {
+    padding: .7rem;
+  }
+
+  .wall-bracket-team {
+    min-height: 44px;
+  }
+
+  .wall-bracket-team span {
+    font-size: .72rem;
+  }
+
+  .wall-bracket-team .wall-score-input {
+    width: 2.5rem;
+    height: 2.75rem;
+    font-size: .8rem;
+  }
+}
+
+@media screen and (max-width: 640px) {
+  .simulator-builder {
+    max-width: 100vw;
+  }
+
+  .pitch-wrapper,
+  .pitch {
+    width: 100%;
+    max-width: min(100%, calc(100vw - 2rem));
+  }
+
+  .player-slot {
+    transform: translate(-50%, -50%) scale(.85);
   }
 }
 
 @page {
   size: A4 landscape;
-  margin: 0;
+  margin: 5mm;
 }
 
 @media print {
@@ -557,12 +692,15 @@ button {
 
   .print-page {
     box-sizing: border-box;
-    width: 297mm;
-    height: 210mm;
+    width: 287mm;
+    height: 200mm;
     overflow: hidden;
-    padding: 4mm;
-    break-after: page;
-    page-break-after: always;
+    break-after: auto;
+    break-inside: avoid;
+    page-break-after: auto;
+    page-break-inside: avoid;
+    print-color-adjust: exact;
+    -webkit-print-color-adjust: exact;
   }
 
   .print-page:last-child {
@@ -575,10 +713,10 @@ button {
     grid-template-columns: 1fr auto;
     grid-template-rows: auto auto;
     align-items: end;
-    height: 14mm;
+    height: 12mm;
     border-radius: 2mm;
     background: linear-gradient(105deg, #0d3b2a, #176c4a);
-    padding: 2mm 4mm;
+    padding: 1.5mm 3mm;
     color: white;
   }
 
@@ -597,16 +735,16 @@ button {
     grid-column: 1;
     grid-row: 2;
     margin: .5mm 0 0;
-    font-size: 14pt;
+    font-size: 13pt;
     line-height: 1;
   }
 
   .print-page-header span {
     grid-column: 2;
     grid-row: 1 / 3;
-    max-width: 75mm;
+    max-width: 72mm;
     padding-left: 4mm;
-    font-size: 6pt;
+    font-size: 5.7pt;
     line-height: 1.3;
     text-align: right;
   }
@@ -614,15 +752,15 @@ button {
   .print-schedule-grid {
     display: grid;
     grid-template-columns: repeat(4, 1fr);
-    height: 98mm;
-    gap: 1.8mm;
-    padding-top: 2mm;
+    height: 91mm;
+    gap: 1.5mm;
+    padding-top: 1.5mm;
   }
 
   .print-schedule-column {
     display: grid;
     grid-template-rows: repeat(18, 1fr);
-    gap: .35mm;
+    gap: .25mm;
   }
 
   .print-schedule-match {
@@ -634,8 +772,8 @@ button {
     border-left: 1.1mm solid var(--group-accent);
     border-radius: 1mm;
     background: #f2f6f3;
-    padding: .35mm .7mm;
-    font-size: 4.6pt;
+    padding: .25mm .6mm;
+    font-size: 4.4pt;
     line-height: 1;
   }
 
@@ -669,7 +807,7 @@ button {
   .print-bracket-match i {
     display: block;
     box-sizing: border-box;
-    height: 3.4mm;
+    height: 3.1mm;
     border: .22mm solid #466151;
     border-radius: .6mm;
     background: white;
@@ -683,23 +821,25 @@ button {
     display: grid;
     grid-template-columns: repeat(4, 1fr);
     grid-template-rows: repeat(3, 1fr);
-    height: 84mm;
-    gap: 1.7mm;
-    padding-top: 2mm;
+    height: 87.5mm;
+    gap: 1.4mm;
+    padding-top: 1.5mm;
   }
 
   .print-standings-card {
     overflow: hidden;
     border: .22mm solid #b5c3ba;
     border-radius: 1.4mm;
+    break-inside: avoid;
+    page-break-inside: avoid;
   }
 
   .print-standings-card h2 {
     margin: 0;
     background: var(--group-accent);
-    padding: .8mm 1.5mm;
+    padding: .65mm 1.3mm;
     color: #07100b;
-    font-size: 6pt;
+    font-size: 5.7pt;
     text-transform: uppercase;
   }
 
@@ -707,12 +847,12 @@ button {
     width: 100%;
     border-collapse: collapse;
     table-layout: fixed;
-    font-size: 4.5pt;
+    font-size: 4.3pt;
   }
 
   .print-standings-card th,
   .print-standings-card td {
-    height: 3.5mm;
+    height: 3.35mm;
     border: .16mm solid #c4cec7;
     text-align: center;
   }
@@ -726,9 +866,9 @@ button {
   .print-knockout-bracket {
     display: grid;
     grid-template-columns: repeat(4, minmax(0, 1fr)) 1.12fr repeat(4, minmax(0, 1fr));
-    height: 184mm;
-    gap: 1.8mm;
-    padding-top: 2mm;
+    height: 180.5mm;
+    gap: 1.5mm;
+    padding-top: 1.5mm;
     background:
       radial-gradient(circle at 50% 50%, rgb(216 183 91 / 15%), transparent 15%),
       white;
@@ -745,9 +885,9 @@ button {
     margin: 0 0 1mm;
     border-radius: 1mm;
     background: #0d3b2a;
-    padding: 1mm .3mm;
+    padding: .8mm .3mm;
     color: white;
-    font-size: 5.2pt;
+    font-size: 5pt;
     text-align: center;
     text-transform: uppercase;
   }
@@ -765,25 +905,27 @@ button {
     border: .2mm solid #789083;
     border-radius: 1mm;
     background: #f5f8f6;
-    padding: .55mm;
+    padding: .45mm;
+    break-inside: avoid;
+    page-break-inside: avoid;
   }
 
   .print-bracket-column.left .print-bracket-match::after,
   .print-bracket-column.right .print-bracket-match::before {
     position: absolute;
     top: 50%;
-    width: 1.9mm;
+    width: 1.6mm;
     height: .18mm;
     background: #789083;
     content: "";
   }
 
   .print-bracket-column.left .print-bracket-match::after {
-    right: -1.9mm;
+    right: -1.6mm;
   }
 
   .print-bracket-column.right .print-bracket-match::before {
-    left: -1.9mm;
+    left: -1.6mm;
   }
 
   .print-bracket-match small {
@@ -799,7 +941,7 @@ button {
     grid-template-columns: minmax(0, 1fr) 4mm;
     align-items: end;
     gap: .5mm;
-    min-height: 5.1mm;
+    min-height: 4.8mm;
     border-top: .15mm solid #ccd5cf;
   }
 
@@ -807,7 +949,7 @@ button {
     grid-column: 1;
     overflow: hidden;
     color: #51675b;
-    font-size: 3.3pt;
+    font-size: 3.2pt;
     line-height: 1;
     white-space: nowrap;
   }
@@ -841,5 +983,14 @@ button {
   .print-final-column .print-bracket-match {
     border-color: #b7902b;
     background: #fff9e8;
+  }
+}
+
+@media print and (orientation: portrait) {
+  .print-page {
+    width: 287mm;
+    height: 200mm;
+    transform: scale(.67);
+    transform-origin: top left;
   }
 }
