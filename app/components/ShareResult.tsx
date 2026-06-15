@@ -1,7 +1,16 @@
 "use client";
 
-import { useRef, useState } from "react";
+import {
+  useRef,
+  useState,
+  type CSSProperties,
+  type RefObject,
+} from "react";
 import { getShareUrl } from "../lib/score";
+import {
+  generateManualShareCardBlob,
+  generateShareCardBlob,
+} from "../lib/share-image";
 import type { ShareCardData } from "./ShareCard";
 import { ShareCard } from "./ShareCard";
 
@@ -23,24 +32,19 @@ export function ShareResult({
     getShareUrl(),
   ].join("\n");
 
-  const exportImage = async (): Promise<Blob | null> => {
+  const exportImage = async (): Promise<Blob> => {
     const element = cardRef.current;
-    if (!element) return null;
-
     try {
-      const html2canvas = (await import("html2canvas")).default;
-      const canvas = await html2canvas(element, {
-        backgroundColor: "#07100b",
-        scale: 2,
-        useCORS: true,
-        logging: false,
-      });
-
-      return new Promise<Blob | null>((resolve) => {
-        canvas.toBlob((blob) => resolve(blob), "image/png");
-      });
-    } catch {
-      return null;
+      if (!element) throw new Error("Share card element missing");
+      return await generateShareCardBlob(element);
+    } catch (error) {
+      console.error("html2canvas share card generation failed", error);
+      try {
+        return await generateManualShareCardBlob(data);
+      } catch (fallbackError) {
+        console.error("Manual share card generation failed", fallbackError);
+        throw fallbackError;
+      }
     }
   };
 
@@ -79,10 +83,6 @@ export function ShareResult({
     setBusyAction("share");
     try {
       const blob = await exportImage();
-      if (!blob) {
-        setMessage("Could not create the result image. Try again.");
-        return;
-      }
       const file = new File([blob], "world-cup-simulator-result.png", {
         type: "image/png",
       });
@@ -110,6 +110,9 @@ export function ShareResult({
       link.click();
       window.setTimeout(() => URL.revokeObjectURL(imageUrl), 1000);
       setMessage("Result image downloaded!");
+    } catch (error) {
+      console.error("Share result image generation failed", error);
+      setMessage("Could not create the result image. Try again.");
     } finally {
       setBusyAction(null);
     }
@@ -142,7 +145,8 @@ export function ShareResult({
           {busyAction === "share" ? "Preparing Share..." : "Share Result"}
         </button>
       </div>
-      <ShareCard data={data} exportRef={cardRef} />
+      <ShareCard data={data} />
+      <CaptureShareCard data={data} exportRef={cardRef} />
       {message ? (
         <p
           className="mt-3 text-center text-xs font-bold text-white/60"
@@ -153,6 +157,117 @@ export function ShareResult({
         </p>
       ) : null}
     </section>
+  );
+}
+
+function CaptureShareCard({
+  data,
+  exportRef,
+}: {
+  data: ShareCardData;
+  exportRef: RefObject<HTMLDivElement | null>;
+}) {
+  const lineStyle: CSSProperties = {
+    border: "1px solid rgba(255,255,255,0.12)",
+    borderRadius: 14,
+    background: "rgba(0,0,0,0.25)",
+    padding: "12px 14px",
+    textAlign: "left",
+  };
+
+  return (
+    <div
+      aria-hidden="true"
+      style={{
+        position: "fixed",
+        left: "-10000px",
+        top: 0,
+        width: 360,
+        height: 640,
+        pointerEvents: "none",
+        zIndex: -1,
+      }}
+    >
+      <div
+        ref={exportRef}
+        data-share-card-capture
+        style={{
+          boxSizing: "border-box",
+          display: "flex",
+          flexDirection: "column",
+          width: 360,
+          height: 640,
+          overflow: "hidden",
+          border: "1px solid rgba(216,183,91,0.3)",
+          borderRadius: 28,
+          background:
+            "linear-gradient(160deg, #18301f 0%, #07100b 55%, #020503 100%)",
+          padding: 24,
+          color: "#ffffff",
+          fontFamily: "Arial, Helvetica, sans-serif",
+          textAlign: "center",
+        }}
+      >
+        <p style={{ margin: 0, color: "#d8b75b", fontSize: 11, fontWeight: 900 }}>
+          WORLD CUP SIMULATOR
+        </p>
+        <div
+          style={{
+            alignSelf: "center",
+            marginTop: 22,
+            borderRadius: 14,
+            background: "#f7f0d5",
+            padding: "10px 18px",
+            color: "#123522",
+            fontSize: 24,
+            fontWeight: 900,
+          }}
+        >
+          {data.nation.code}
+        </div>
+        <h3 style={{ margin: "18px 0 0", fontSize: 28, fontWeight: 900 }}>
+          {data.nation.name.toUpperCase()}
+        </h3>
+        <p style={{ margin: "6px 0 0", color: "#f6dc86", fontSize: 12, fontWeight: 900 }}>
+          {data.finish.toUpperCase()}
+        </p>
+        <p style={{ margin: "28px 0 0", color: "rgba(255,255,255,0.5)", fontSize: 10, fontWeight: 900 }}>
+          WORLD CUP SCORE
+        </p>
+        <p style={{ margin: "2px 0 0", color: "#f6dc86", fontSize: 94, fontWeight: 900, lineHeight: 1 }}>
+          {data.score}
+        </p>
+        <p style={{ margin: "10px 0 0", fontSize: 17, fontWeight: 900 }}>
+          {data.scoreTitle}
+        </p>
+        {data.rarity ? (
+          <p style={{ margin: "5px 0 0", color: "#8cf2a7", fontSize: 10, fontWeight: 800 }}>
+            {data.rarity.toUpperCase()}
+          </p>
+        ) : null}
+        <div style={{ display: "grid", gap: 8, marginTop: 22 }}>
+          <div style={lineStyle}>
+            <p style={{ margin: 0, color: "rgba(255,255,255,0.45)", fontSize: 8, fontWeight: 900 }}>
+              TOP SCORER
+            </p>
+            <p style={{ margin: "3px 0 0", fontSize: 13, fontWeight: 900 }}>
+              {data.topScorer ?? "-"}
+            </p>
+          </div>
+          <div style={lineStyle}>
+            <p style={{ margin: 0, color: "rgba(255,255,255,0.45)", fontSize: 8, fontWeight: 900 }}>
+              MVP
+            </p>
+            <p style={{ margin: "3px 0 0", fontSize: 13, fontWeight: 900 }}>
+              {data.mvp ?? "-"}
+            </p>
+          </div>
+        </div>
+        <p style={{ margin: "auto 0 0", color: "#d8b75b", fontSize: 14, fontWeight: 900 }}>
+          CAN YOU BEAT MY SCORE?
+        </p>
+      </div>
+    </div>
   );
 }
 
