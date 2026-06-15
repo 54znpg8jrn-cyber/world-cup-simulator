@@ -58,44 +58,25 @@ export async function generateManualShareCardBlob(
   context.font = "900 34px Arial, sans-serif";
   context.fillText("WORLD CUP SIMULATOR", 540, 120);
 
-  drawNationBadge(context, data.nation.code, 540, 250);
-
-  context.fillStyle = "#ffffff";
-  context.font = "900 72px Arial, sans-serif";
-  drawFittedText(context, data.nation.name.toUpperCase(), 540, 390, 900);
-
-  context.fillStyle = "#f6dc86";
-  context.font = "900 34px Arial, sans-serif";
-  drawFittedText(context, data.finish.toUpperCase(), 540, 455, 900);
-
   context.fillStyle = "rgba(255,255,255,0.5)";
   context.font = "900 26px Arial, sans-serif";
-  context.fillText("WORLD CUP SCORE", 540, 610);
+  context.fillText("WORLD CUP SCORE", 540, 360);
 
   context.fillStyle = "#f6dc86";
-  context.font = "900 300px Arial, sans-serif";
-  context.fillText(String(data.score), 540, 900);
+  context.font = "900 360px Arial, sans-serif";
+  context.fillText(String(data.score), 540, 720);
 
   context.fillStyle = "#ffffff";
-  context.font = "900 46px Arial, sans-serif";
-  drawFittedText(context, data.scoreTitle, 540, 995, 900);
+  context.font = "900 58px Arial, sans-serif";
+  drawFittedText(context, data.scoreTitle.toUpperCase(), 540, 830, 900);
 
   if (data.rarity) {
     context.fillStyle = "#8cf2a7";
-    context.font = "800 28px Arial, sans-serif";
-    context.fillText(data.rarity.toUpperCase(), 540, 1055);
+    context.font = "800 34px Arial, sans-serif";
+    context.fillText(data.rarity.toUpperCase(), 540, 895);
   }
 
-  drawInfoCard(
-    context,
-    90,
-    1180,
-    900,
-    160,
-    "TOP SCORER",
-    data.topScorer ?? "-",
-  );
-  drawInfoCard(context, 90, 1370, 900, 160, "MVP", data.mvp ?? "-");
+  drawInfoCard(context, 90, 1110, 900, 260, data.nation.name, data.finish);
 
   context.fillStyle = "#d8b75b";
   context.font = "900 44px Arial, sans-serif";
@@ -156,12 +137,12 @@ function drawInfoCard(
 
   context.textAlign = "left";
   context.fillStyle = "rgba(255,255,255,0.45)";
-  context.font = "900 24px Arial, sans-serif";
-  context.fillText(label, x + 40, y + 52);
+  context.font = "900 58px Arial, sans-serif";
+  drawFittedText(context, label.toUpperCase(), x + 40, y + 92, width - 80, "left");
 
-  context.fillStyle = "#ffffff";
-  context.font = "900 38px Arial, sans-serif";
-  drawFittedText(context, value, x + 40, y + 112, width - 80, "left");
+  context.fillStyle = "#f6dc86";
+  context.font = "900 34px Arial, sans-serif";
+  drawFittedText(context, value.toUpperCase(), x + 40, y + 170, width - 80, "left");
   context.textAlign = "center";
 }
 

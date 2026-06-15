@@ -84,12 +84,14 @@ export function getDefeatedOpponents(
 }
 
 export function getScoreTitle(score: number): string {
-  if (score === 99) return "GOAT Manager 🐐";
-  if (score === 98) return "Legendary ⭐";
-  if (score === 97) return "World Class 🔥";
+  if (score === 99) return "GOAT Manager";
+  if (score === 98) return "Legendary";
+  if (score === 97) return "World Class";
+  if (score >= 95) return "Elite";
   if (score >= 90) return "Elite Manager";
-  if (score >= 80) return "Strong Tournament";
-  if (score >= 70) return "Good Run";
+  if (score >= 85) return "Strong Run";
+  if (score >= 80) return "Good Run";
+  if (score >= 70) return "Promising Run";
   if (score >= 60) return "Average Tournament";
   return "Disappointing Run";
 }

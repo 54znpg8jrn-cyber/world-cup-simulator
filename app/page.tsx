@@ -295,7 +295,9 @@ function NationDrawOverlay({ draw }: { draw: NationDrawState | null }) {
       <div className="w-full max-w-sm rounded-[2rem] border border-[#d8b75b]/25 bg-[#101713] p-7 text-center shadow-2xl">
         <p className="text-[10px] font-black uppercase tracking-[0.28em] text-[#d8b75b]">
           {draw.revealed
-            ? "Your Nation"
+            ? draw.mode === "underdog"
+              ? "Underdog Run"
+              : "Your Nation"
             : draw.mode === "underdog"
               ? "Finding your underdog story..."
               : "Finding your nation..."}
@@ -312,6 +314,15 @@ function NationDrawOverlay({ draw }: { draw: NationDrawState | null }) {
             </p>
           ) : null}
         </div>
+        {draw.revealed ? (
+          <button
+            type="button"
+            onClick={() => window.dispatchEvent(new Event("nation-draw-continue"))}
+            className="progression-pop mt-5 min-h-12 w-full rounded-2xl bg-[#d8b75b] px-5 py-4 text-sm font-black uppercase tracking-[0.14em] text-black shadow-[0_0_40px_rgba(216,183,91,.22)]"
+          >
+            Build Starting XI
+          </button>
+        ) : null}
       </div>
     </div>,
     document.body,
@@ -343,21 +354,49 @@ function PlayerModal({
   onSelect: (player: Player) => void;
 }) {
   const [search, setSearch] = useState("");
+  const query = search.trim().toLowerCase();
   const players = nation
-    ? getPlayersByNation(nation.name).filter((player) => {
-        const query = search.trim().toLowerCase();
-        return (
-          player.position === slotCategory &&
-          (!query ||
-            player.name.toLowerCase().includes(query) ||
-            player.position.toLowerCase().includes(query) ||
-            player.club.toLowerCase().includes(query))
-        );
-      })
+    ? getPlayersByNation(nation.name).filter(
+        (player) =>
+          !query ||
+          player.name.toLowerCase().includes(query) ||
+          player.position.toLowerCase().includes(query) ||
+          player.club.toLowerCase().includes(query),
+      )
     : [];
+  const groups = [
+    {
+      id: "goalkeepers",
+      title: "Goalkeepers",
+      players: players.filter((player) => player.position === "GK"),
+    },
+    {
+      id: "balanced",
+      title: "Defensive / balanced",
+      players: players.filter(
+        (player) => player.position === "DF" || player.position === "MF",
+      ),
+    },
+    {
+      id: "attacking",
+      title: "Attacking players",
+      players: players.filter((player) => player.position === "FW"),
+    },
+  ];
+  const recommendedGroup =
+    slotCategory === "GK"
+      ? "goalkeepers"
+      : slotCategory === "FW"
+        ? "attacking"
+        : "balanced";
+  const orderedGroups = [...groups].sort((a, b) => {
+    if (a.id === recommendedGroup) return -1;
+    if (b.id === recommendedGroup) return 1;
+    return 0;
+  });
 
   return (
-    <Modal open={open} title={`Select ${slotLabel}`} eyebrow={`${nation?.name ?? "Squad"} · ${slotCategory}`} onClose={onClose}>
+    <Modal open={open} title={`Select ${slotLabel}`} eyebrow={`${nation?.name ?? "Squad"} · Any player allowed`} onClose={onClose}>
       <div className="shrink-0 p-4 pb-2">
         <input
           value={search}
@@ -368,33 +407,72 @@ function PlayerModal({
         />
       </div>
       <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain p-3 pt-1">
-        {players.map((player) => {
-          const inXI = usedIds.has(player.id);
-          return (
-            <button
-              key={player.id}
-              onClick={() => {
-                setSearch("");
-                onSelect(player);
-              }}
-              className="mb-1 flex min-h-16 w-full items-center gap-3 rounded-2xl p-3 text-left transition hover:bg-white/[0.06]"
+        {orderedGroups.map((group, groupIndex) =>
+          group.players.length ? (
+            <section
+              key={group.id}
+              className="mb-3 overflow-hidden rounded-2xl border border-white/8 bg-black/15 last:mb-0"
             >
-              <span className="grid h-12 w-12 place-items-center rounded-2xl bg-[#1d3427] text-xs font-black text-[#8cf2a7]">
-                {player.position}
-              </span>
-              <span className="min-w-0 flex-1">
-                <span className="block truncate font-extrabold">{player.name}</span>
-                <span className="block truncate text-xs font-bold text-white/35">
-                  {player.position} · {player.club}
+              <header className="flex items-center justify-between border-b border-white/5 px-3 py-2">
+                <h3 className="text-[10px] font-black uppercase tracking-wider text-white/60">
+                  {group.title}
+                </h3>
+                <span
+                  className={`rounded-full px-2 py-1 text-[8px] font-black uppercase tracking-wider ${
+                    groupIndex === 0
+                      ? "bg-[#d8b75b]/15 text-[#f6dc86]"
+                      : "bg-white/5 text-white/30"
+                  }`}
+                >
+                  {groupIndex === 0 ? "Recommended" : "Also available"}
                 </span>
-                <span className="text-[10px] font-bold text-white/25">
-                  {player.caps} caps · {player.goals} goals
-                </span>
-              </span>
-              {inXI ? <span className="text-[10px] font-bold uppercase text-white/40">In XI</span> : null}
-            </button>
-          );
-        })}
+              </header>
+              <div className="p-1">
+                {group.players.map((player) => {
+                  const inXI = usedIds.has(player.id);
+                  const outOfPosition = player.position !== slotCategory;
+                  return (
+                    <button
+                      key={player.id}
+                      onClick={() => {
+                        setSearch("");
+                        onSelect(player);
+                      }}
+                      className="group mb-1 flex min-h-16 w-full items-center gap-3 rounded-xl p-3 text-left transition duration-150 last:mb-0 hover:bg-white/[0.06] active:scale-[0.99]"
+                    >
+                      <span className="grid h-12 w-12 shrink-0 place-items-center rounded-2xl border border-emerald-300/10 bg-[#1d3427] text-xs font-black text-[#8cf2a7] transition group-hover:border-[#d8b75b]/30">
+                        {player.position}
+                      </span>
+                      <span className="min-w-0 flex-1">
+                        <span className="block truncate font-extrabold">
+                          {player.name}
+                        </span>
+                        <span className="block truncate text-xs font-bold text-white/35">
+                          {player.position} · {player.club}
+                        </span>
+                        <span className="text-[10px] font-bold text-white/25">
+                          {outOfPosition
+                            ? "Out of position gamble"
+                            : `${player.caps} caps · ${player.goals} goals`}
+                        </span>
+                      </span>
+                      {inXI ? (
+                        <span className="text-[9px] font-bold uppercase text-white/35">
+                          In XI
+                        </span>
+                      ) : null}
+                    </button>
+                  );
+                })}
+              </div>
+            </section>
+          ) : null,
+        )}
+        {players.length === 0 ? (
+          <p className="py-10 text-center text-sm text-white/35">
+            No players match that search.
+          </p>
+        ) : null}
       </div>
     </Modal>
   );
@@ -555,6 +633,7 @@ export default function Home() {
   const eventFeedRef = useRef<HTMLDivElement>(null);
   const recordedResultRef = useRef("");
   const nationDrawTimersRef = useRef<number[]>([]);
+  const nationDrawCompleteRef = useRef<(() => void) | null>(null);
 
   useEffect(() => {
     if (window.location.search.includes("simulator=1")) {
@@ -576,6 +655,13 @@ export default function Home() {
     [],
   );
 
+  useEffect(() => {
+    const continueDraw = () => nationDrawCompleteRef.current?.();
+    window.addEventListener("nation-draw-continue", continueDraw);
+    return () =>
+      window.removeEventListener("nation-draw-continue", continueDraw);
+  }, []);
+
   const slots = FORMATION_SLOTS[formation];
   const xi = slots.map((slot) => selections[slot.id]).filter(Boolean);
   const ratings = useMemo(
@@ -596,6 +682,38 @@ export default function Home() {
     [...matchGoals].reverse().find((event) => event.forUser) ??
     matchGoals.at(-1);
   const lastGoalEvent = matchGoals.at(-1);
+  const goalOverlayLabel = currentEvent?.isGoal
+    ? currentEvent.special === "bicycle-kick"
+      ? "BICYCLE KICK!"
+      : currentEvent.special === "free-kick-goal"
+        ? "FREE-KICK GOAL!"
+        : currentEvent.special === "late-winner"
+          ? currentEvent.minute >= 90
+            ? "90+ WINNER!"
+            : "LATE WINNER!"
+          : currentEvent.goalStyle?.toLowerCase().includes("penalty")
+            ? "PENALTY!"
+            : "GOAL!"
+    : "";
+  const matchBadges = useMemo(() => {
+    if (!match || !selectedNation || !matchComplete) return [];
+    const badges: string[] = [];
+    const userWon = match.userGoals > match.opponentGoals;
+    const firstGoal = matchGoals[0];
+    const userLateWinner = matchGoals.some(
+      (event) => event.forUser && event.special === "late-winner",
+    );
+    if (userLateWinner) badges.push("Late Winner");
+    if (userWon && match.opponentGoals === 0) badges.push("Clean Sheet");
+    if (userWon && firstGoal && !firstGoal.forUser) badges.push("Comeback Win");
+    if (userWon && match.userGoals - match.opponentGoals >= 3) {
+      badges.push("Dominant Display");
+    }
+    if (userWon && selectedNation.strength + 6 < match.opponent.strength) {
+      badges.push("Giant Killing");
+    }
+    return badges.slice(0, 4);
+  }, [match, matchComplete, matchGoals, selectedNation]);
   const matchRating = match
     ? Math.min(
         10,
@@ -750,6 +868,11 @@ export default function Home() {
         ? NATIONS.filter((nation) => getNationTier(nation) === 3)
         : NATIONS;
     const finalNation = pool[Math.floor(Math.random() * pool.length)];
+    nationDrawCompleteRef.current = () => {
+      setNationDraw(null);
+      nationDrawCompleteRef.current = null;
+      onComplete(finalNation);
+    };
     const delays = [70, 70, 80, 90, 105, 120, 145, 180, 230];
     let elapsed = 0;
 
@@ -770,13 +893,6 @@ export default function Home() {
             : pool[Math.floor(Math.random() * pool.length)],
           revealed: isFinal,
         });
-        if (isFinal) {
-          const finishTimer = window.setTimeout(() => {
-            setNationDraw(null);
-            onComplete(finalNation);
-          }, 600);
-          nationDrawTimersRef.current.push(finishTimer);
-        }
       }, elapsed);
       nationDrawTimersRef.current.push(timer);
     });
@@ -1666,13 +1782,7 @@ export default function Home() {
             >
               <div className="goal-burst rounded-full border border-[#f6dc86]/40 bg-[#0a2316]/95 px-8 py-7 text-center shadow-[0_0_90px_rgba(22,163,74,.55)]">
                 <p className="text-5xl font-black text-[#f6dc86]">
-                  {currentEvent.special === "bicycle-kick"
-                    ? "BICYCLE KICK!"
-                    : currentEvent.special === "free-kick-goal"
-                      ? "FREE-KICK GOAL!"
-                      : currentEvent.special === "late-winner"
-                        ? "LATE WINNER!"
-                        : "GOAL!"}
+                  {goalOverlayLabel}
                 </p>
                 <span className="mt-2 block text-3xl">⚽</span>
               </div>
@@ -1778,6 +1888,18 @@ export default function Home() {
                     {matchRating}
                   </p>
                 </div>
+                {matchBadges.length ? (
+                  <div className="col-span-3 flex flex-wrap justify-center gap-1.5 pt-1">
+                    {matchBadges.map((badge) => (
+                      <span
+                        key={badge}
+                        className="rounded-full border border-[#f6dc86]/20 bg-[#f6dc86]/10 px-2.5 py-1 text-[8px] font-black uppercase tracking-wider text-[#f6dc86]"
+                      >
+                        {badge}
+                      </span>
+                    ))}
+                  </div>
+                ) : null}
               </section>
             ) : null}
 

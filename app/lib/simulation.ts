@@ -81,6 +81,10 @@ const chanceTexts: Array<{
   { kind: "chance", text: "Keeper rushes out..." },
   { kind: "chance", text: "Defender slips..." },
   { kind: "late", text: "Huge chance in stoppage time..." },
+  { kind: "late", text: "The crowd holds its breath..." },
+  { kind: "counter", text: "Captain steps up..." },
+  { kind: "chance", text: "Defensive mistake..." },
+  { kind: "late", text: "Stoppage-time drama..." },
 ];
 
 const missedOutcomes = [
@@ -94,6 +98,9 @@ const missedOutcomes = [
   "Blocked! A defender throws everything at it.",
   "Keeper beaten, but it hits the bar!",
   "VAR overturns it!",
+  "Penalty given, but the keeper saves it!",
+  "Keeper beaten, but it stays out!",
+  "VAR says no goal!",
 ];
 
 const goalStyles = [
@@ -118,6 +125,8 @@ const dramaTexts = [
   "One chance could decide this.",
   "The pressure is unreal.",
   "The next goal could change everything.",
+  "Extra time is getting closer.",
+  "Penalties are looming.",
 ];
 
 export function createMatch(

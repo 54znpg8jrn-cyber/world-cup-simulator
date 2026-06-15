@@ -225,41 +225,27 @@ function CaptureShareCard({
         >
           {data.nation.code}
         </div>
-        <h3 style={{ margin: "18px 0 0", fontSize: 28, fontWeight: 900 }}>
-          {data.nation.name.toUpperCase()}
-        </h3>
-        <p style={{ margin: "6px 0 0", color: "#f6dc86", fontSize: 12, fontWeight: 900 }}>
-          {data.finish.toUpperCase()}
-        </p>
-        <p style={{ margin: "28px 0 0", color: "rgba(255,255,255,0.5)", fontSize: 10, fontWeight: 900 }}>
+        <p style={{ margin: "70px 0 0", color: "rgba(255,255,255,0.5)", fontSize: 10, fontWeight: 900 }}>
           WORLD CUP SCORE
         </p>
-        <p style={{ margin: "2px 0 0", color: "#f6dc86", fontSize: 94, fontWeight: 900, lineHeight: 1 }}>
+        <p style={{ margin: "2px 0 0", color: "#f6dc86", fontSize: 118, fontWeight: 900, lineHeight: 1 }}>
           {data.score}
         </p>
-        <p style={{ margin: "10px 0 0", fontSize: 17, fontWeight: 900 }}>
-          {data.scoreTitle}
+        <p style={{ margin: "10px 0 0", fontSize: 20, fontWeight: 900 }}>
+          {data.scoreTitle.toUpperCase()}
         </p>
         {data.rarity ? (
           <p style={{ margin: "5px 0 0", color: "#8cf2a7", fontSize: 10, fontWeight: 800 }}>
             {data.rarity.toUpperCase()}
           </p>
         ) : null}
-        <div style={{ display: "grid", gap: 8, marginTop: 22 }}>
+        <div style={{ display: "grid", gap: 8, marginTop: "auto" }}>
           <div style={lineStyle}>
-            <p style={{ margin: 0, color: "rgba(255,255,255,0.45)", fontSize: 8, fontWeight: 900 }}>
-              TOP SCORER
+            <p style={{ margin: 0, color: "#ffffff", fontSize: 22, fontWeight: 900 }}>
+              {data.nation.name.toUpperCase()}
             </p>
-            <p style={{ margin: "3px 0 0", fontSize: 13, fontWeight: 900 }}>
-              {data.topScorer ?? "-"}
-            </p>
-          </div>
-          <div style={lineStyle}>
-            <p style={{ margin: 0, color: "rgba(255,255,255,0.45)", fontSize: 8, fontWeight: 900 }}>
-              MVP
-            </p>
-            <p style={{ margin: "3px 0 0", fontSize: 13, fontWeight: 900 }}>
-              {data.mvp ?? "-"}
+            <p style={{ margin: "5px 0 0", color: "#f6dc86", fontSize: 11, fontWeight: 900 }}>
+              {data.finish.toUpperCase()}
             </p>
           </div>
         </div>

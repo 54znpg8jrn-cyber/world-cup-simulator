@@ -7,6 +7,7 @@ import {
   getLeaderboardEntries,
 } from "../lib/leaderboard";
 import { getLocalHallOfFame } from "../lib/engagement";
+import { getScoreRarity } from "../lib/score";
 import { NationFlag } from "./NationFlag";
 
 export function LeaderboardModal({
@@ -61,7 +62,7 @@ export function LeaderboardModal({
               Best runs
             </p>
             <h2 id="leaderboard-title" className="text-xl font-black">
-              Leaderboard
+              Hall of Fame
             </h2>
             <p className="mt-1 text-[10px] font-bold text-white/35">
               Leaderboard on this device
@@ -111,11 +112,29 @@ export function LeaderboardModal({
               {top20.map((entry, index) => (
                 <li
                   key={entry.id}
-                  className="rounded-2xl border border-white/8 bg-white/[0.03] px-4 py-3"
+                  className={`rounded-2xl border px-4 py-3 ${
+                    index === 0
+                      ? "border-[#f6dc86]/35 bg-[#d8b75b]/10"
+                      : index === 1
+                        ? "border-slate-200/20 bg-slate-200/[0.06]"
+                        : index === 2
+                          ? "border-amber-700/25 bg-amber-700/[0.07]"
+                          : "border-white/8 bg-white/[0.03]"
+                  }`}
                 >
                   <div className="flex items-start gap-3">
-                    <span className="text-lg font-black text-[#d8b75b]/60">
-                      {index + 1}
+                    <span
+                      className={`grid h-8 w-8 shrink-0 place-items-center rounded-full text-sm font-black ${
+                        index === 0
+                          ? "bg-[#d8b75b] text-black"
+                          : index === 1
+                            ? "bg-slate-200 text-slate-800"
+                            : index === 2
+                              ? "bg-amber-700 text-amber-50"
+                              : "bg-white/5 text-white/35"
+                      }`}
+                    >
+                      #{index + 1}
                     </span>
                     <div className="min-w-0 flex-1">
                       <div className="flex items-center justify-between gap-2">
@@ -133,6 +152,12 @@ export function LeaderboardModal({
                       <p className="mt-1 text-[10px] font-bold text-white/30">
                         {entry.scoreTitle} · {entry.record} · GF {entry.goalsFor}{" "}
                         GA {entry.goalsAgainst}
+                      </p>
+                      <p className="mt-1 text-[9px] font-black uppercase tracking-wider text-[#8cf2a7]/55">
+                        {getScoreRarity(entry.score) ?? "Completed run"} ·{" "}
+                        {new Intl.DateTimeFormat(undefined, {
+                          dateStyle: "medium",
+                        }).format(new Date(entry.createdAt))}
                       </p>
                     </div>
                   </div>
