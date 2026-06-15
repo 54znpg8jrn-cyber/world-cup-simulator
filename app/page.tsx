@@ -506,7 +506,7 @@ function Pitch({
             >
               <span className={`mx-auto grid h-12 w-12 place-items-center rounded-full border-2 text-sm font-black shadow-lg transition group-hover:scale-105 sm:h-14 sm:w-14 ${
                 player
-                  ? "border-[#f6dc86] bg-[#101713] text-[#f6dc86]"
+                  ? "selected-player-pulse border-[#f6dc86] bg-[#101713] text-[#f6dc86]"
                   : "border-dashed border-white/50 bg-black/25 text-xl text-white/60"
               }`}>
                 {player ? player.position : "+"}
@@ -676,8 +676,10 @@ export default function Home() {
   const currentEvent =
     revealedEvents > 0 ? match?.events[revealedEvents - 1] : undefined;
   const matchMinute = matchComplete ? 90 : currentEvent?.minute ?? 0;
-  const matchGoals =
-    match?.events.filter((event) => event.isGoal && event.scorer) ?? [];
+  const matchGoals = useMemo(
+    () => match?.events.filter((event) => event.isGoal && event.scorer) ?? [],
+    [match],
+  );
   const heroEvent =
     [...matchGoals].reverse().find((event) => event.forUser) ??
     matchGoals.at(-1);
@@ -1294,6 +1296,11 @@ export default function Home() {
     defeatedOpponents,
     selectedNation,
   ]);
+  const showResultConfetti =
+    view === "result" &&
+    (finish === "World Cup Winners" ||
+      (worldCupScore?.score ?? 0) >= 95 ||
+      Boolean(personalBestUpdate?.isNewBest));
 
   useEffect(() => {
     if (!worldCupScore || !selectedNation || view !== "result") return;
@@ -1451,13 +1458,13 @@ export default function Home() {
       ) : null}
 
       {view === "builder" && selectedNation ? (
-        <section className="simulator-builder mx-auto min-h-screen w-full max-w-6xl min-w-0 overflow-x-hidden px-4 py-5 pb-24 sm:px-8 sm:pb-5">
+        <section className="simulator-builder screen-enter mx-auto min-h-screen w-full max-w-6xl min-w-0 overflow-x-hidden px-4 py-5 pb-24 sm:px-8 sm:pb-5">
           <header className="mb-6 min-w-0">
             <div className="min-w-0">
               <p className="text-[9px] font-black uppercase tracking-[0.25em] text-[#d8b75b]">World Cup Simulator</p>
               <h1 className="text-xl font-black sm:text-2xl">Build your starting XI</h1>
             </div>
-            <button onClick={() => setNationModalOpen(true)} className="mt-4 flex min-h-16 w-full items-center gap-3 rounded-2xl border border-[#d8b75b]/25 bg-[#d8b75b]/[0.07] px-4 py-3 text-left hover:bg-[#d8b75b]/10 sm:max-w-sm">
+            <button onClick={() => setNationModalOpen(true)} className="premium-card mt-4 flex min-h-16 w-full items-center gap-3 overflow-hidden rounded-2xl border border-[#d8b75b]/25 bg-[#d8b75b]/[0.07] px-4 py-3 text-left transition hover:bg-[#d8b75b]/10 active:scale-[0.99] sm:max-w-sm">
               <NationFlag nation={selectedNation.name} className="text-4xl" />
               <span className="min-w-0 flex-1">
                 <span className="block truncate text-lg font-black">{selectedNation.name}</span>
@@ -1477,8 +1484,8 @@ export default function Home() {
                     <button
                       key={option}
                       onClick={() => changeFormation(option)}
-                      className={`min-h-11 min-w-0 rounded-xl px-1.5 py-2 text-[10px] font-black transition ${
-                        formation === option ? "bg-[#d8b75b] text-black" : "border border-white/10 bg-white/5 text-white/60"
+                      className={`min-h-11 min-w-0 rounded-xl px-1.5 py-2 text-[10px] font-black transition active:scale-[0.97] ${
+                        formation === option ? "bg-[#d8b75b] text-black shadow-[0_0_25px_rgba(216,183,91,.22)]" : "border border-white/10 bg-white/5 text-white/60"
                       }`}
                     >
                       {option}
@@ -1487,9 +1494,9 @@ export default function Home() {
                   <button
                     type="button"
                     onClick={() => setShowAllFormations((current) => !current)}
-                    className={`min-h-11 min-w-0 rounded-xl px-1.5 py-2 text-[10px] font-black transition ${
+                    className={`min-h-11 min-w-0 rounded-xl px-1.5 py-2 text-[10px] font-black transition active:scale-[0.97] ${
                       !PRIMARY_FORMATIONS.includes(formation)
-                        ? "bg-[#d8b75b] text-black"
+                        ? "bg-[#d8b75b] text-black shadow-[0_0_25px_rgba(216,183,91,.22)]"
                         : "border border-white/10 bg-white/5 text-white/60"
                     }`}
                   >
@@ -1504,9 +1511,9 @@ export default function Home() {
                       <button
                         key={option}
                         onClick={() => changeFormation(option)}
-                        className={`min-h-11 min-w-0 rounded-xl px-2 py-2 text-xs font-black transition ${
+                        className={`min-h-11 min-w-0 rounded-xl px-2 py-2 text-xs font-black transition active:scale-[0.97] ${
                           formation === option
-                            ? "bg-[#d8b75b] text-black"
+                            ? "bg-[#d8b75b] text-black shadow-[0_0_25px_rgba(216,183,91,.22)]"
                             : "border border-white/10 bg-white/5 text-white/60"
                         }`}
                       >
@@ -1521,8 +1528,8 @@ export default function Home() {
                   <button
                     key={option}
                     onClick={() => changeFormation(option)}
-                    className={`min-h-11 shrink-0 rounded-xl px-3 py-2 text-xs font-black transition ${
-                      formation === option ? "bg-[#d8b75b] text-black" : "border border-white/10 bg-white/5 text-white/60 hover:text-white"
+                    className={`min-h-11 shrink-0 rounded-xl px-3 py-2 text-xs font-black transition active:scale-[0.97] ${
+                      formation === option ? "bg-[#d8b75b] text-black shadow-[0_0_25px_rgba(216,183,91,.22)]" : "border border-white/10 bg-white/5 text-white/60 hover:text-white"
                     }`}
                   >
                     {option}
@@ -1558,7 +1565,7 @@ export default function Home() {
             </div>
 
             <aside className="min-w-0 flex flex-col gap-4 lg:pt-12">
-              <div className="rounded-[1.75rem] border border-white/10 bg-[#101713]/90 p-4">
+              <div className="premium-card overflow-hidden rounded-[1.75rem] border border-white/10 bg-[#101713]/90 p-4">
                 <div className="mb-3 flex items-center justify-between">
                   <h2 className="text-xs font-black uppercase tracking-[0.18em] text-white/50">Team ratings</h2>
                   <span className="text-xs font-black text-[#8cf2a7]">{ratings.filled}/11</span>
@@ -1567,13 +1574,13 @@ export default function Home() {
               </div>
               <div className="rounded-[1.75rem] border border-white/10 bg-white/[0.035] p-5">
                 <p className="text-xs leading-5 text-white/45">
-                  Tap any position on the pitch to select or replace a player. Team strength updates live.
+                  Tap any position on the pitch to select or replace a player. Any squad member can play anywhere.
                 </p>
               </div>
               <button
                 disabled={ratings.filled !== 11}
                 onClick={startTournament}
-                className="rounded-2xl bg-[#d8b75b] px-5 py-4 text-sm font-black uppercase tracking-[0.12em] text-black transition hover:bg-[#f6dc86] disabled:cursor-not-allowed disabled:bg-white/10 disabled:text-white/25"
+                className="rounded-2xl bg-[#d8b75b] px-5 py-4 text-sm font-black uppercase tracking-[0.12em] text-black shadow-[0_14px_40px_rgba(216,183,91,.22)] transition hover:bg-[#f6dc86] active:scale-[0.99] disabled:cursor-not-allowed disabled:bg-white/10 disabled:text-white/25 disabled:shadow-none"
               >
                 {ratings.filled === 11 ? "Simulate World Cup →" : `Select ${11 - ratings.filled} more players`}
               </button>
@@ -1615,7 +1622,7 @@ export default function Home() {
               </h1>
               <p className="mt-3 text-sm text-white/50">
                 {match?.round === "Final"
-                  ? "One match away from glory."
+                  ? "One match away from history."
                   : overviewType === "group-complete"
                     ? "The final group standings are confirmed."
                     : "The bracket is updated. Your next opponent awaits."}
@@ -1638,7 +1645,7 @@ export default function Home() {
                 </p>
                 <p className="mt-1 text-xs font-bold text-white/45">
                   {match.round === "Final"
-                    ? "One match away from glory."
+                    ? "One match away from history."
                     : "The next challenge is ready."}
                 </p>
               </div>
@@ -2079,7 +2086,10 @@ export default function Home() {
 
       {view === "result" && selectedNation ? (
         <section className="mx-auto min-h-screen w-full max-w-6xl min-w-0 px-4 py-8 pb-24 sm:px-8 sm:py-10 sm:pb-10">
-          <div className="w-full max-w-full min-w-0 overflow-hidden rounded-[2.25rem] border border-[#d8b75b]/20 bg-[#101713]/95 p-5 text-center shadow-2xl sm:p-9">
+          <div className="relative w-full max-w-full min-w-0 overflow-hidden rounded-[2.25rem] border border-[#d8b75b]/20 bg-[#101713]/95 p-5 text-center shadow-2xl sm:p-9">
+            {showResultConfetti ? (
+              <div className="confetti-dots pointer-events-none absolute inset-0" />
+            ) : null}
             <p className="text-[10px] font-black uppercase tracking-[0.3em] text-[#d8b75b]">Tournament complete</p>
             <NationFlag nation={selectedNation.name} className="mt-5 text-6xl sm:text-7xl" />
             <h1 className="mt-3 break-words text-2xl font-black sm:text-3xl">{selectedNation.name}</h1>

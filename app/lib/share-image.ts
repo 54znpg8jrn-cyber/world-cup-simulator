@@ -104,21 +104,6 @@ async function canvasToPngBlob(canvas: HTMLCanvasElement): Promise<Blob> {
   return fallbackBlob;
 }
 
-function drawNationBadge(
-  context: CanvasRenderingContext2D,
-  code: string,
-  centerX: number,
-  top: number,
-) {
-  roundedRect(context, centerX - 105, top - 55, 210, 110, 28);
-  context.fillStyle = "#f7f0d5";
-  context.fill();
-  context.fillStyle = "#123522";
-  context.font = "900 46px Arial, sans-serif";
-  context.textAlign = "center";
-  context.fillText(code, centerX, top + 16);
-}
-
 function drawInfoCard(
   context: CanvasRenderingContext2D,
   x: number,
