@@ -22,24 +22,11 @@ const SUPABASE_TABLE = "leaderboard";
 
 type LeaderboardRow = {
   id?: string | number | null;
-  name?: string | null;
+  player_name?: string | null;
   nation?: string | null;
-  nation_flag?: string | null;
-  nationFlag?: string | null;
   finish?: string | null;
   score?: number | null;
-  score_title?: string | null;
-  scoreTitle?: string | null;
-  record?: string | null;
-  goals_for?: number | null;
-  goalsFor?: number | null;
-  goals_against?: number | null;
-  goalsAgainst?: number | null;
-  top_scorer?: string | null;
-  topScorer?: string | null;
-  mvp?: string | null;
   created_at?: string | null;
-  createdAt?: string | null;
 };
 
 function finishRank(finish: string): number {
@@ -91,46 +78,28 @@ export function saveLeaderboardEntry(entry: LeaderboardEntry): LeaderboardEntry[
 
 function toSupabaseRow(entry: LeaderboardEntry) {
   return {
-    name: entry.name,
+    player_name: entry.name || "Anonymous",
     nation: entry.nation,
-    nation_flag: entry.nationFlag,
-    finish: entry.finish,
     score: entry.score,
-    score_title: entry.scoreTitle,
-    record: entry.record,
-    goals_for: entry.goalsFor,
-    goals_against: entry.goalsAgainst,
-    top_scorer: entry.topScorer,
-    mvp: entry.mvp,
-    created_at: entry.createdAt,
-  };
-}
-
-function toMinimalSupabaseRow(entry: LeaderboardEntry) {
-  return {
-    name: entry.name,
-    nation: entry.nation,
     finish: entry.finish,
-    score: entry.score,
-    created_at: entry.createdAt,
   };
 }
 
 function fromSupabaseRow(row: LeaderboardRow): LeaderboardEntry {
   return {
     id: String(row.id ?? `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`),
-    name: row.name ?? "Anonymous",
+    name: row.player_name ?? "Anonymous",
     nation: row.nation ?? "Unknown",
-    nationFlag: row.nation_flag ?? row.nationFlag ?? "",
+    nationFlag: "",
     finish: row.finish ?? "Tournament complete",
     score: row.score ?? 0,
-    scoreTitle: row.score_title ?? row.scoreTitle ?? "Completed Run",
-    record: row.record ?? "–",
-    goalsFor: row.goals_for ?? row.goalsFor ?? 0,
-    goalsAgainst: row.goals_against ?? row.goalsAgainst ?? 0,
-    topScorer: row.top_scorer ?? row.topScorer ?? "–",
-    mvp: row.mvp ?? "–",
-    createdAt: row.created_at ?? row.createdAt ?? new Date().toISOString(),
+    scoreTitle: "Completed Run",
+    record: "–",
+    goalsFor: 0,
+    goalsAgainst: 0,
+    topScorer: "–",
+    mvp: "–",
+    createdAt: row.created_at ?? new Date().toISOString(),
   };
 }
 
@@ -162,12 +131,7 @@ export async function saveSupabaseLeaderboardEntry(
     .from(SUPABASE_TABLE)
     .insert(toSupabaseRow(entry));
 
-  if (error) {
-    const { error: minimalError } = await supabase
-      .from(SUPABASE_TABLE)
-      .insert(toMinimalSupabaseRow(entry));
-    if (minimalError) throw minimalError;
-  }
+  if (error) throw error;
 
   try {
     return await fetchSupabaseLeaderboardEntries();
