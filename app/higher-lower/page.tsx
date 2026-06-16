@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   HIGHER_LOWER_ITEMS,
   HIGHER_LOWER_STAT_LABELS,
@@ -9,6 +9,7 @@ import {
 } from "../lib/games/higher-lower-data";
 
 type Guess = "higher" | "lower";
+type CategoryValue = "all" | string;
 type RoundState = {
   known: HigherLowerItem;
   mystery: HigherLowerItem;
@@ -18,12 +19,22 @@ type RoundState = {
 
 const BEST_STREAK_KEY = "world-cup-higher-lower-best-v1";
 
+const CATEGORY_LABELS: Record<string, string> = {
+  "World Cup titles": "World Cup Titles",
+  "World Cup appearances": "World Cup Appearances",
+  "World Cup goals": "Player Goals",
+  "Player World Cup appearances": "Player Appearances",
+  "World Cup record number": "World Cup Records",
+  "World Cup final appearances": "Final Appearances",
+  "World Cup top-three finishes": "Top-Three Finishes",
+};
+
 function randomItem<T>(items: T[]): T {
   return items[Math.floor(Math.random() * items.length)];
 }
 
-function createRound(previous?: RoundState | null): RoundState {
-  const eligibleLabels = HIGHER_LOWER_STAT_LABELS.filter((label) => {
+function getEligibleLabels() {
+  return HIGHER_LOWER_STAT_LABELS.filter((label) => {
     const values = new Set(
       HIGHER_LOWER_ITEMS.filter((item) => item.statLabel === label).map(
         (item) => item.value,
@@ -31,9 +42,20 @@ function createRound(previous?: RoundState | null): RoundState {
     );
     return values.size >= 2;
   });
-  const statLabel = previous?.mystery.statLabel ?? randomItem(eligibleLabels);
+}
+
+function createRound(
+  category: CategoryValue,
+  previous?: RoundState | null,
+): RoundState {
+  const eligibleLabels = getEligibleLabels();
+  const statLabel =
+    category === "all"
+      ? previous?.mystery.statLabel ?? randomItem(eligibleLabels)
+      : category;
   const pool = HIGHER_LOWER_ITEMS.filter((item) => item.statLabel === statLabel);
-  const known = previous?.mystery ?? randomItem(pool);
+  const canCarryPrevious = previous?.mystery.statLabel === statLabel;
+  const known = canCarryPrevious ? previous.mystery : randomItem(pool);
   const choices = pool.filter(
     (item) => item.id !== known.id && item.value !== known.value,
   );
@@ -48,11 +70,25 @@ function createRound(previous?: RoundState | null): RoundState {
 }
 
 export default function HigherLowerPage() {
+  const [selectedCategory, setSelectedCategory] =
+    useState<CategoryValue>("all");
   const [round, setRound] = useState<RoundState | null>(null);
   const [streak, setStreak] = useState(0);
   const [bestStreak, setBestStreak] = useState(0);
   const [gameOver, setGameOver] = useState(false);
   const [message, setMessage] = useState("");
+  const nextRoundTimer = useRef<number | null>(null);
+
+  const categoryOptions = useMemo(
+    () => [
+      { value: "all", label: "All Categories" },
+      ...getEligibleLabels().map((label) => ({
+        value: label,
+        label: CATEGORY_LABELS[label] ?? label,
+      })),
+    ],
+    [],
+  );
 
   useEffect(() => {
     let active = true;
@@ -62,17 +98,22 @@ export default function HigherLowerPage() {
       if (!active) return;
       const savedBest = Number(window.localStorage.getItem(BEST_STREAK_KEY) ?? 0);
       setBestStreak(Number.isFinite(savedBest) ? savedBest : 0);
-      setRound(createRound());
+      setRound(createRound("all"));
     };
 
     void loadGame();
 
     return () => {
       active = false;
+      if (nextRoundTimer.current) {
+        window.clearTimeout(nextRoundTimer.current);
+      }
     };
   }, []);
 
-  const categoryLabel = round?.known.statLabel ?? "World Cup stat";
+  const categoryLabel = round
+    ? CATEGORY_LABELS[round.known.statLabel] ?? round.known.statLabel
+    : "World Cup Stat";
   const shareText = useMemo(
     () =>
       [
@@ -86,11 +127,24 @@ export default function HigherLowerPage() {
     [streak],
   );
 
-  const playAgain = () => {
+  const resetTimer = () => {
+    if (nextRoundTimer.current) {
+      window.clearTimeout(nextRoundTimer.current);
+      nextRoundTimer.current = null;
+    }
+  };
+
+  const playAgain = (category = selectedCategory) => {
+    resetTimer();
     setStreak(0);
     setGameOver(false);
     setMessage("");
-    setRound(createRound());
+    setRound(createRound(category));
+  };
+
+  const handleCategoryChange = (value: CategoryValue) => {
+    setSelectedCategory(value);
+    playAgain(value);
   };
 
   const handleGuess = (guess: Guess) => {
@@ -108,7 +162,9 @@ export default function HigherLowerPage() {
         setBestStreak(nextStreak);
         window.localStorage.setItem(BEST_STREAK_KEY, String(nextStreak));
       }
-      window.setTimeout(() => setRound((current) => createRound(current)), 900);
+      nextRoundTimer.current = window.setTimeout(() => {
+        setRound((current) => createRound(selectedCategory, current));
+      }, 760);
       return;
     }
 
@@ -138,97 +194,81 @@ export default function HigherLowerPage() {
   };
 
   return (
-    <main className="stadium-bg min-h-screen w-full max-w-full overflow-x-hidden px-4 py-5 text-white sm:px-8">
-      <div className="mx-auto flex w-full max-w-6xl flex-col gap-5">
-        <header className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-          <div>
-            <p className="text-[10px] font-black uppercase tracking-[0.28em] text-[#d8b75b]">
-              Mini-game
-            </p>
-            <h1 className="mt-1 text-3xl font-black uppercase leading-none sm:text-5xl">
-              Higher / Lower
-            </h1>
-            <p className="mt-2 max-w-xl text-sm text-white/50">
-              Guess which World Cup stat is higher. Same category every round,
-              no tricks.
-            </p>
-          </div>
-          <nav className="grid grid-cols-3 gap-2 sm:flex">
-            <Link href="/" className="rounded-xl border border-white/10 bg-white/5 px-3 py-3 text-center text-[10px] font-black uppercase tracking-wider text-white/60">
-              Home
-            </Link>
-            <Link href="/?simulator=1" className="rounded-xl border border-[#d8b75b]/25 bg-[#d8b75b]/10 px-3 py-3 text-center text-[10px] font-black uppercase tracking-wider text-[#f6dc86]">
-              Simulator
-            </Link>
-            <Link href="/wall-chart" className="rounded-xl border border-white/10 bg-white/5 px-3 py-3 text-center text-[10px] font-black uppercase tracking-wider text-white/60">
-              Wall Chart
-            </Link>
-          </nav>
-        </header>
+    <main className="stadium-bg relative flex h-dvh w-full max-w-full flex-col overflow-hidden text-white">
+      <header className="relative z-20 flex shrink-0 items-center justify-center px-3 pb-2 pt-[max(0.75rem,env(safe-area-inset-top))] sm:px-5 sm:pb-3">
+        <Link
+          href="/"
+          className="absolute left-3 top-[max(0.75rem,env(safe-area-inset-top))] rounded-full border border-white/10 bg-black/25 px-3 py-2 text-[9px] font-black uppercase tracking-wider text-white/60 backdrop-blur sm:left-5"
+        >
+          Home
+        </Link>
+        <label className="flex min-w-0 flex-col items-center gap-1 text-center">
+          <span className="text-[9px] font-black uppercase tracking-[0.24em] text-[#d8b75b]">
+            Higher / Lower
+          </span>
+          <select
+            value={selectedCategory}
+            onChange={(event) => handleCategoryChange(event.target.value)}
+            className="h-11 max-w-[min(74vw,22rem)] rounded-full border border-[#d8b75b]/30 bg-[#07110d] px-4 text-center text-xs font-black uppercase tracking-wider text-[#f6dc86] outline-none shadow-[0_12px_40px_rgba(0,0,0,.28)] sm:max-w-sm sm:text-sm"
+          >
+            {categoryOptions.map((option) => (
+              <option key={option.value} value={option.value}>
+                {option.label}
+              </option>
+            ))}
+          </select>
+        </label>
+      </header>
 
-        <section className="grid gap-3 rounded-[1.75rem] border border-[#d8b75b]/20 bg-[#101713]/90 p-4 shadow-2xl sm:grid-cols-3">
-          <StatBox label="Current Streak" value={streak} />
-          <StatBox label="Best Streak" value={bestStreak} />
-          <div className="rounded-2xl border border-white/8 bg-white/[0.035] p-4 text-center">
-            <p className="text-[9px] font-black uppercase tracking-wider text-white/35">
-              Category
-            </p>
-            <p className="mt-1 text-sm font-black text-[#f6dc86]">
-              {categoryLabel}
-            </p>
-          </div>
-        </section>
-
+      <section className="relative grid min-h-0 flex-1 grid-rows-2 overflow-hidden md:grid-cols-2 md:grid-rows-1">
         {round ? (
-          <section className="screen-enter grid gap-4 lg:grid-cols-[1fr_auto_1fr] lg:items-stretch">
-            <HigherLowerCard item={round.known} revealed sideLabel="Known" />
-            <div className="grid place-items-center text-center">
-              <span className="rounded-full border border-[#d8b75b]/30 bg-[#d8b75b]/10 px-5 py-3 text-xs font-black uppercase tracking-[0.2em] text-[#f6dc86]">
-                vs
-              </span>
-            </div>
-            <HigherLowerCard
+          <>
+            <ComparisonPanel
+              item={round.known}
+              revealed
+              statLabel={categoryLabel}
+              score={streak}
+              bestScore={bestStreak}
+              side="left"
+            />
+            <ComparisonPanel
               item={round.mystery}
               revealed={round.revealed}
-              sideLabel="Your call"
-              pulse={round.result === "correct"}
-              wrong={round.result === "wrong"}
+              statLabel={categoryLabel}
+              result={round.result}
+              side="right"
+              compareLabel={`than ${round.known.label}`}
+              onGuess={handleGuess}
+              disabled={round.revealed || gameOver}
             />
-          </section>
-        ) : null}
-
-        {!gameOver ? (
-          <section className="grid gap-3 sm:grid-cols-2">
-            <button
-              type="button"
-              onClick={() => handleGuess("higher")}
-              disabled={!round || round.revealed}
-              className="min-h-16 rounded-2xl bg-[#d8b75b] px-5 py-4 text-lg font-black uppercase tracking-[0.18em] text-black shadow-[0_20px_55px_rgba(216,183,91,.22)] transition active:scale-[0.98] disabled:opacity-50"
-            >
-              Higher
-            </button>
-            <button
-              type="button"
-              onClick={() => handleGuess("lower")}
-              disabled={!round || round.revealed}
-              className="min-h-16 rounded-2xl border border-white/10 bg-white/5 px-5 py-4 text-lg font-black uppercase tracking-[0.18em] transition active:scale-[0.98] disabled:opacity-50"
-            >
-              Lower
-            </button>
-          </section>
+            <div className="pointer-events-none absolute left-1/2 top-1/2 z-10 grid h-16 w-16 -translate-x-1/2 -translate-y-1/2 place-items-center rounded-full border border-[#d8b75b]/45 bg-[#07110d]/95 text-sm font-black uppercase tracking-[0.18em] text-[#f6dc86] shadow-[0_20px_60px_rgba(0,0,0,.35)] sm:h-20 sm:w-20">
+              vs
+            </div>
+          </>
         ) : (
-          <section className="screen-enter rounded-[1.75rem] border border-rose-300/20 bg-rose-300/[0.06] p-5 text-center">
-            <p className="text-[10px] font-black uppercase tracking-[0.25em] text-rose-200">
+          <div className="col-span-full grid place-items-center text-sm font-black uppercase tracking-widest text-white/40">
+            Loading match-up
+          </div>
+        )}
+      </section>
+
+      {gameOver ? (
+        <div className="absolute inset-0 z-30 grid place-items-center bg-black/70 px-4 backdrop-blur-sm">
+          <section className="screen-enter w-full max-w-md rounded-[2rem] border border-[#d8b75b]/30 bg-[#07110d]/95 p-6 text-center shadow-[0_30px_90px_rgba(0,0,0,.45)]">
+            <p className="text-[10px] font-black uppercase tracking-[0.28em] text-rose-200">
               Game Over
             </p>
-            <h2 className="mt-2 text-3xl font-black">Final streak: {streak}</h2>
-            <p className="mt-2 text-sm font-bold text-white/55">
-              Personal best: {bestStreak}
+            <h1 className="mt-3 text-5xl font-black text-[#f6dc86]">{streak}</h1>
+            <p className="mt-1 text-xs font-black uppercase tracking-wider text-white/45">
+              Final streak
             </p>
-            <div className="mx-auto mt-5 grid max-w-md gap-2 sm:grid-cols-2">
+            <p className="mt-3 text-sm font-bold text-white/60">
+              Best streak: {bestStreak}
+            </p>
+            <div className="mt-5 grid gap-2 sm:grid-cols-2">
               <button
                 type="button"
-                onClick={playAgain}
+                onClick={() => playAgain()}
                 className="min-h-12 rounded-2xl bg-[#d8b75b] px-4 py-3 text-xs font-black uppercase tracking-wider text-black"
               >
                 Play Again
@@ -238,73 +278,124 @@ export default function HigherLowerPage() {
                 onClick={shareResult}
                 className="min-h-12 rounded-2xl border border-[#d8b75b]/25 bg-[#d8b75b]/10 px-4 py-3 text-xs font-black uppercase tracking-wider text-[#f6dc86]"
               >
-                Share Result
+                Share Challenge
               </button>
             </div>
             {message ? (
-              <p className="mt-3 text-xs font-bold text-white/50">{message}</p>
+              <p className="mt-3 text-xs font-bold text-white/55">{message}</p>
             ) : null}
           </section>
-        )}
+        </div>
+      ) : null}
 
-        {/* TODO: Add Supabase highscore support for Higher / Lower later. */}
-      </div>
+      {/* TODO: Add Supabase highscore support for Higher / Lower later. */}
     </main>
   );
 }
 
-function StatBox({ label, value }: { label: string; value: number }) {
-  return (
-    <div className="rounded-2xl border border-white/8 bg-white/[0.035] p-4 text-center">
-      <p className="text-[9px] font-black uppercase tracking-wider text-white/35">
-        {label}
-      </p>
-      <p className="mt-1 text-4xl font-black text-[#f6dc86]">{value}</p>
-    </div>
-  );
-}
-
-function HigherLowerCard({
+function ComparisonPanel({
   item,
   revealed,
-  sideLabel,
-  pulse = false,
-  wrong = false,
+  statLabel,
+  side,
+  score,
+  bestScore,
+  result,
+  compareLabel,
+  onGuess,
+  disabled,
 }: {
   item: HigherLowerItem;
   revealed: boolean;
-  sideLabel: string;
-  pulse?: boolean;
-  wrong?: boolean;
+  statLabel: string;
+  side: "left" | "right";
+  score?: number;
+  bestScore?: number;
+  result?: "correct" | "wrong" | null;
+  compareLabel?: string;
+  onGuess?: (guess: Guess) => void;
+  disabled?: boolean;
 }) {
+  const isRight = side === "right";
+
   return (
     <article
-      className={`premium-card overflow-hidden rounded-[2rem] border p-6 text-center shadow-2xl ${
-        wrong
-          ? "border-rose-300/35 bg-rose-300/[0.07]"
-          : pulse
-            ? "personal-best-glow border-[#d8b75b]/45 bg-[#d8b75b]/10"
-            : "border-white/10 bg-[#101713]/95"
+      className={`relative flex min-h-0 min-w-0 flex-col items-center justify-center overflow-hidden border-white/10 px-4 py-5 text-center ${
+        isRight ? "border-t md:border-l md:border-t-0" : ""
+      } ${
+        result === "wrong"
+          ? "bg-rose-950/45"
+          : result === "correct"
+            ? "bg-[#d8b75b]/12"
+            : isRight
+              ? "bg-[#0b1911]/92"
+              : "bg-[#07110d]/95"
       }`}
     >
-      <p className="text-[9px] font-black uppercase tracking-[0.24em] text-white/35">
-        {sideLabel}
-      </p>
-      <div className="mt-5 text-6xl">{item.flagOrEmoji}</div>
-      <h2 className="mt-4 break-words text-3xl font-black">{item.label}</h2>
-      <p className="mt-2 text-xs font-black uppercase tracking-[0.2em] text-[#d8b75b]">
-        {item.statLabel}
-      </p>
-      <div className="mt-8 rounded-2xl border border-white/8 bg-black/25 px-4 py-6">
-        <p className="text-[10px] font-black uppercase tracking-[0.2em] text-white/30">
-          Value
+      <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(216,183,91,.16),transparent_46%)]" />
+      {!isRight ? (
+        <div className="absolute right-3 top-3 z-10 rounded-2xl border border-white/10 bg-black/25 px-3 py-2 text-right backdrop-blur sm:right-5 sm:top-5">
+          <p className="text-[9px] font-black uppercase tracking-wider text-white/35">
+            Streak {score}
+          </p>
+          <p className="text-[9px] font-black uppercase tracking-wider text-[#f6dc86]">
+            Best {bestScore}
+          </p>
+        </div>
+      ) : null}
+
+      <div className="relative z-10 flex max-h-full min-w-0 flex-col items-center">
+        <div className="text-4xl leading-none sm:text-6xl lg:text-7xl">
+          {item.flagOrEmoji}
+        </div>
+        <h2 className="mt-2 max-w-[18rem] break-words text-2xl font-black uppercase leading-none tracking-[-0.04em] sm:mt-4 sm:text-4xl lg:max-w-xl lg:text-6xl">
+          {item.label}
+        </h2>
+        <p className="mt-2 max-w-[18rem] text-[10px] font-black uppercase tracking-[0.18em] text-[#d8b75b] sm:text-xs">
+          {statLabel}
         </p>
-        <p className="mt-2 text-5xl font-black text-[#f6dc86]">
-          {revealed ? item.value : "?"}
-        </p>
-        <p className="mt-2 text-sm font-bold text-white/45">
-          {revealed ? item.display : "Higher or lower?"}
-        </p>
+        <div
+          className={`mt-3 rounded-[1.4rem] border px-5 py-3 sm:mt-6 sm:px-8 sm:py-5 ${
+            result === "wrong"
+              ? "border-rose-200/30 bg-rose-300/10"
+              : result === "correct"
+                ? "personal-best-glow border-[#d8b75b]/45 bg-[#d8b75b]/10"
+                : "border-white/10 bg-black/25"
+          }`}
+        >
+          <p className="text-5xl font-black leading-none text-[#f6dc86] sm:text-7xl">
+            {revealed ? item.value : "?"}
+          </p>
+          <p className="mt-1 text-xs font-bold text-white/45 sm:text-sm">
+            {revealed ? item.display : "Hidden value"}
+          </p>
+        </div>
+
+        {isRight ? (
+          <div className="mt-3 w-full max-w-xs sm:mt-6">
+            <p className="mb-2 text-xs font-bold text-white/45">
+              {compareLabel}
+            </p>
+            <div className="grid grid-cols-2 gap-2 sm:gap-3">
+              <button
+                type="button"
+                onClick={() => onGuess?.("higher")}
+                disabled={disabled}
+                className="min-h-12 rounded-2xl bg-[#d8b75b] px-3 py-3 text-sm font-black uppercase tracking-wider text-black shadow-[0_18px_45px_rgba(216,183,91,.22)] transition active:scale-[0.98] disabled:opacity-55 sm:min-h-14"
+              >
+                Higher
+              </button>
+              <button
+                type="button"
+                onClick={() => onGuess?.("lower")}
+                disabled={disabled}
+                className="min-h-12 rounded-2xl border border-white/10 bg-white/5 px-3 py-3 text-sm font-black uppercase tracking-wider text-white transition active:scale-[0.98] disabled:opacity-55 sm:min-h-14"
+              >
+                Lower
+              </button>
+            </div>
+          </div>
+        ) : null}
       </div>
     </article>
   );
