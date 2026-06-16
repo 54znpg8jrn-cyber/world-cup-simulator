@@ -56,7 +56,7 @@ export function LeaderboardModal({
         if (!active) return;
         setEntries(getLeaderboardEntries());
         setLeaderboardError(
-          "Leaderboard is unavailable. Showing scores saved on this device.",
+          "Global leaderboard temporarily unavailable. Showing scores saved on this device.",
         );
       } finally {
         if (active) setLoading(false);
@@ -70,7 +70,7 @@ export function LeaderboardModal({
 
   if (!open) return null;
 
-  const top20 = entries.slice(0, 20);
+  const topEntries = entries.slice(0, 100);
   const hallOfFame = getLocalHallOfFame();
 
   return createPortal(
@@ -144,13 +144,13 @@ export function LeaderboardModal({
               Loading leaderboard...
             </p>
           ) : null}
-          {top20.length === 0 ? (
+          {topEntries.length === 0 ? (
             <p className="py-12 text-center text-sm text-white/40">
               No runs saved yet. Complete a tournament and save your score.
             </p>
           ) : (
             <ol className="space-y-2">
-              {top20.map((entry, index) => (
+              {topEntries.map((entry, index) => (
                 <li
                   key={entry.id}
                   className={`rounded-2xl border px-4 py-3 ${
@@ -189,10 +189,6 @@ export function LeaderboardModal({
                       </div>
                       <p className="mt-0.5 truncate text-xs text-white/45">
                         {entry.nation} · {entry.finish}
-                      </p>
-                      <p className="mt-1 text-[10px] font-bold text-white/30">
-                        {entry.scoreTitle} · {entry.record} · GF {entry.goalsFor}{" "}
-                        GA {entry.goalsAgainst}
                       </p>
                       <p className="mt-1 text-[9px] font-black uppercase tracking-wider text-[#8cf2a7]/55">
                         {getScoreRarity(entry.score) ?? "Completed run"} ·{" "}

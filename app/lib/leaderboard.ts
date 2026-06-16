@@ -112,7 +112,7 @@ export async function fetchSupabaseLeaderboardEntries(): Promise<
 
   const { data, error } = await supabase
     .from(SUPABASE_TABLE)
-    .select("*")
+    .select("id, player_name, nation, score, finish, created_at")
     .order("score", { ascending: false })
     .limit(MAX_ENTRIES);
 
@@ -150,7 +150,7 @@ export async function getLeaderboardEntriesWithFallback(): Promise<{
     console.error("Supabase leaderboard fetch failed", error);
     return {
       entries: getLeaderboardEntries(),
-      error: "Online leaderboard is unavailable. Showing scores saved on this device.",
+      error: "Global leaderboard temporarily unavailable. Showing scores saved on this device.",
     };
   }
 }
@@ -169,7 +169,7 @@ export async function saveLeaderboardEntryWithFallback(
     console.error("Supabase leaderboard save failed", error);
     return {
       entries: saveLeaderboardEntry(entry),
-      error: "Could not reach the online leaderboard, so this score was saved on this device.",
+      error: "Global leaderboard temporarily unavailable. Score saved on this device.",
     };
   }
 }
