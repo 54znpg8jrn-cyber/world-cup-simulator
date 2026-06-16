@@ -1,3 +1,5 @@
+import { supabase } from "./supabase";
+
 export interface LeaderboardEntry {
   id: string;
   name: string;
@@ -16,6 +18,29 @@ export interface LeaderboardEntry {
 
 const STORAGE_KEY = "world-cup-simulator-leaderboard";
 const MAX_ENTRIES = 100;
+const SUPABASE_TABLE = "leaderboard";
+
+type LeaderboardRow = {
+  id?: string | number | null;
+  name?: string | null;
+  nation?: string | null;
+  nation_flag?: string | null;
+  nationFlag?: string | null;
+  finish?: string | null;
+  score?: number | null;
+  score_title?: string | null;
+  scoreTitle?: string | null;
+  record?: string | null;
+  goals_for?: number | null;
+  goalsFor?: number | null;
+  goals_against?: number | null;
+  goalsAgainst?: number | null;
+  top_scorer?: string | null;
+  topScorer?: string | null;
+  mvp?: string | null;
+  created_at?: string | null;
+  createdAt?: string | null;
+};
 
 function finishRank(finish: string): number {
   if (finish === "World Cup Winners") return 7;
@@ -62,6 +87,127 @@ export function saveLeaderboardEntry(entry: LeaderboardEntry): LeaderboardEntry[
   const next = sortLeaderboardEntries([entry, ...existing]).slice(0, MAX_ENTRIES);
   localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
   return next;
+}
+
+function toSupabaseRow(entry: LeaderboardEntry) {
+  return {
+    name: entry.name,
+    nation: entry.nation,
+    nation_flag: entry.nationFlag,
+    finish: entry.finish,
+    score: entry.score,
+    score_title: entry.scoreTitle,
+    record: entry.record,
+    goals_for: entry.goalsFor,
+    goals_against: entry.goalsAgainst,
+    top_scorer: entry.topScorer,
+    mvp: entry.mvp,
+    created_at: entry.createdAt,
+  };
+}
+
+function toMinimalSupabaseRow(entry: LeaderboardEntry) {
+  return {
+    name: entry.name,
+    nation: entry.nation,
+    finish: entry.finish,
+    score: entry.score,
+    created_at: entry.createdAt,
+  };
+}
+
+function fromSupabaseRow(row: LeaderboardRow): LeaderboardEntry {
+  return {
+    id: String(row.id ?? `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`),
+    name: row.name ?? "Anonymous",
+    nation: row.nation ?? "Unknown",
+    nationFlag: row.nation_flag ?? row.nationFlag ?? "",
+    finish: row.finish ?? "Tournament complete",
+    score: row.score ?? 0,
+    scoreTitle: row.score_title ?? row.scoreTitle ?? "Completed Run",
+    record: row.record ?? "–",
+    goalsFor: row.goals_for ?? row.goalsFor ?? 0,
+    goalsAgainst: row.goals_against ?? row.goalsAgainst ?? 0,
+    topScorer: row.top_scorer ?? row.topScorer ?? "–",
+    mvp: row.mvp ?? "–",
+    createdAt: row.created_at ?? row.createdAt ?? new Date().toISOString(),
+  };
+}
+
+export async function fetchSupabaseLeaderboardEntries(): Promise<
+  LeaderboardEntry[]
+> {
+  if (!supabase) {
+    throw new Error("Supabase is not configured.");
+  }
+
+  const { data, error } = await supabase
+    .from(SUPABASE_TABLE)
+    .select("*")
+    .order("score", { ascending: false })
+    .limit(MAX_ENTRIES);
+
+  if (error) throw error;
+  return sortLeaderboardEntries((data ?? []).map(fromSupabaseRow));
+}
+
+export async function saveSupabaseLeaderboardEntry(
+  entry: LeaderboardEntry,
+): Promise<LeaderboardEntry[]> {
+  if (!supabase) {
+    throw new Error("Supabase is not configured.");
+  }
+
+  const { error } = await supabase
+    .from(SUPABASE_TABLE)
+    .insert(toSupabaseRow(entry));
+
+  if (error) {
+    const { error: minimalError } = await supabase
+      .from(SUPABASE_TABLE)
+      .insert(toMinimalSupabaseRow(entry));
+    if (minimalError) throw minimalError;
+  }
+
+  try {
+    return await fetchSupabaseLeaderboardEntries();
+  } catch {
+    return getLeaderboardEntries();
+  }
+}
+
+export async function getLeaderboardEntriesWithFallback(): Promise<{
+  entries: LeaderboardEntry[];
+  error?: string;
+}> {
+  try {
+    return { entries: await fetchSupabaseLeaderboardEntries() };
+  } catch (error) {
+    console.error("Supabase leaderboard fetch failed", error);
+    return {
+      entries: getLeaderboardEntries(),
+      error: "Online leaderboard is unavailable. Showing scores saved on this device.",
+    };
+  }
+}
+
+export async function saveLeaderboardEntryWithFallback(
+  entry: LeaderboardEntry,
+): Promise<{
+  entries: LeaderboardEntry[];
+  error?: string;
+}> {
+  try {
+    const entries = await saveSupabaseLeaderboardEntry(entry);
+    saveLeaderboardEntry(entry);
+    return { entries };
+  } catch (error) {
+    console.error("Supabase leaderboard save failed", error);
+    return {
+      entries: saveLeaderboardEntry(entry),
+      error: "Could not reach the online leaderboard, so this score was saved on this device.",
+    };
+  }
 }
 
 export function clearLeaderboardEntries(): void {

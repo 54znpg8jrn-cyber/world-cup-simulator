@@ -1,10 +1,12 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import {
   clearLeaderboardEntries,
   getLeaderboardEntries,
+  getLeaderboardEntriesWithFallback,
+  type LeaderboardEntry,
 } from "../lib/leaderboard";
 import { getLocalHallOfFame } from "../lib/engagement";
 import { getScoreRarity } from "../lib/score";
@@ -18,11 +20,9 @@ export function LeaderboardModal({
   onClose: () => void;
 }) {
   const [refreshKey, setRefreshKey] = useState(0);
-  const entries = useMemo(() => {
-    if (!open) return [];
-    void refreshKey;
-    return getLeaderboardEntries();
-  }, [open, refreshKey]);
+  const [entries, setEntries] = useState<LeaderboardEntry[]>([]);
+  const [leaderboardError, setLeaderboardError] = useState("");
+  const [loading, setLoading] = useState(false);
 
   useEffect(() => {
     if (!open) return;
@@ -36,6 +36,37 @@ export function LeaderboardModal({
       document.body.style.overflow = "";
     };
   }, [open, onClose]);
+
+  useEffect(() => {
+    if (!open) return;
+    let active = true;
+    const loadLeaderboard = async () => {
+      await Promise.resolve();
+      if (!active) return;
+      setEntries(getLeaderboardEntries());
+      setLeaderboardError("");
+      setLoading(true);
+      try {
+        const result = await getLeaderboardEntriesWithFallback();
+        if (!active) return;
+        setEntries(result.entries);
+        setLeaderboardError(result.error ?? "");
+      } catch (error) {
+        console.error("Leaderboard load failed", error);
+        if (!active) return;
+        setEntries(getLeaderboardEntries());
+        setLeaderboardError(
+          "Leaderboard is unavailable. Showing scores saved on this device.",
+        );
+      } finally {
+        if (active) setLoading(false);
+      }
+    };
+    void loadLeaderboard();
+    return () => {
+      active = false;
+    };
+  }, [open, refreshKey]);
 
   if (!open) return null;
 
@@ -65,7 +96,7 @@ export function LeaderboardModal({
               Hall of Fame
             </h2>
             <p className="mt-1 text-[10px] font-bold text-white/35">
-              Leaderboard on this device
+              {leaderboardError ? "Local fallback active" : "Global leaderboard"}
             </p>
           </div>
           <button
@@ -103,6 +134,16 @@ export function LeaderboardModal({
               ))}
             </div>
           </section>
+          {leaderboardError ? (
+            <p className="mb-3 rounded-2xl border border-amber-300/20 bg-amber-300/10 px-3 py-2 text-xs font-bold text-amber-100/80">
+              {leaderboardError}
+            </p>
+          ) : null}
+          {loading ? (
+            <p className="mb-3 rounded-2xl border border-white/8 bg-white/[0.03] px-3 py-2 text-center text-xs font-bold text-white/35">
+              Loading leaderboard...
+            </p>
+          ) : null}
           {top20.length === 0 ? (
             <p className="py-12 text-center text-sm text-white/40">
               No runs saved yet. Complete a tournament and save your score.
@@ -173,6 +214,7 @@ export function LeaderboardModal({
               type="button"
               onClick={() => {
                 clearLeaderboardEntries();
+                setEntries([]);
                 setRefreshKey((current) => current + 1);
               }}
               className="min-h-11 w-full rounded-xl border border-white/10 px-4 py-2.5 text-[10px] font-black uppercase tracking-wider text-white/40 hover:bg-white/5 hover:text-white/60"
@@ -196,7 +238,7 @@ export function SaveToLeaderboardModal({
   open: boolean;
   defaultName: string;
   onClose: () => void;
-  onSave: (name: string) => void;
+  onSave: (name: string) => void | Promise<void>;
 }) {
   if (!open) return null;
 
@@ -217,9 +259,10 @@ function SaveToLeaderboardForm({
 }: {
   defaultName: string;
   onClose: () => void;
-  onSave: (name: string) => void;
+  onSave: (name: string) => void | Promise<void>;
 }) {
   const [name, setName] = useState(defaultName);
+  const [saving, setSaving] = useState(false);
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
@@ -261,16 +304,25 @@ function SaveToLeaderboardForm({
           <button
             type="button"
             onClick={onClose}
+            disabled={saving}
             className="min-h-11 rounded-xl border border-white/10 px-4 py-3 text-xs font-black uppercase tracking-wider"
           >
             Cancel
           </button>
           <button
             type="button"
-            onClick={() => onSave(name.trim() || "Anonymous")}
-            className="min-h-11 rounded-xl bg-[#d8b75b] px-4 py-3 text-xs font-black uppercase tracking-wider text-black"
+            onClick={async () => {
+              setSaving(true);
+              try {
+                await onSave(name.trim() || "Anonymous");
+              } finally {
+                setSaving(false);
+              }
+            }}
+            disabled={saving}
+            className="min-h-11 rounded-xl bg-[#d8b75b] px-4 py-3 text-xs font-black uppercase tracking-wider text-black disabled:opacity-60"
           >
-            Save
+            {saving ? "Saving..." : "Save"}
           </button>
         </div>
       </section>

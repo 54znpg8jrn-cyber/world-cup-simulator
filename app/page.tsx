@@ -16,7 +16,7 @@ import { ShareResult } from "./components/ShareResult";
 import { NationFlag } from "./components/NationFlag";
 import {
   createLeaderboardEntry,
-  saveLeaderboardEntry,
+  saveLeaderboardEntryWithFallback,
 } from "./lib/leaderboard";
 import { generateRandomXI } from "./lib/random-xi";
 import {
@@ -621,6 +621,7 @@ export default function Home() {
   const [leaderboardOpen, setLeaderboardOpen] = useState(false);
   const [saveLeaderboardOpen, setSaveLeaderboardOpen] = useState(false);
   const [leaderboardSaved, setLeaderboardSaved] = useState(false);
+  const [leaderboardNotice, setLeaderboardNotice] = useState("");
   const [showAllFormations, setShowAllFormations] = useState(false);
   const [previousResult, setPreviousResult] =
     useState<MatchScreenSnapshot | null>(null);
@@ -1246,6 +1247,7 @@ export default function Home() {
     setOverviewType(null);
     setGroupStageOverview(null);
     setLeaderboardSaved(false);
+    setLeaderboardNotice("");
     setNationModalOpen(true);
     setPreviousResult(null);
     setResumeSnapshot(null);
@@ -1334,6 +1336,7 @@ export default function Home() {
     setBackgroundGroupResults([]);
     setTournamentForm({});
     setLeaderboardSaved(false);
+    setLeaderboardNotice("");
     setPreviousResult(null);
     setResumeSnapshot(null);
     setReviewingPrevious(false);
@@ -1348,9 +1351,9 @@ export default function Home() {
   const underdogReplay = () =>
     runNationDraw("underdog", startReplayWithNation);
 
-  const saveToLeaderboard = (displayName: string) => {
+  const saveToLeaderboard = async (displayName: string) => {
     if (!selectedNation || !worldCupScore || !finish) return;
-    saveLeaderboardEntry(
+    const result = await saveLeaderboardEntryWithFallback(
       createLeaderboardEntry({
         name: displayName,
         nation: selectedNation.name,
@@ -1364,6 +1367,10 @@ export default function Home() {
         topScorer: topScorer?.[0] ?? "–",
         mvp: mvp?.name ?? "–",
       }),
+    );
+    setLeaderboardNotice(
+      result.error ??
+        "Score saved to the leaderboard.",
     );
     setLeaderboardSaved(true);
     setSaveLeaderboardOpen(false);
@@ -2163,6 +2170,11 @@ export default function Home() {
                 View Leaderboard
               </button>
             </div>
+            {leaderboardNotice ? (
+              <p className="mx-auto mt-3 max-w-md rounded-2xl border border-white/8 bg-white/[0.03] px-3 py-2 text-xs font-bold text-white/55">
+                {leaderboardNotice}
+              </p>
+            ) : null}
 
             {worldCupScore ? (
               <ShareResult
