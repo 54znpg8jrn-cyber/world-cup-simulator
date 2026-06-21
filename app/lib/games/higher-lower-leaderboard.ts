@@ -28,17 +28,20 @@ function fromSupabaseRow(row: HigherLowerLeaderboardRow): HigherLowerLeaderboard
   };
 }
 
-export async function fetchHigherLowerLeaderboard(): Promise<
+export async function fetchHigherLowerLeaderboard(category?: string): Promise<
   HigherLowerLeaderboardEntry[]
 > {
   if (!supabase) throw new Error("Supabase is not configured.");
 
-  const { data, error } = await supabase
+  const query = supabase
     .from(SUPABASE_TABLE)
     .select("id, player_name, streak, category, created_at")
     .order("streak", { ascending: false })
-    .order("created_at", { ascending: true })
-    .limit(20);
+    .order("created_at", { ascending: true });
+
+  const { data, error } = category
+    ? await query.eq("category", category).limit(20)
+    : await query.limit(20);
 
   if (error) throw error;
   return (data ?? []).map(fromSupabaseRow);
@@ -60,5 +63,5 @@ export async function saveHigherLowerScore({
   });
 
   if (error) throw error;
-  return fetchHigherLowerLeaderboard();
+  return fetchHigherLowerLeaderboard(category);
 }

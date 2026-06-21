@@ -82,6 +82,7 @@ export default function HigherLowerPage() {
   const [leaderboardEntries, setLeaderboardEntries] = useState<
     HigherLowerLeaderboardEntry[]
   >([]);
+  const [leaderboardCategory, setLeaderboardCategory] = useState("");
   const [leaderboardError, setLeaderboardError] = useState("");
   const [leaderboardLoading, setLeaderboardLoading] = useState(false);
   const [scoreSaved, setScoreSaved] = useState(false);
@@ -123,6 +124,9 @@ export default function HigherLowerPage() {
   }, []);
 
   const milestone = milestoneFor(streak);
+  const currentCategory = round
+    ? HIGHER_LOWER_CATEGORIES[round.known.category].label
+    : "All Categories";
 
   const clearTimers = () => {
     if (nextRoundTimer.current) window.clearTimeout(nextRoundTimer.current);
@@ -207,12 +211,15 @@ export default function HigherLowerPage() {
     window.localStorage.setItem(PLAYER_NAME_KEY, nextName);
   };
 
-  const openLeaderboard = async () => {
+  const openLeaderboard = async (
+    category = gameOver ? gameOverCategory : currentCategory,
+  ) => {
     setLeaderboardOpen(true);
     setLeaderboardLoading(true);
     setLeaderboardError("");
+    setLeaderboardCategory(category);
     try {
-      setLeaderboardEntries(await fetchHigherLowerLeaderboard());
+      setLeaderboardEntries(await fetchHigherLowerLeaderboard(category));
     } catch (error) {
       console.error("Higher / Lower leaderboard fetch failed", error);
       setLeaderboardError("Top scores are temporarily unavailable.");
@@ -243,7 +250,7 @@ export default function HigherLowerPage() {
   };
 
   return (
-    <main className="stadium-bg relative flex h-dvh w-full max-w-full flex-col overflow-hidden text-white">
+    <main className="stadium-bg relative flex h-dvh w-full max-w-full flex-col overflow-x-hidden overflow-y-auto text-white">
       <header className="relative z-20 grid shrink-0 grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-2 px-3 pb-2 pt-[max(0.75rem,env(safe-area-inset-top))] sm:px-5 sm:pb-3">
         <Link
           href="/"
@@ -278,7 +285,7 @@ export default function HigherLowerPage() {
         </button>
       </header>
 
-      <section className="relative grid min-h-0 flex-1 grid-rows-[minmax(0,1fr)_auto_minmax(0,1fr)] overflow-hidden lg:grid-cols-[minmax(0,1fr)_5.5rem_minmax(0,1fr)] lg:grid-rows-1">
+      <section className="relative grid min-h-0 flex-1 grid-rows-[minmax(0,1fr)_auto_minmax(0,1fr)] overflow-hidden lg:min-h-[34rem] lg:grid-cols-[minmax(0,1fr)_5.5rem_minmax(0,1fr)] lg:grid-rows-1">
         {round ? (
           <>
             <ComparisonPanel
@@ -299,6 +306,7 @@ export default function HigherLowerPage() {
               item={round.mystery}
               revealed={round.revealed}
               result={feedback}
+              comparisonValue={round.known.value}
               side="guess"
               compareLabel={`than ${round.known.label}`}
               onGuess={handleGuess}
@@ -323,7 +331,7 @@ export default function HigherLowerPage() {
           onPlayAgain={() => playAgain()}
           onShare={() => void shareScore()}
           onSave={() => void saveScore()}
-          onShowLeaderboard={() => void openLeaderboard()}
+          onShowLeaderboard={() => void openLeaderboard(gameOverCategory)}
           saved={scoreSaved}
           saving={scoreSaving}
           message={message}
@@ -333,6 +341,7 @@ export default function HigherLowerPage() {
       {leaderboardOpen ? (
         <LeaderboardModal
           entries={leaderboardEntries}
+          category={leaderboardCategory}
           loading={leaderboardLoading}
           error={leaderboardError}
           onClose={() => setLeaderboardOpen(false)}
@@ -351,6 +360,7 @@ function ComparisonPanel({
   milestone,
   streakCelebrating,
   result,
+  comparisonValue,
   compareLabel,
   onGuess,
   disabled,
@@ -363,6 +373,7 @@ function ComparisonPanel({
   milestone?: string | null;
   streakCelebrating?: boolean;
   result?: Feedback;
+  comparisonValue?: number;
   compareLabel?: string;
   onGuess?: (guess: Guess) => void;
   disabled?: boolean;
@@ -423,6 +434,12 @@ function ComparisonPanel({
           <p className="mt-1 text-[11px] font-bold text-white/45 sm:text-sm">
             {revealed ? item.display : "Hidden value"}
           </p>
+          <StatReveal
+            item={item}
+            comparisonValue={comparisonValue}
+            revealed={revealed}
+            active={isGuess}
+          />
         </div>
 
         {isGuess ? (
@@ -459,6 +476,74 @@ function ComparisonPanel({
       </div>
     </article>
   );
+}
+
+function StatReveal({
+  item,
+  comparisonValue,
+  revealed,
+  active,
+}: {
+  item: HigherLowerItem;
+  comparisonValue?: number;
+  revealed: boolean;
+  active: boolean;
+}) {
+  if (!active || !revealed || comparisonValue === undefined) return null;
+
+  const difference = item.value - comparisonValue;
+  const visual = getStatVisual(item.category);
+  const iconCount = Math.min(Math.max(Math.abs(difference), 1), 6);
+  const direction = difference > 0 ? "more" : "fewer";
+
+  return (
+    <div
+      key={`${item.id}-${comparisonValue}`}
+      className={`mt-1 flex flex-wrap items-center justify-center gap-0.5 text-sm leading-none ${
+        difference > 0 ? "text-[#f6dc86]" : "text-white/35"
+      }`}
+      aria-label={`${Math.abs(difference).toLocaleString()} ${direction} ${visual.label}`}
+    >
+      {Array.from({ length: iconCount }, (_, index) => (
+        <span
+          key={index}
+          className={difference > 0 ? "animate-bounce" : "opacity-40 grayscale"}
+          style={{ animationDelay: `${index * 75}ms` }}
+        >
+          {visual.icon}
+        </span>
+      ))}
+      <span className="ml-1 text-[9px] font-black uppercase tracking-wider">
+        {difference > 0 ? "+" : "-"}
+        {Math.abs(difference).toLocaleString()} {visual.label}
+      </span>
+    </div>
+  );
+}
+
+function getStatVisual(category: HigherLowerCategory): {
+  icon: string;
+  label: string;
+} {
+  if (
+    category === "world-cup-titles" ||
+    category === "world-cup-finals" ||
+    category === "international-trophies"
+  ) {
+    return { icon: "🏆", label: "trophies" };
+  }
+  if (category === "world-cup-goals" || category === "world-cup-goals-by-nation") {
+    return { icon: "⚽", label: "goals" };
+  }
+  if (category === "world-cup-assists") return { icon: "👟", label: "assists" };
+  if (category === "world-cup-appearances") return { icon: "🎟️", label: "matches" };
+  if (category === "world-cup-tournaments") return { icon: "🏅", label: "tournaments" };
+  if (category === "world-cup-clean-sheets") return { icon: "🧤", label: "clean sheets" };
+  if (category === "world-cup-wins") return { icon: "✅", label: "wins" };
+  if (category === "stadium-capacity") return { icon: "🏟️", label: "seats" };
+  if (category === "population") return { icon: "👥", label: "people" };
+  if (category === "gdp") return { icon: "📈", label: "GDP" };
+  return { icon: "📊", label: "ranking places" };
 }
 
 function GameOverModal({
@@ -524,33 +609,39 @@ function GameOverModal({
             placeholder="Your name"
           />
         </label>
-        <div className="mt-3 grid grid-cols-2 gap-2">
+        <div className="mt-3 grid grid-cols-6 gap-2">
           <button
             type="button"
             onClick={onPlayAgain}
-            className="min-h-11 rounded-xl bg-[#d8b75b] px-3 py-2 text-xs font-black uppercase tracking-wider text-black"
+            className="col-span-2 min-h-11 rounded-xl bg-[#d8b75b] px-2 py-2 text-[10px] font-black uppercase tracking-wider text-black sm:text-xs"
           >
             Play Again
           </button>
           <button
             type="button"
             onClick={onShare}
-            className="min-h-11 rounded-xl border border-[#d8b75b]/25 bg-[#d8b75b]/10 px-3 py-2 text-xs font-black uppercase tracking-wider text-[#f6dc86]"
+            className="col-span-2 min-h-11 rounded-xl border border-[#d8b75b]/25 bg-[#d8b75b]/10 px-2 py-2 text-[10px] font-black uppercase tracking-wider text-[#f6dc86] sm:text-xs"
           >
             Share Score
           </button>
+          <Link
+            href="/"
+            className="col-span-2 flex min-h-11 items-center justify-center rounded-xl border border-white/10 bg-white/5 px-2 py-2 text-[10px] font-black uppercase tracking-wider text-white sm:text-xs"
+          >
+            Home
+          </Link>
           <button
             type="button"
             onClick={onSave}
             disabled={saved || saving}
-            className="min-h-10 rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-[10px] font-black uppercase tracking-wider text-white disabled:opacity-50"
+            className="col-span-3 min-h-10 rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-[10px] font-black uppercase tracking-wider text-white disabled:opacity-50"
           >
             {saved ? "Saved" : saving ? "Saving..." : "Save Score"}
           </button>
           <button
             type="button"
             onClick={onShowLeaderboard}
-            className="min-h-10 rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-[10px] font-black uppercase tracking-wider text-white"
+            className="col-span-3 min-h-10 rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-[10px] font-black uppercase tracking-wider text-white"
           >
             View Top 20
           </button>
@@ -576,11 +667,13 @@ function InfoBox({ label, value }: { label: string; value: string }) {
 
 function LeaderboardModal({
   entries,
+  category,
   loading,
   error,
   onClose,
 }: {
   entries: HigherLowerLeaderboardEntry[];
+  category: string;
   loading: boolean;
   error: string;
   onClose: () => void;
@@ -593,7 +686,7 @@ function LeaderboardModal({
             <p className="text-[9px] font-black uppercase tracking-[0.24em] text-[#d8b75b]">
               Global
             </p>
-            <h2 className="text-xl font-black">Higher / Lower Top 20</h2>
+            <h2 className="text-xl font-black">{category} Top 20</h2>
           </div>
           <button
             type="button"
