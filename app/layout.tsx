@@ -1,4 +1,5 @@
 import type { Metadata, Viewport } from "next";
+import { Analytics } from "@vercel/analytics/next";
 import { InstallHint } from "./components/InstallHint";
 import "./globals.css";
 
@@ -46,6 +47,7 @@ export default function RootLayout({
       <body className="flex min-h-full w-full max-w-full flex-col overflow-x-hidden">
         {children}
         <InstallHint />
+        <Analytics />
       </body>
     </html>
   );

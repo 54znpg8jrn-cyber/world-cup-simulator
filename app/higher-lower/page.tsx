@@ -220,7 +220,7 @@ export default function HigherLowerPage() {
         </label>
       </header>
 
-      <section className="relative grid min-h-0 flex-1 grid-rows-2 overflow-hidden md:grid-cols-2 md:grid-rows-1">
+      <section className="relative grid min-h-0 flex-1 grid-rows-[minmax(0,1fr)_auto_minmax(0,1fr)] overflow-hidden">
         {round ? (
           <>
             <ComparisonPanel
@@ -231,6 +231,11 @@ export default function HigherLowerPage() {
               bestScore={bestStreak}
               side="left"
             />
+            <div className="relative z-10 grid h-12 shrink-0 place-items-center border-y border-[#d8b75b]/15 bg-[#07110d]/96 sm:h-16">
+              <div className="grid h-11 w-11 place-items-center rounded-full border border-[#d8b75b]/45 bg-[#07110d] text-[10px] font-black uppercase tracking-[0.14em] text-[#f6dc86] shadow-[0_12px_34px_rgba(0,0,0,.35)] sm:h-14 sm:w-14 sm:text-xs">
+                vs
+              </div>
+            </div>
             <ComparisonPanel
               item={round.mystery}
               revealed={round.revealed}
@@ -241,9 +246,6 @@ export default function HigherLowerPage() {
               onGuess={handleGuess}
               disabled={round.revealed || gameOver}
             />
-            <div className="pointer-events-none absolute left-1/2 top-1/2 z-10 grid h-16 w-16 -translate-x-1/2 -translate-y-1/2 place-items-center rounded-full border border-[#d8b75b]/45 bg-[#07110d]/95 text-sm font-black uppercase tracking-[0.18em] text-[#f6dc86] shadow-[0_20px_60px_rgba(0,0,0,.35)] sm:h-20 sm:w-20">
-              vs
-            </div>
           </>
         ) : (
           <div className="col-span-full grid place-items-center text-sm font-black uppercase tracking-widest text-white/40">
@@ -320,9 +322,7 @@ function ComparisonPanel({
 
   return (
     <article
-      className={`relative flex min-h-0 min-w-0 flex-col items-center justify-center overflow-hidden border-white/10 px-4 py-5 text-center ${
-        isRight ? "border-t md:border-l md:border-t-0" : ""
-      } ${
+      className={`relative flex min-h-0 min-w-0 flex-col items-center justify-center overflow-hidden border-white/10 px-3 py-2 text-center sm:px-5 sm:py-5 ${
         result === "wrong"
           ? "bg-rose-950/45"
           : result === "correct"
@@ -334,7 +334,7 @@ function ComparisonPanel({
     >
       <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(216,183,91,.16),transparent_46%)]" />
       {!isRight ? (
-        <div className="absolute right-3 top-3 z-10 rounded-2xl border border-white/10 bg-black/25 px-3 py-2 text-right backdrop-blur sm:right-5 sm:top-5">
+        <div className="absolute right-2 top-2 z-10 rounded-xl border border-white/10 bg-black/25 px-2 py-1.5 text-right backdrop-blur sm:right-5 sm:top-5 sm:rounded-2xl sm:px-3 sm:py-2">
           <p className="text-[9px] font-black uppercase tracking-wider text-white/35">
             Streak {score}
           </p>
@@ -345,17 +345,17 @@ function ComparisonPanel({
       ) : null}
 
       <div className="relative z-10 flex max-h-full min-w-0 flex-col items-center">
-        <div className="text-4xl leading-none sm:text-6xl lg:text-7xl">
+        <div className="text-3xl leading-none sm:text-6xl lg:text-7xl">
           {item.flagOrEmoji}
         </div>
-        <h2 className="mt-2 max-w-[18rem] break-words text-2xl font-black uppercase leading-none tracking-[-0.04em] sm:mt-4 sm:text-4xl lg:max-w-xl lg:text-6xl">
+        <h2 className="mt-1 max-w-[18rem] break-words text-xl font-black uppercase leading-none tracking-[-0.04em] sm:mt-4 sm:text-4xl lg:max-w-xl lg:text-6xl">
           {item.label}
         </h2>
-        <p className="mt-2 max-w-[18rem] text-[10px] font-black uppercase tracking-[0.18em] text-[#d8b75b] sm:text-xs">
+        <p className="mt-1 max-w-[18rem] text-[9px] font-black uppercase tracking-[0.16em] text-[#d8b75b] sm:mt-2 sm:text-xs">
           {statLabel}
         </p>
         <div
-          className={`mt-3 rounded-[1.4rem] border px-5 py-3 sm:mt-6 sm:px-8 sm:py-5 ${
+          className={`mt-2 rounded-[1.2rem] border px-5 py-2 sm:mt-6 sm:rounded-[1.4rem] sm:px-8 sm:py-5 ${
             result === "wrong"
               ? "border-rose-200/30 bg-rose-300/10"
               : result === "correct"
@@ -363,17 +363,17 @@ function ComparisonPanel({
                 : "border-white/10 bg-black/25"
           }`}
         >
-          <p className="text-5xl font-black leading-none text-[#f6dc86] sm:text-7xl">
+          <p className="text-4xl font-black leading-none text-[#f6dc86] sm:text-7xl">
             {revealed ? item.value : "?"}
           </p>
-          <p className="mt-1 text-xs font-bold text-white/45 sm:text-sm">
+          <p className="mt-1 text-[11px] font-bold text-white/45 sm:text-sm">
             {revealed ? item.display : "Hidden value"}
           </p>
         </div>
 
         {isRight ? (
-          <div className="mt-3 w-full max-w-xs sm:mt-6">
-            <p className="mb-2 text-xs font-bold text-white/45">
+          <div className="mt-2 w-full max-w-xs sm:mt-6">
+            <p className="mb-1 text-[11px] font-bold text-white/45 sm:mb-2 sm:text-xs">
               {compareLabel}
             </p>
             <div className="grid grid-cols-2 gap-2 sm:gap-3">
@@ -381,7 +381,7 @@ function ComparisonPanel({
                 type="button"
                 onClick={() => onGuess?.("higher")}
                 disabled={disabled}
-                className="min-h-12 rounded-2xl bg-[#d8b75b] px-3 py-3 text-sm font-black uppercase tracking-wider text-black shadow-[0_18px_45px_rgba(216,183,91,.22)] transition active:scale-[0.98] disabled:opacity-55 sm:min-h-14"
+                className="min-h-11 rounded-2xl bg-[#d8b75b] px-3 py-2 text-sm font-black uppercase tracking-wider text-black shadow-[0_18px_45px_rgba(216,183,91,.22)] transition active:scale-[0.98] disabled:opacity-55 sm:min-h-14 sm:py-3"
               >
                 Higher
               </button>
@@ -389,7 +389,7 @@ function ComparisonPanel({
                 type="button"
                 onClick={() => onGuess?.("lower")}
                 disabled={disabled}
-                className="min-h-12 rounded-2xl border border-white/10 bg-white/5 px-3 py-3 text-sm font-black uppercase tracking-wider text-white transition active:scale-[0.98] disabled:opacity-55 sm:min-h-14"
+                className="min-h-11 rounded-2xl border border-white/10 bg-white/5 px-3 py-2 text-sm font-black uppercase tracking-wider text-white transition active:scale-[0.98] disabled:opacity-55 sm:min-h-14 sm:py-3"
               >
                 Lower
               </button>
