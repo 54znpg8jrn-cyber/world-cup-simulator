@@ -291,6 +291,7 @@ export default function HigherLowerPage() {
             <ComparisonPanel
               item={round.known}
               revealed
+              result={feedback}
               score={streak}
               bestScore={bestStreak}
               milestone={milestone}
@@ -307,6 +308,7 @@ export default function HigherLowerPage() {
               revealed={round.revealed}
               result={feedback}
               comparisonValue={round.known.value}
+              comparisonName={round.known.label}
               side="guess"
               compareLabel={`than ${round.known.label}`}
               onGuess={handleGuess}
@@ -361,6 +363,7 @@ function ComparisonPanel({
   streakCelebrating,
   result,
   comparisonValue,
+  comparisonName,
   compareLabel,
   onGuess,
   disabled,
@@ -374,6 +377,7 @@ function ComparisonPanel({
   streakCelebrating?: boolean;
   result?: Feedback;
   comparisonValue?: number;
+  comparisonName?: string;
   compareLabel?: string;
   onGuess?: (guess: Guess) => void;
   disabled?: boolean;
@@ -382,7 +386,7 @@ function ComparisonPanel({
 
   return (
     <article
-      className={`relative flex min-h-0 min-w-0 flex-col items-center justify-center overflow-hidden border-white/10 px-3 py-2 text-center transition-colors duration-500 sm:px-5 sm:py-5 lg:px-8 lg:py-8 ${
+      className={`relative flex min-h-0 min-w-0 flex-col items-center justify-center overflow-hidden border-white/10 px-3 py-2 text-center transition-all duration-700 sm:px-5 sm:py-5 lg:px-8 lg:py-8 ${
         result === "wrong"
           ? "bg-rose-950/45"
           : result === "correct"
@@ -390,7 +394,7 @@ function ComparisonPanel({
             : isGuess
               ? "bg-[#0b1911]/92"
               : "bg-[#07110d]/95"
-      }`}
+      } ${!isGuess && result ? "-translate-y-2 opacity-55 lg:-translate-x-4" : ""} ${isGuess && result ? "scale-[1.015] shadow-[0_0_70px_rgba(216,183,91,.16)]" : ""}`}
     >
       <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(216,183,91,.16),transparent_46%)]" />
       {!isGuess ? (
@@ -420,7 +424,7 @@ function ComparisonPanel({
           {item.statLabel}
         </p>
         <div
-          className={`mt-2 rounded-[1.2rem] border px-5 py-2 transition-all duration-500 sm:mt-6 sm:rounded-[1.4rem] sm:px-8 sm:py-5 ${
+          className={`mt-2 w-full max-w-[23rem] rounded-[1.2rem] border px-4 py-3 transition-all duration-500 sm:mt-5 sm:rounded-[1.4rem] sm:px-8 sm:py-5 lg:max-w-[30rem] ${
             result === "wrong"
               ? "border-rose-200/30 bg-rose-300/10"
               : result === "correct"
@@ -428,19 +432,28 @@ function ComparisonPanel({
                 : "border-white/10 bg-black/25"
           }`}
         >
-          <p className="text-4xl font-black leading-none text-[#f6dc86] transition-transform duration-500 sm:text-7xl">
+          <p className="text-5xl font-black leading-none text-[#f6dc86] transition-transform duration-500 sm:text-7xl">
             {revealed ? item.value.toLocaleString() : "?"}
           </p>
           <p className="mt-1 text-[11px] font-bold text-white/45 sm:text-sm">
             {revealed ? item.display : "Hidden value"}
           </p>
-          <StatReveal
+          <StatIconGrid
             item={item}
             comparisonValue={comparisonValue}
             revealed={revealed}
-            active={isGuess}
+            animationState={result}
+            challenger={isGuess}
           />
         </div>
+
+        {isGuess && revealed ? (
+          <BattleSummary
+            item={item}
+            comparisonValue={comparisonValue}
+            comparisonName={comparisonName}
+          />
+        ) : null}
 
         {isGuess ? (
           <div className="mt-2 w-full max-w-xs sm:mt-6 lg:mt-8 lg:max-w-sm">
@@ -478,45 +491,145 @@ function ComparisonPanel({
   );
 }
 
-function StatReveal({
+function StatIconGrid({
   item,
   comparisonValue,
   revealed,
-  active,
+  animationState,
+  challenger,
 }: {
   item: HigherLowerItem;
   comparisonValue?: number;
   revealed: boolean;
-  active: boolean;
+  animationState?: Feedback;
+  challenger: boolean;
 }) {
-  if (!active || !revealed || comparisonValue === undefined) return null;
-
-  const difference = item.value - comparisonValue;
   const visual = getStatVisual(item.category);
-  const iconCount = Math.min(Math.max(Math.abs(difference), 1), 6);
-  const direction = difference > 0 ? "more" : "fewer";
+  const animationFrame = useRef<number | null>(null);
+  const [displayValue, setDisplayValue] = useState(
+    challenger && !revealed ? 0 : item.value,
+  );
+  const [iconCeiling, setIconCeiling] = useState(
+    Math.min(item.value, 20),
+  );
+
+  useEffect(() => {
+    let active = true;
+    if (animationFrame.current) window.cancelAnimationFrame(animationFrame.current);
+
+    const startAnimation = async () => {
+      await Promise.resolve();
+      if (!active) return;
+
+      if (challenger && !revealed) {
+        setDisplayValue(0);
+        setIconCeiling(0);
+        return;
+      }
+
+      const start =
+        challenger && comparisonValue !== undefined ? comparisonValue : item.value;
+      const target = item.value;
+      setDisplayValue(start);
+      setIconCeiling(Math.min(Math.max(start, target), 20));
+
+      if (start === target) return;
+
+      const duration = 650;
+      let startedAt: number | null = null;
+      const tick = (timestamp: number) => {
+        if (!active) return;
+        if (startedAt === null) startedAt = timestamp;
+        const progress = Math.min((timestamp - startedAt) / duration, 1);
+        const eased = 1 - (1 - progress) ** 3;
+        setDisplayValue(Math.round(start + (target - start) * eased));
+        if (progress < 1) {
+          animationFrame.current = window.requestAnimationFrame(tick);
+        }
+      };
+
+      animationFrame.current = window.requestAnimationFrame(tick);
+    };
+
+    void startAnimation();
+
+    return () => {
+      active = false;
+      if (animationFrame.current) window.cancelAnimationFrame(animationFrame.current);
+    };
+  }, [item.id, item.value, comparisonValue, revealed, challenger, animationState]);
+
+  if (challenger && !revealed) {
+    return (
+      <p className="mt-3 text-[10px] font-black uppercase tracking-[0.18em] text-white/30">
+        Choose higher or lower
+      </p>
+    );
+  }
+
+  const useIndividualIcons = Math.max(item.value, comparisonValue ?? 0) <= 20;
+  const enteredCount = Math.min(displayValue, 20);
+  const startValue = challenger && comparisonValue !== undefined ? comparisonValue : item.value;
+  const isIncreasing = item.value > startValue;
 
   return (
-    <div
-      key={`${item.id}-${comparisonValue}`}
-      className={`mt-1 flex flex-wrap items-center justify-center gap-0.5 text-sm leading-none ${
-        difference > 0 ? "text-[#f6dc86]" : "text-white/35"
-      }`}
-      aria-label={`${Math.abs(difference).toLocaleString()} ${direction} ${visual.label}`}
-    >
-      {Array.from({ length: iconCount }, (_, index) => (
-        <span
-          key={index}
-          className={difference > 0 ? "animate-bounce" : "opacity-40 grayscale"}
-          style={{ animationDelay: `${index * 75}ms` }}
-        >
-          {visual.icon}
-        </span>
-      ))}
-      <span className="ml-1 text-[9px] font-black uppercase tracking-wider">
-        {difference > 0 ? "+" : "-"}
-        {Math.abs(difference).toLocaleString()} {visual.label}
-      </span>
+    <div className="mt-3" aria-label={`${displayValue.toLocaleString()} ${visual.label}`}>
+      {useIndividualIcons ? (
+        <div className="mx-auto grid max-w-[15rem] grid-cols-7 justify-items-center gap-1 text-lg leading-none sm:max-w-[18rem] sm:text-2xl">
+          {Array.from({ length: iconCeiling }, (_, index) => {
+            const visible = index < enteredCount;
+            const added = isIncreasing && index >= startValue && visible;
+            return (
+              <span
+                key={`${item.id}-${index}`}
+                className={`transition-all duration-300 ${
+                  visible
+                    ? "translate-y-0 scale-100 opacity-100"
+                    : "translate-y-4 scale-75 opacity-0"
+                } ${added ? "animate-bounce text-[#f6dc86]" : ""}`}
+                style={{ transitionDelay: `${index * 18}ms` }}
+              >
+                {visual.icon}
+              </span>
+            );
+          })}
+        </div>
+      ) : (
+        <div className="flex items-center justify-center gap-2 text-lg text-[#f6dc86] sm:text-2xl">
+          <span className="animate-pulse">{visual.icon}</span>
+          <span className="animate-pulse">{visual.icon}</span>
+          <span className="text-3xl font-black sm:text-4xl">{displayValue.toLocaleString()}</span>
+        </div>
+      )}
+      <p className="mt-2 text-[9px] font-black uppercase tracking-[0.16em] text-white/35">
+        {visual.label}
+      </p>
+    </div>
+  );
+}
+
+function BattleSummary({
+  item,
+  comparisonValue,
+  comparisonName,
+}: {
+  item: HigherLowerItem;
+  comparisonValue?: number;
+  comparisonName?: string;
+}) {
+  const difference = comparisonValue === undefined ? 0 : item.value - comparisonValue;
+  const direction = difference >= 0 ? "more" : "fewer";
+
+  return (
+    <div className="mt-2 max-w-[22rem] text-center sm:mt-3">
+      <p className="text-xs font-black text-[#f6dc86] sm:text-sm">
+        {item.label} has {item.display}.
+      </p>
+      {comparisonName && comparisonValue !== undefined ? (
+        <p className="mt-0.5 text-[11px] font-bold text-white/55 sm:text-xs">
+          {Math.abs(difference).toLocaleString()} {direction} than {comparisonName}.
+        </p>
+      ) : null}
     </div>
   );
 }
