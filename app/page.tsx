@@ -1445,7 +1445,7 @@ export default function Home() {
             <p className="mt-6 max-w-md text-base leading-7 text-white/55 sm:text-lg">
               Pick your nation. Build your XI. Simulate the tournament.
             </p>
-            <div className="mt-9 grid w-full max-w-4xl min-w-0 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+            <div className="mt-9 grid w-full max-w-5xl min-w-0 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
               <div className="min-w-0 rounded-[1.5rem] border border-[#d8b75b]/25 bg-[#d8b75b]/8 p-5 text-left">
                 <h2 className="font-black">World Cup Simulator</h2>
                 <p className="mt-2 min-h-10 text-xs leading-5 text-white/45">Build your XI and simulate the tournament.</p>
@@ -1460,6 +1460,11 @@ export default function Home() {
                 <h2 className="font-black">Higher / Lower</h2>
                 <p className="mt-2 min-h-10 text-xs leading-5 text-white/45">Guess which World Cup stat is higher.</p>
                 <Link href="/higher-lower" className="mt-4 flex min-h-11 w-full items-center justify-center rounded-xl border border-emerald-300/20 bg-emerald-300/10 px-4 py-3 text-center text-xs font-black uppercase tracking-wider text-emerald-100">Play Higher / Lower</Link>
+              </div>
+              <div className="min-w-0 rounded-[1.5rem] border border-[#d8b75b]/25 bg-[#d8b75b]/[0.06] p-5 text-left sm:col-span-2 lg:col-span-1 xl:col-span-1">
+                <h2 className="font-black">World Cup Wordle</h2>
+                <p className="mt-2 min-h-10 text-xs leading-5 text-white/45">Guess the mystery World Cup player.</p>
+                <Link href="/wordle" className="mt-4 flex min-h-11 w-full items-center justify-center rounded-xl border border-[#d8b75b]/25 bg-[#d8b75b]/10 px-4 py-3 text-center text-xs font-black uppercase tracking-wider text-[#f6dc86]">Play Wordle</Link>
               </div>
             </div>
           </div>
