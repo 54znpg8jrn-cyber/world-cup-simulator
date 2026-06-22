@@ -1,4 +1,17 @@
-export type WordlePosition = "GK" | "DF" | "MF" | "FW";
+import { OFFICIAL_PLAYER_SEEDS } from "../../../data/players";
+
+export type WordlePosition =
+  | "GK"
+  | "CB"
+  | "FB"
+  | "CDM"
+  | "CM"
+  | "CAM"
+  | "LW"
+  | "RW"
+  | "ST";
+
+export type Confederation = "AFC" | "CAF" | "CONCACAF" | "CONMEBOL" | "OFC" | "UEFA";
 
 export interface WordlePlayer {
   id: string;
@@ -6,160 +19,134 @@ export interface WordlePlayer {
   nation: string;
   position: WordlePosition;
   age: number;
-  worldCupAppearances: number;
-  worldCupGoals: number;
+  caps: number;
+  goals: number;
 }
 
-type PlayerSeed = readonly [
-  name: string,
-  nation: string,
-  position: WordlePosition,
-  age: number,
-  appearances: number,
-  goals: number,
-];
+type PlayerMetadata = {
+  dateOfBirth: string;
+  position: WordlePosition;
+};
 
-function createPlayers(players: readonly PlayerSeed[]): WordlePlayer[] {
-  return players.map(([name, nation, position, age, worldCupAppearances, worldCupGoals]) => ({
-    id: `${name}-${nation}`.toLowerCase().replace(/[^a-z0-9]+/g, "-"),
-    name,
-    nation,
-    position,
-    age,
-    worldCupAppearances,
-    worldCupGoals,
-  }));
+// Only player IDs from the current 2026 simulator squad list are eligible.
+// Players not listed here have no verified date of birth in the app data and are excluded.
+const WORDLE_PLAYER_METADATA: Record<string, PlayerMetadata> = {
+  "arg-09": { dateOfBirth: "2000-01-31", position: "ST" },
+  "arg-10": { dateOfBirth: "1987-06-24", position: "RW" },
+  "arg-20": { dateOfBirth: "1998-12-24", position: "CM" },
+  "arg-22": { dateOfBirth: "1997-08-22", position: "ST" },
+  "arg-23": { dateOfBirth: "1992-09-02", position: "GK" },
+  "arg-24": { dateOfBirth: "2001-01-17", position: "CM" },
+  "bel-01": { dateOfBirth: "1992-05-11", position: "GK" },
+  "bel-11": { dateOfBirth: "2002-05-27", position: "LW" },
+  "bra-01": { dateOfBirth: "1992-10-02", position: "GK" },
+  "bra-04": { dateOfBirth: "1994-05-14", position: "CB" },
+  "bra-05": { dateOfBirth: "1992-02-23", position: "CDM" },
+  "bra-07": { dateOfBirth: "2000-07-12", position: "LW" },
+  "bra-11": { dateOfBirth: "1996-12-14", position: "RW" },
+  "bra-19": { dateOfBirth: "2006-07-21", position: "ST" },
+  "bra-23": { dateOfBirth: "1993-08-17", position: "GK" },
+  "can-10": { dateOfBirth: "2000-01-14", position: "ST" },
+  "can-19": { dateOfBirth: "2000-11-02", position: "FB" },
+  "col-07": { dateOfBirth: "1997-01-13", position: "LW" },
+  "col-10": { dateOfBirth: "1991-07-12", position: "CAM" },
+  "cro-08": { dateOfBirth: "1994-05-06", position: "CM" },
+  "cro-10": { dateOfBirth: "1985-09-09", position: "CM" },
+  "ecu-03": { dateOfBirth: "2002-01-09", position: "CB" },
+  "ecu-23": { dateOfBirth: "2001-11-02", position: "CDM" },
+  "egy-10": { dateOfBirth: "1992-06-15", position: "RW" },
+  "eng-07": { dateOfBirth: "2001-09-05", position: "RW" },
+  "eng-09": { dateOfBirth: "1993-07-28", position: "ST" },
+  "eng-10": { dateOfBirth: "2003-06-29", position: "CAM" },
+  "fra-07": { dateOfBirth: "1997-05-15", position: "RW" },
+  "fra-10": { dateOfBirth: "1998-12-20", position: "ST" },
+  "fra-11": { dateOfBirth: "2001-12-12", position: "RW" },
+  "fra-17": { dateOfBirth: "2001-03-24", position: "CB" },
+  "fra-18": { dateOfBirth: "2006-03-08", position: "CM" },
+  "ger-07": { dateOfBirth: "1999-06-11", position: "ST" },
+  "ger-10": { dateOfBirth: "2003-02-26", position: "CAM" },
+  "ger-17": { dateOfBirth: "2003-05-03", position: "CAM" },
+  "ger-19": { dateOfBirth: "1996-01-11", position: "RW" },
+  "irn-09": { dateOfBirth: "1992-07-18", position: "ST" },
+  "jpn-08": { dateOfBirth: "2001-06-04", position: "RW" },
+  "mex-11": { dateOfBirth: "2001-04-18", position: "ST" },
+  "mar-02": { dateOfBirth: "1998-11-04", position: "FB" },
+  "mar-04": { dateOfBirth: "1996-08-21", position: "CDM" },
+  "mar-10": { dateOfBirth: "1999-08-03", position: "RW" },
+  "mar-11": { dateOfBirth: "2001-01-28", position: "CM" },
+  "nor-09": { dateOfBirth: "2000-07-21", position: "ST" },
+  "nor-10": { dateOfBirth: "1998-12-17", position: "CAM" },
+  "por-07": { dateOfBirth: "1985-02-05", position: "ST" },
+  "por-08": { dateOfBirth: "1994-09-08", position: "CAM" },
+  "por-11": { dateOfBirth: "1999-11-10", position: "ST" },
+  "por-15": { dateOfBirth: "2004-09-27", position: "CM" },
+  "por-17": { dateOfBirth: "1999-06-10", position: "LW" },
+  "esp-06": { dateOfBirth: "1996-06-22", position: "CM" },
+  "esp-09": { dateOfBirth: "2004-08-05", position: "CM" },
+  "esp-10": { dateOfBirth: "1998-05-07", position: "CAM" },
+  "esp-16": { dateOfBirth: "1996-06-22", position: "CDM" },
+  "esp-17": { dateOfBirth: "2002-07-12", position: "LW" },
+  "esp-19": { dateOfBirth: "2007-07-13", position: "RW" },
+  "esp-20": { dateOfBirth: "2002-11-25", position: "CM" },
+  "esp-23": { dateOfBirth: "1997-06-11", position: "GK" },
+  "esp-24": { dateOfBirth: "1998-07-22", position: "FB" },
+  "swe-09": { dateOfBirth: "1999-09-21", position: "ST" },
+  "swe-17": { dateOfBirth: "1998-06-04", position: "ST" },
+  "tur-06": { dateOfBirth: "2000-12-29", position: "CM" },
+  "tur-07": { dateOfBirth: "1998-10-21", position: "LW" },
+  "tur-08": { dateOfBirth: "2005-02-25", position: "CAM" },
+  "tur-10": { dateOfBirth: "1994-02-08", position: "CM" },
+  "uru-08": { dateOfBirth: "1998-07-22", position: "CM" },
+  "uru-09": { dateOfBirth: "1999-06-24", position: "ST" },
+  "usa-10": { dateOfBirth: "1998-09-18", position: "RW" },
+};
+
+export const NATION_CONFEDERATIONS: Record<string, Confederation> = {
+  Algeria: "CAF", Argentina: "CONMEBOL", Australia: "AFC", Austria: "UEFA",
+  Belgium: "UEFA", "Bosnia and Herzegovina": "UEFA", Brazil: "CONMEBOL",
+  Canada: "CONCACAF", "Cape Verde": "CAF", Colombia: "CONMEBOL", Croatia: "UEFA",
+  "Curaçao": "CONCACAF", "Czech Republic": "UEFA", "DR Congo": "CAF",
+  Ecuador: "CONMEBOL", Egypt: "CAF", England: "UEFA", France: "UEFA",
+  Germany: "UEFA", Ghana: "CAF", Haiti: "CONCACAF", Iran: "AFC", Iraq: "AFC",
+  "Ivory Coast": "CAF", Japan: "AFC", Jordan: "AFC", Mexico: "CONCACAF",
+  Morocco: "CAF", Netherlands: "UEFA", "New Zealand": "OFC", Norway: "UEFA",
+  Panama: "CONCACAF", Paraguay: "CONMEBOL", Portugal: "UEFA", Qatar: "AFC",
+  "Saudi Arabia": "AFC", Scotland: "UEFA", Senegal: "CAF", "South Africa": "CAF",
+  "South Korea": "AFC", Spain: "UEFA", Sweden: "UEFA", Switzerland: "UEFA",
+  Tunisia: "CAF", Turkey: "UEFA", USA: "CONCACAF", Uruguay: "CONMEBOL",
+  Uzbekistan: "AFC",
+};
+
+export function calculateAge(dateOfBirth: string, referenceDate = new Date()) {
+  const birthDate = new Date(`${dateOfBirth}T00:00:00Z`);
+  let age = referenceDate.getUTCFullYear() - birthDate.getUTCFullYear();
+  const hasHadBirthday =
+    referenceDate.getUTCMonth() > birthDate.getUTCMonth() ||
+    (referenceDate.getUTCMonth() === birthDate.getUTCMonth() &&
+      referenceDate.getUTCDate() >= birthDate.getUTCDate());
+  if (!hasHadBirthday) age -= 1;
+  return age;
 }
 
-// Age is the player's age at their final World Cup appearance, keeping historic players comparable.
-export const WORDLE_PLAYERS: WordlePlayer[] = createPlayers([
-  ["Lionel Messi", "Argentina", "FW", 35, 26, 13],
-  ["Diego Maradona", "Argentina", "MF", 33, 21, 8],
-  ["Gabriel Batistuta", "Argentina", "FW", 33, 12, 10],
-  ["Mario Kempes", "Argentina", "FW", 24, 18, 6],
-  ["Daniel Passarella", "Argentina", "DF", 34, 12, 3],
-  ["Angel Di Maria", "Argentina", "MF", 34, 18, 2],
-  ["Hernan Crespo", "Argentina", "FW", 30, 8, 4],
-  ["Juan Roman Riquelme", "Argentina", "MF", 29, 9, 0],
-  ["Pelé", "Brazil", "FW", 29, 14, 12],
-  ["Ronaldo", "Brazil", "FW", 29, 19, 15],
-  ["Romario", "Brazil", "FW", 28, 8, 5],
-  ["Ronaldinho", "Brazil", "MF", 26, 10, 2],
-  ["Kaka", "Brazil", "MF", 28, 10, 2],
-  ["Neymar", "Brazil", "FW", 30, 13, 8],
-  ["Zico", "Brazil", "MF", 29, 14, 3],
-  ["Rivaldo", "Brazil", "FW", 30, 10, 5],
-  ["Cafu", "Brazil", "DF", 36, 20, 0],
-  ["Garrincha", "Brazil", "FW", 29, 12, 5],
-  ["Socrates", "Brazil", "MF", 32, 6, 2],
-  ["Miroslav Klose", "Germany", "FW", 36, 24, 16],
-  ["Gerd Müller", "Germany", "FW", 28, 13, 14],
-  ["Franz Beckenbauer", "Germany", "DF", 31, 18, 5],
-  ["Lothar Matthäus", "Germany", "MF", 39, 25, 6],
-  ["Thomas Müller", "Germany", "MF", 32, 19, 10],
-  ["Jürgen Klinsmann", "Germany", "FW", 33, 17, 11],
-  ["Manuel Neuer", "Germany", "GK", 36, 19, 0],
-  ["Philipp Lahm", "Germany", "DF", 30, 20, 0],
-  ["Mesut Özil", "Germany", "MF", 29, 9, 1],
-  ["Toni Kroos", "Germany", "MF", 24, 10, 0],
-  ["Karl-Heinz Rummenigge", "Germany", "FW", 29, 19, 9],
-  ["Andreas Brehme", "Germany", "DF", 33, 16, 4],
-  ["Zinedine Zidane", "France", "MF", 34, 12, 2],
-  ["Kylian Mbappé", "France", "FW", 23, 14, 12],
-  ["Thierry Henry", "France", "FW", 32, 17, 6],
-  ["Michel Platini", "France", "MF", 27, 5, 0],
-  ["Antoine Griezmann", "France", "FW", 31, 19, 4],
-  ["Patrick Vieira", "France", "MF", 30, 10, 0],
-  ["Didier Deschamps", "France", "MF", 29, 12, 0],
-  ["N'Golo Kanté", "France", "MF", 31, 7, 0],
-  ["Fabien Barthez", "France", "GK", 35, 17, 0],
-  ["Just Fontaine", "France", "FW", 25, 6, 13],
-  ["Andrés Iniesta", "Spain", "MF", 34, 14, 2],
-  ["Xavi", "Spain", "MF", 34, 15, 0],
-  ["David Villa", "Spain", "FW", 31, 12, 9],
-  ["Fernando Torres", "Spain", "FW", 28, 13, 5],
-  ["Sergio Ramos", "Spain", "DF", 30, 15, 2],
-  ["Iker Casillas", "Spain", "GK", 33, 16, 0],
-  ["Sergio Busquets", "Spain", "MF", 34, 15, 0],
-  ["Carles Puyol", "Spain", "DF", 32, 15, 3],
-  ["Raúl", "Spain", "FW", 25, 8, 5],
-  ["Fernando Morientes", "Spain", "FW", 28, 7, 3],
-  ["Emilio Butragueño", "Spain", "FW", 25, 5, 5],
-  ["Roberto Baggio", "Italy", "FW", 27, 16, 9],
-  ["Francesco Totti", "Italy", "FW", 30, 9, 1],
-  ["Alessandro Del Piero", "Italy", "FW", 33, 13, 2],
-  ["Fabio Cannavaro", "Italy", "DF", 33, 18, 2],
-  ["Gianluigi Buffon", "Italy", "GK", 38, 14, 0],
-  ["Andrea Pirlo", "Italy", "MF", 35, 13, 1],
-  ["Paolo Rossi", "Italy", "FW", 27, 14, 9],
-  ["Dino Zoff", "Italy", "GK", 40, 17, 0],
-  ["Christian Vieri", "Italy", "FW", 30, 9, 9],
-  ["Paolo Maldini", "Italy", "DF", 26, 23, 0],
-  ["Alessandro Nesta", "Italy", "DF", 30, 13, 0],
-  ["Gary Lineker", "England", "FW", 29, 12, 10],
-  ["Harry Kane", "England", "FW", 29, 11, 8],
-  ["David Beckham", "England", "MF", 31, 13, 0],
-  ["Wayne Rooney", "England", "FW", 29, 10, 1],
-  ["Steven Gerrard", "England", "MF", 34, 12, 3],
-  ["Frank Lampard", "England", "MF", 32, 10, 0],
-  ["Bobby Charlton", "England", "MF", 32, 14, 4],
-  ["Bobby Moore", "England", "DF", 28, 14, 2],
-  ["Peter Shilton", "England", "GK", 40, 17, 0],
-  ["Johan Cruyff", "Netherlands", "FW", 27, 7, 3],
-  ["Marco van Basten", "Netherlands", "FW", 25, 7, 0],
-  ["Ruud Gullit", "Netherlands", "MF", 31, 14, 3],
-  ["Arjen Robben", "Netherlands", "FW", 30, 17, 6],
-  ["Wesley Sneijder", "Netherlands", "MF", 30, 17, 5],
-  ["Robin van Persie", "Netherlands", "FW", 30, 17, 6],
-  ["Dennis Bergkamp", "Netherlands", "FW", 29, 7, 3],
-  ["Frank Rijkaard", "Netherlands", "MF", 32, 13, 0],
-  ["Cristiano Ronaldo", "Portugal", "FW", 37, 22, 8],
-  ["Eusébio", "Portugal", "FW", 25, 6, 9],
-  ["Luís Figo", "Portugal", "MF", 33, 15, 1],
-  ["Rui Costa", "Portugal", "MF", 30, 8, 0],
-  ["Deco", "Portugal", "MF", 30, 8, 0],
-  ["Bruno Fernandes", "Portugal", "MF", 28, 7, 2],
-  ["Luka Modrić", "Croatia", "MF", 37, 19, 2],
-  ["Davor Šuker", "Croatia", "FW", 30, 8, 6],
-  ["Ivan Rakitić", "Croatia", "MF", 30, 12, 0],
-  ["Mario Mandžukić", "Croatia", "FW", 32, 10, 5],
-  ["Mateo Kovačić", "Croatia", "MF", 28, 11, 0],
-  ["Luis Suárez", "Uruguay", "FW", 35, 16, 7],
-  ["Diego Forlán", "Uruguay", "FW", 33, 8, 2],
-  ["Edinson Cavani", "Uruguay", "FW", 35, 11, 5],
-  ["Diego Godín", "Uruguay", "DF", 36, 12, 0],
-  ["Enzo Francescoli", "Uruguay", "FW", 34, 5, 0],
-  ["Kevin De Bruyne", "Belgium", "MF", 31, 10, 2],
-  ["Eden Hazard", "Belgium", "FW", 31, 11, 3],
-  ["Romelu Lukaku", "Belgium", "FW", 29, 12, 5],
-  ["Thibaut Courtois", "Belgium", "GK", 30, 10, 0],
-  ["Vincent Kompany", "Belgium", "DF", 32, 12, 1],
-  ["Ferenc Puskás", "Hungary", "FW", 31, 4, 4],
-  ["Sándor Kocsis", "Hungary", "FW", 29, 5, 11],
-  ["Hugo Sánchez", "Mexico", "FW", 31, 8, 1],
-  ["Rafael Márquez", "Mexico", "DF", 39, 19, 0],
-  ["Zlatan Ibrahimović", "Sweden", "FW", 40, 13, 2],
-  ["Tomas Brolin", "Sweden", "MF", 24, 7, 3],
-  ["Robert Lewandowski", "Poland", "FW", 34, 9, 2],
-  ["Grzegorz Lato", "Poland", "FW", 28, 20, 10],
-  ["Pavel Nedvěd", "Czechia", "MF", 34, 6, 0],
-  ["Michael Laudrup", "Denmark", "MF", 30, 10, 1],
-  ["Peter Schmeichel", "Denmark", "GK", 35, 13, 0],
-  ["James Rodríguez", "Colombia", "MF", 23, 5, 6],
-  ["Carlos Valderrama", "Colombia", "MF", 31, 6, 0],
-  ["Alexis Sánchez", "Chile", "FW", 33, 9, 4],
-  ["Samuel Eto'o", "Cameroon", "FW", 33, 8, 3],
-  ["Roger Milla", "Cameroon", "FW", 38, 10, 5],
-  ["Jay-Jay Okocha", "Nigeria", "MF", 30, 6, 0],
-  ["Hidetoshi Nakata", "Japan", "MF", 29, 7, 0],
-  ["Son Heung-min", "South Korea", "FW", 30, 9, 3],
-  ["Landon Donovan", "United States", "MF", 32, 12, 5],
-  ["Clint Dempsey", "United States", "FW", 33, 12, 4],
-  ["Tim Cahill", "Australia", "MF", 38, 9, 5],
-  ["Keylor Navas", "Costa Rica", "GK", 35, 10, 0],
-  ["Asamoah Gyan", "Ghana", "FW", 31, 10, 6],
-  ["Achraf Hakimi", "Morocco", "DF", 24, 7, 0],
-  ["Ali Daei", "Iran", "FW", 30, 6, 0],
-  ["Mohamed Salah", "Egypt", "FW", 30, 2, 2],
-  ["Dragan Stojković", "Serbia", "MF", 30, 5, 1],
-]);
+export function getPositionGroup(position: WordlePosition) {
+  if (position === "GK") return "goalkeeper";
+  if (position === "CB" || position === "FB") return "defender";
+  if (position === "CDM" || position === "CM" || position === "CAM") return "midfielder";
+  return "attacker";
+}
+
+export const WORDLE_PLAYERS: WordlePlayer[] = OFFICIAL_PLAYER_SEEDS.flatMap(
+  (player) => {
+    const metadata = WORDLE_PLAYER_METADATA[player.id];
+    if (!metadata) return [];
+    return [{
+      id: player.id,
+      name: player.name,
+      nation: player.nation,
+      position: metadata.position,
+      age: calculateAge(metadata.dateOfBirth),
+      caps: player.caps,
+      goals: player.goals,
+    }];
+  },
+);

@@ -3,6 +3,8 @@
 import Link from "next/link";
 import { type FormEvent, useEffect, useMemo, useState } from "react";
 import {
+  getPositionGroup,
+  NATION_CONFEDERATIONS,
   WORDLE_PLAYERS,
   type WordlePlayer,
   type WordlePosition,
@@ -86,13 +88,14 @@ function readDailyGame(day: string): WordleGame | null {
 
 function positionHint(guess: WordlePosition, target: WordlePosition): HintColor {
   if (guess === target) return "green";
-  if ((guess === "MF" && target === "FW") || (guess === "FW" && target === "MF")) {
-    return "yellow";
-  }
-  if ((guess === "DF" && target === "GK") || (guess === "GK" && target === "DF")) {
-    return "yellow";
-  }
-  return "gray";
+  return getPositionGroup(guess) === getPositionGroup(target) ? "yellow" : "gray";
+}
+
+function nationHint(guess: string, target: string): HintColor {
+  if (guess === target) return "green";
+  return NATION_CONFEDERATIONS[guess] === NATION_CONFEDERATIONS[target]
+    ? "yellow"
+    : "gray";
 }
 
 function numericHint(
@@ -111,6 +114,10 @@ function cellClass(color: HintColor) {
   if (color === "green") return "border-emerald-300/40 bg-emerald-400/20 text-emerald-100";
   if (color === "yellow") return "border-[#d8b75b]/45 bg-[#d8b75b]/20 text-[#f6dc86]";
   return "border-white/10 bg-white/[0.045] text-white/55";
+}
+
+function hintSquare(color: HintColor) {
+  return color === "green" ? "🟩" : color === "yellow" ? "🟨" : "⬜";
 }
 
 export default function WorldCupWordlePage() {
@@ -228,11 +235,11 @@ export default function WorldCupWordlePage() {
     const grid = guesses
       .map((guess) =>
         [
-          guess.nation === target.nation ? "🟩" : "⬜",
-          positionHint(guess.position, target.position) === "green" ? "🟩" : positionHint(guess.position, target.position) === "yellow" ? "🟨" : "⬜",
-          numericHint(guess.age, target.age, 2).color === "green" ? "🟩" : numericHint(guess.age, target.age, 2).color === "yellow" ? "🟨" : "⬜",
-          numericHint(guess.worldCupAppearances, target.worldCupAppearances, 2).color === "green" ? "🟩" : numericHint(guess.worldCupAppearances, target.worldCupAppearances, 2).color === "yellow" ? "🟨" : "⬜",
-          numericHint(guess.worldCupGoals, target.worldCupGoals, 1).color === "green" ? "🟩" : numericHint(guess.worldCupGoals, target.worldCupGoals, 1).color === "yellow" ? "🟨" : "⬜",
+          hintSquare(nationHint(guess.nation, target.nation)),
+          hintSquare(positionHint(guess.position, target.position)),
+          hintSquare(numericHint(guess.age, target.age, 2).color),
+          hintSquare(numericHint(guess.caps, target.caps, 3).color),
+          hintSquare(numericHint(guess.goals, target.goals, 2).color),
         ].join(""),
       )
       .join("\n");
@@ -290,6 +297,9 @@ export default function WorldCupWordlePage() {
             </p>
             <p className="text-[10px] font-bold uppercase tracking-wider text-white/40">{guesses.length} / {MAX_GUESSES} guesses</p>
           </div>
+          <p className="mt-1 text-[10px] font-bold text-white/35">
+            Current 2026 squad players · verified age · international caps and goals
+          </p>
 
           <form onSubmit={handleSubmit} className="relative mt-4 flex flex-col gap-2 sm:flex-row">
             <label className="sr-only" htmlFor="player-guess">Guess a World Cup player</label>
@@ -320,7 +330,7 @@ export default function WorldCupWordlePage() {
           <div className="mt-6 overflow-x-auto pb-1">
             <div className="min-w-[35rem]">
               <div className="grid grid-cols-[1.25fr_repeat(5,minmax(0,1fr))] gap-1 text-center text-[9px] font-black uppercase tracking-wider text-white/35">
-                <span className="text-left">Player</span><span>Nation</span><span>Position</span><span>Age</span><span>Apps</span><span>Goals</span>
+                <span className="text-left">Player</span><span>Nation</span><span>Position</span><span>Age</span><span>Caps</span><span>Goals</span>
               </div>
               <div className="mt-2 grid gap-2">
                 {guesses.map((guess) => target ? <GuessRow key={guess.id} guess={guess} target={target} /> : null)}
@@ -359,15 +369,15 @@ function WordleStat({ label, value }: { label: string; value: number | string })
 
 function GuessRow({ guess, target }: { guess: WordlePlayer; target: WordlePlayer }) {
   const age = numericHint(guess.age, target.age, 2);
-  const appearances = numericHint(guess.worldCupAppearances, target.worldCupAppearances, 2);
-  const goals = numericHint(guess.worldCupGoals, target.worldCupGoals, 1);
+  const appearances = numericHint(guess.caps, target.caps, 3);
+  const goals = numericHint(guess.goals, target.goals, 2);
   return <div className="screen-enter grid grid-cols-[1.25fr_repeat(5,minmax(0,1fr))] gap-1">
     <div className="flex min-w-0 items-center rounded-lg border border-white/10 bg-black/20 px-2 text-xs font-black"><span className="truncate">{guess.name}</span></div>
-    <HintCell color={guess.nation === target.nation ? "green" : "gray"} value={guess.nation} />
+    <HintCell color={nationHint(guess.nation, target.nation)} value={guess.nation} />
     <HintCell color={positionHint(guess.position, target.position)} value={guess.position} />
     <HintCell color={age.color} value={`${guess.age}${age.arrow ?? ""}`} />
-    <HintCell color={appearances.color} value={`${guess.worldCupAppearances}${appearances.arrow ?? ""}`} />
-    <HintCell color={goals.color} value={`${guess.worldCupGoals}${goals.arrow ?? ""}`} />
+    <HintCell color={appearances.color} value={`${guess.caps}${appearances.arrow ?? ""}`} />
+    <HintCell color={goals.color} value={`${guess.goals}${goals.arrow ?? ""}`} />
   </div>;
 }
 
@@ -380,7 +390,7 @@ function ResultPanel({ status, target, guesses, mode, onShare, onNewUnlimited }:
   return <div className={`screen-enter mt-5 rounded-2xl border p-4 text-center ${won ? "border-emerald-300/30 bg-emerald-300/[0.08]" : "border-rose-300/25 bg-rose-300/[0.06]"}`}>
     <p className={`text-[10px] font-black uppercase tracking-[0.22em] ${won ? "text-emerald-200" : "text-rose-200"}`}>{won ? "Solved" : "Out of guesses"}</p>
     <h2 className="mt-2 text-2xl font-black">{target.name}</h2>
-    <p className="mt-1 text-sm font-bold text-white/55">{target.nation} · {target.position} · {target.worldCupGoals} World Cup goals</p>
+    <p className="mt-1 text-sm font-bold text-white/55">{target.nation} · {target.position} · {target.goals} international goals</p>
     {won ? <p className="mt-2 text-sm font-black text-[#f6dc86]">Solved in {guesses} guesses</p> : null}
     <div className="mx-auto mt-4 grid max-w-md gap-2 sm:grid-cols-2">
       {won ? <button type="button" onClick={onShare} className="min-h-11 rounded-xl border border-[#d8b75b]/25 bg-[#d8b75b]/10 px-4 text-xs font-black uppercase tracking-wider text-[#f6dc86]">Share Result</button> : null}
