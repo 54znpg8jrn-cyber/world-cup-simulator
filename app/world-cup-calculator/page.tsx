@@ -23,7 +23,7 @@ export default function WorldCupCalculatorPage() {
   const [lastUpdated, setLastUpdated] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [liveError, setLiveError] = useState("");
-  const [dataStatus, setDataStatus] = useState<"live" | "demo" | "unavailable">("demo");
+  const [dataStatus, setDataStatus] = useState<"live" | "cached" | "fallback" | "api-error">("fallback");
   const [liveFixtureIds, setLiveFixtureIds] = useState<string[]>([]);
   const [showManual, setShowManual] = useState(false);
   const loaded = useRef(false);
@@ -53,18 +53,27 @@ export default function WorldCupCalculatorPage() {
       try {
         const response = await fetch("/api/world-cup-live", { cache: "no-store" });
         if (!response.ok) throw new Error("Live results request failed");
-        const data = await response.json() as { status?: "live" | "demo" | "unavailable"; results?: CalculatorScores; liveFixtureIds?: string[]; updatedAt?: string };
+        const data = await response.json() as { status?: "live" | "fallback" | "api-error"; valid?: boolean; results?: CalculatorScores; liveFixtureIds?: string[]; updatedAt?: string };
         if (!active) return;
-        setLiveScores(data.results ?? {});
-        setDataStatus(data.status ?? "demo");
-        setLiveFixtureIds(data.liveFixtureIds ?? []);
-        setLastUpdated(data.updatedAt ?? new Date().toISOString());
-        setNotice(data.status === "live" ? "Live API connected" : data.status === "demo" ? "Live API not connected — demo data" : "Live API unavailable — demo data");
-        setLiveError(data.status === "unavailable" ? "Live API could not be reached. The calculator is showing bundled demo results instead." : "");
+        const hasValidScores = Boolean(data.valid && data.results && Object.values(data.results).some((score) => score.home !== "" && score.away !== ""));
+        if (hasValidScores) {
+          setLiveScores((current) => ({ ...current, ...data.results }));
+          setDataStatus(data.status === "live" ? "live" : "fallback");
+          setLiveFixtureIds(data.liveFixtureIds ?? []);
+          setLastUpdated(data.updatedAt ?? new Date().toISOString());
+          setNotice(data.status === "live" ? "Live API connected" : "Live API not connected — fallback data");
+          setLiveError("");
+        } else {
+          console.error("World Cup Calculator ignored invalid live payload", data);
+          setDataStatus(data.status === "api-error" ? "api-error" : "cached");
+          setNotice("Keeping last valid results");
+          setLiveError(data.status === "api-error" ? "Live API failed. Standings are using the last valid result set." : "Live API returned incomplete data. Standings are using the last valid result set.");
+        }
       } catch (error) {
         console.error("World Cup Calculator live data failed", error);
         if (!active) return;
-        setLiveError("Live results are temporarily unavailable. Showing the latest available snapshot.");
+        setDataStatus("api-error");
+        setLiveError("Live results are temporarily unavailable. Standings are using the last valid result set.");
         setNotice("Live data unavailable");
       } finally {
         if (active) setLoading(false);
@@ -99,7 +108,7 @@ export default function WorldCupCalculatorPage() {
         <nav className="flex flex-wrap gap-2"><Link href="/" className="flex min-h-11 items-center rounded-xl border border-white/10 bg-white/5 px-4 text-xs font-black uppercase tracking-wider text-white/70">Home</Link><button type="button" onClick={() => setShowManual((current) => !current)} className="min-h-11 rounded-xl border border-white/10 bg-white/5 px-4 text-xs font-black uppercase tracking-wider text-white/70">Manual Override</button></nav>
       </header>
 
-      <section className="mt-5 rounded-[1.5rem] border border-[#d8b75b]/25 bg-[#d8b75b]/[0.06] p-4 shadow-[0_20px_60px_rgba(0,0,0,.2)] sm:p-6"><div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between"><div><p className="text-[10px] font-black uppercase tracking-[0.22em] text-[#d8b75b]">Live tournament view</p><h2 className="mt-1 text-2xl font-black">If it ended now...</h2><p className="mt-1 text-sm text-white/50">The provisional Round of 32 uses the current group order and top eight third-placed teams.</p></div><div className="text-left sm:text-right"><span className={`inline-flex w-fit rounded-full border px-3 py-2 text-xs font-black ${dataStatus === "live" ? "border-emerald-300/20 bg-emerald-300/10 text-emerald-100" : dataStatus === "demo" ? "border-[#d8b75b]/25 bg-[#d8b75b]/10 text-[#f6dc86]" : "border-rose-300/25 bg-rose-300/10 text-rose-100"}`}>{loading ? "Refreshing..." : dataStatus === "live" ? "Live" : dataStatus === "demo" ? "Demo data" : "API unavailable"}</span><p className="mt-2 text-[10px] font-black uppercase tracking-wider text-white/35">Last updated: {lastUpdated ? new Date(lastUpdated).toLocaleTimeString() : "--:--:--"}</p><p className="mt-1 text-[10px] font-bold text-white/40">{notice}</p></div></div>{liveError ? <p className="mt-3 rounded-xl border border-amber-300/20 bg-amber-300/10 p-3 text-xs font-bold text-amber-100">{liveError}</p> : null}</section>
+      <section className="mt-5 rounded-[1.5rem] border border-[#d8b75b]/25 bg-[#d8b75b]/[0.06] p-4 shadow-[0_20px_60px_rgba(0,0,0,.2)] sm:p-6"><div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between"><div><p className="text-[10px] font-black uppercase tracking-[0.22em] text-[#d8b75b]">Live tournament view</p><h2 className="mt-1 text-2xl font-black">If it ended now...</h2><p className="mt-1 text-sm text-white/50">The provisional Round of 32 uses the current group order and top eight third-placed teams.</p></div><div className="text-left sm:text-right"><span className={`inline-flex w-fit rounded-full border px-3 py-2 text-xs font-black ${dataStatus === "live" ? "border-emerald-300/20 bg-emerald-300/10 text-emerald-100" : dataStatus === "fallback" ? "border-[#d8b75b]/25 bg-[#d8b75b]/10 text-[#f6dc86]" : dataStatus === "cached" ? "border-sky-300/25 bg-sky-300/10 text-sky-100" : "border-rose-300/25 bg-rose-300/10 text-rose-100"}`}>{loading ? "Refreshing..." : dataStatus === "live" ? "Live" : dataStatus === "fallback" ? "Fallback" : dataStatus === "cached" ? "Cached" : "API Error"}</span><p className="mt-2 text-[10px] font-black uppercase tracking-wider text-white/35">Last updated: {lastUpdated ? new Date(lastUpdated).toLocaleTimeString() : "--:--:--"}</p><p className="mt-1 text-[10px] font-bold text-white/40">{notice}</p></div></div>{liveError ? <p className="mt-3 rounded-xl border border-amber-300/20 bg-amber-300/10 p-3 text-xs font-bold text-amber-100">{liveError}</p> : null}</section>
 
       <section className="mt-8"><SectionHeading eyebrow="Current standings" title="Live Group Tables" description="Points, goal difference, then goals scored decide each group." /><div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-3">{Object.keys(WORLD_CUP_GROUPS).map((group) => <GroupTable key={group} group={group} rows={tables[group]} />)}</div></section>
 

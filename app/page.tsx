@@ -34,7 +34,7 @@ import {
   WORLD_CUP_GROUPS,
   getGroupForNation,
 } from "./lib/data";
-import { getPlayersByNation } from "../data/players";
+import { canPlayPosition, getPlayersByNation } from "../data/players";
 import { calculateTeamRatings } from "./lib/ratings";
 import { getNationFlag } from "./lib/flags";
 import {
@@ -63,6 +63,7 @@ import {
   type GroupTableRow,
   type Nation,
   type Player,
+  type DetailedPosition,
   type PositionCategory,
   type SimMatch,
   type OfficialGroupStage,
@@ -355,13 +356,15 @@ function PlayerModal({
 }) {
   const [search, setSearch] = useState("");
   const query = search.trim().toLowerCase();
+  const slotPosition = normalizeSlotPosition(slotLabel);
   const players = nation
     ? getPlayersByNation(nation.name).filter(
         (player) =>
-          !query ||
-          player.name.toLowerCase().includes(query) ||
-          player.position.toLowerCase().includes(query) ||
-          player.club.toLowerCase().includes(query),
+          canPlayPosition(player, slotPosition) &&
+          (!query ||
+            player.name.toLowerCase().includes(query) ||
+            player.positions.some((position) => position.toLowerCase().includes(query)) ||
+            player.club.toLowerCase().includes(query)),
       )
     : [];
   const groups = [
@@ -396,7 +399,7 @@ function PlayerModal({
   });
 
   return (
-    <Modal open={open} title={`Select ${slotLabel}`} eyebrow={`${nation?.name ?? "Squad"} · Any player allowed`} onClose={onClose}>
+    <Modal open={open} title={`Select ${slotLabel}`} eyebrow={`${nation?.name ?? "Squad"} · ${slotPosition} eligible players`} onClose={onClose}>
       <div className="shrink-0 p-4 pb-2">
         <input
           value={search}
@@ -430,7 +433,6 @@ function PlayerModal({
               <div className="p-1">
                 {group.players.map((player) => {
                   const inXI = usedIds.has(player.id);
-                  const outOfPosition = player.position !== slotCategory;
                   return (
                     <button
                       key={player.id}
@@ -441,19 +443,17 @@ function PlayerModal({
                       className="group mb-1 flex min-h-16 w-full items-center gap-3 rounded-xl p-3 text-left transition duration-150 last:mb-0 hover:bg-white/[0.06] active:scale-[0.99]"
                     >
                       <span className="grid h-12 w-12 shrink-0 place-items-center rounded-2xl border border-emerald-300/10 bg-[#1d3427] text-xs font-black text-[#8cf2a7] transition group-hover:border-[#d8b75b]/30">
-                        {player.position}
+                        {player.positions.join("/")}
                       </span>
                       <span className="min-w-0 flex-1">
                         <span className="block truncate font-extrabold">
                           {player.name}
                         </span>
                         <span className="block truncate text-xs font-bold text-white/35">
-                          {player.position} · {player.club}
+                          {player.positions.join("/")} · {player.club}
                         </span>
                         <span className="text-[10px] font-bold text-white/25">
-                          {outOfPosition
-                            ? "Out of position gamble"
-                            : `${player.caps} caps · ${player.goals} goals`}
+                          {`${player.caps} caps · ${player.goals} goals`}
                         </span>
                       </span>
                       {inXI ? (
@@ -476,6 +476,14 @@ function PlayerModal({
       </div>
     </Modal>
   );
+}
+
+function normalizeSlotPosition(label: string): DetailedPosition {
+  const aliases: Record<string, DetailedPosition> = {
+    GK: "GK", CB: "CB", LB: "LB", RB: "RB", CDM: "CDM", CM: "CM", CAM: "CAM",
+    LW: "LW", RW: "RW", ST: "ST", LWB: "LB", RWB: "RB", LM: "LW", RM: "RW",
+  };
+  return aliases[label] ?? "CM";
 }
 
 function Pitch({

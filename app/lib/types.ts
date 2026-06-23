@@ -14,6 +14,7 @@ export const FORMATIONS = [
 export type Formation = (typeof FORMATIONS)[number];
 export type PlayerPosition = "GK" | "DF" | "MF" | "FW";
 export type PositionCategory = PlayerPosition;
+export type DetailedPosition = "GK" | "CB" | "LB" | "RB" | "CDM" | "CM" | "CAM" | "LW" | "RW" | "ST";
 
 export interface Nation {
   name: string;
@@ -28,6 +29,7 @@ export interface Player {
   name: string;
   nation: string;
   position: PlayerPosition;
+  positions: DetailedPosition[];
   club: string;
   caps: number;
   goals: number;

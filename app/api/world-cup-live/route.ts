@@ -17,6 +17,7 @@ type ProviderFixture = {
 
 const providerNameAliases: Record<string, string> = {
   "Korea Republic": "South Korea",
+  Czechia: "Czech Republic",
   "IR Iran": "Iran",
   "Côte d'Ivoire": "Ivory Coast",
   "Cabo Verde": "Cape Verde",
@@ -37,8 +38,11 @@ function providerUrl(baseUrl: string, endpoint: string) {
 
 function normalizeProviderResults(payload: unknown) {
   const data = payload as { results?: CalculatorScores; response?: ProviderFixture[] };
-  if (data.results && typeof data.results === "object") return { results: data.results, liveFixtureIds: [] as string[] };
-  return (data.response ?? []).reduce<{ results: CalculatorScores; liveFixtureIds: string[] }>((accumulator, match) => {
+  if (data.results && typeof data.results === "object") {
+    const scoredFixtureIds = Object.entries(data.results).filter(([, score]) => score.home !== "" && score.away !== "").map(([id]) => id);
+    return { results: data.results, liveFixtureIds: [] as string[], recognizedFixtureCount: scoredFixtureIds.length, scoredFixtureCount: scoredFixtureIds.length };
+  }
+  return (data.response ?? []).reduce<{ results: CalculatorScores; liveFixtureIds: string[]; recognizedFixtureCount: number; scoredFixtureCount: number }>((accumulator, match) => {
     const home = match.teams?.home;
     const away = match.teams?.away;
     const fixture = WALL_CHART_FIXTURES.find((candidate) =>
@@ -46,13 +50,15 @@ function normalizeProviderResults(payload: unknown) {
       (candidate.away.code === away?.code || candidate.away.name === normalizedName(away?.name)),
     );
     if (!fixture) return accumulator;
+    accumulator.recognizedFixtureCount += 1;
     const status = match.fixture?.status?.short;
     if (status && !["FT", "AET", "PEN"].includes(status)) accumulator.liveFixtureIds.push(fixture.id);
     if (match.goals?.home !== null && match.goals?.home !== undefined && match.goals?.away !== null && match.goals?.away !== undefined) {
       accumulator.results[fixture.id] = { home: String(match.goals.home), away: String(match.goals.away) };
+      accumulator.scoredFixtureCount += 1;
     }
     return accumulator;
-  }, { results: {}, liveFixtureIds: [] });
+  }, { results: {}, liveFixtureIds: [], recognizedFixtureCount: 0, scoredFixtureCount: 0 });
 }
 
 export async function GET() {
@@ -61,7 +67,7 @@ export async function GET() {
   const apiKey = process.env.worldcup_live_api_key ?? process.env.WORLD_CUP_LIVE_API_KEY;
 
   if (!url || !apiKey) {
-    return NextResponse.json({ status: "demo", fixtures: WALL_CHART_FIXTURES, results: fallback, liveFixtureIds: [], updatedAt: new Date().toISOString() }, { headers: { "Cache-Control": "no-store, max-age=0" } });
+    return NextResponse.json({ status: "fallback", valid: true, fixtures: WALL_CHART_FIXTURES, results: fallback, liveFixtureIds: [], updatedAt: new Date().toISOString() }, { headers: { "Cache-Control": "no-store, max-age=0" } });
   }
 
   try {
@@ -79,13 +85,23 @@ export async function GET() {
       }),
     ]);
     if (!fixtureResponse.ok) throw new Error(`Live fixtures provider responded ${fixtureResponse.status}`);
-    if (!standingsResponse.ok) throw new Error(`Live standings provider responded ${standingsResponse.status}`);
     const fixturePayload = await fixtureResponse.json();
-    const standingsPayload = await standingsResponse.json();
+    const standingsPayload = standingsResponse.ok ? await standingsResponse.json() : { response: [] };
+    if (!standingsResponse.ok) {
+      console.error(`Live standings provider responded ${standingsResponse.status}; continuing with fixture-derived tables`);
+    }
     const live = normalizeProviderResults(fixturePayload);
+    if (live.recognizedFixtureCount === 0 || live.scoredFixtureCount === 0) {
+      console.error("World Cup live normalization produced no scored project fixtures", {
+        recognizedFixtureCount: live.recognizedFixtureCount,
+        scoredFixtureCount: live.scoredFixtureCount,
+      });
+      return NextResponse.json({ status: "api-error", valid: false, fixtures: WALL_CHART_FIXTURES, results: {}, liveFixtureIds: [], updatedAt: new Date().toISOString() }, { headers: { "Cache-Control": "no-store, max-age=0" } });
+    }
     const knockoutFixtures = (fixturePayload.response ?? []).filter((fixture: ProviderFixture & { league?: { round?: string } }) => !fixture.league?.round?.toLowerCase().includes("group"));
     return NextResponse.json({
       status: "live",
+      valid: true,
       fixtures: WALL_CHART_FIXTURES,
       results: live.results,
       liveFixtureIds: live.liveFixtureIds,
@@ -95,6 +111,6 @@ export async function GET() {
     }, { headers: { "Cache-Control": "no-store, max-age=0" } });
   } catch (error) {
     console.error("World Cup live data request failed", error);
-    return NextResponse.json({ status: "unavailable", fixtures: WALL_CHART_FIXTURES, results: fallback, liveFixtureIds: [], updatedAt: new Date().toISOString() }, { headers: { "Cache-Control": "no-store, max-age=0" } });
+    return NextResponse.json({ status: "api-error", valid: false, fixtures: WALL_CHART_FIXTURES, results: {}, liveFixtureIds: [], updatedAt: new Date().toISOString() }, { headers: { "Cache-Control": "no-store, max-age=0" } });
   }
 }
