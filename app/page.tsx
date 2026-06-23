@@ -1409,9 +1409,9 @@ export default function Home() {
             <span className="sm:hidden">Board</span>
             <span className="hidden sm:inline">Leaderboard</span>
           </button>
-          <Link href="/wall-chart" className="flex min-h-11 min-w-0 items-center justify-center rounded-xl px-1 py-2 text-center text-[9px] font-black uppercase tracking-normal text-white/55 hover:bg-white/5 sm:bg-[#d8b75b]/10 sm:px-3 sm:text-[10px] sm:tracking-wider sm:text-[#f6dc86]">
-            <span className="sm:hidden">Overview</span>
-            <span className="hidden sm:inline">Overview</span>
+          <Link href="/world-cup-calculator" className="flex min-h-11 min-w-0 items-center justify-center rounded-xl px-1 py-2 text-center text-[9px] font-black uppercase tracking-normal text-white/55 hover:bg-white/5 sm:bg-[#d8b75b]/10 sm:px-3 sm:text-[10px] sm:tracking-wider sm:text-[#f6dc86]">
+            <span className="sm:hidden">Calc</span>
+            <span className="hidden sm:inline">Calculator</span>
           </Link>
         </nav>
       ) : null}
@@ -1423,7 +1423,7 @@ export default function Home() {
               <span className="truncate text-[11px] font-black uppercase tracking-[0.1em] sm:text-sm sm:tracking-[0.15em]">World Cup Games</span>
             </div>
             <div className="flex items-center gap-2">
-              <Link href="/wall-chart" className="flex h-10 items-center rounded-full border border-[#d8b75b]/25 bg-[#d8b75b]/10 px-4 text-[10px] font-black uppercase tracking-[0.12em] text-[#f6dc86] hover:bg-[#d8b75b]/15 sm:tracking-[0.18em]">Wall Chart</Link>
+              <Link href="/world-cup-calculator" className="flex h-10 items-center rounded-full border border-[#d8b75b]/25 bg-[#d8b75b]/10 px-4 text-[10px] font-black uppercase tracking-[0.12em] text-[#f6dc86] hover:bg-[#d8b75b]/15 sm:tracking-[0.18em]">World Cup Calculator</Link>
               <span className="hidden rounded-full border border-white/10 bg-white/5 px-3 py-1.5 text-[9px] font-black uppercase tracking-[0.18em] text-white/50 sm:inline">Version 0.1</span>
             </div>
           </nav>

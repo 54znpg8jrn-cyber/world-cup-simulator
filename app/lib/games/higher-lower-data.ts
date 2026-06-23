@@ -273,3 +273,18 @@ export const HIGHER_LOWER_ITEMS: HigherLowerItem[] = [
     ["Juventus", 6, "6 major trophies", "🇮🇹"],
   ]),
 ];
+
+/** Uses the API-ready stats endpoint when available, with the bundled catalogue as a safe fallback. */
+export async function getHigherLowerItems(): Promise<HigherLowerItem[]> {
+  if (typeof window === "undefined") return HIGHER_LOWER_ITEMS;
+  try {
+    const response = await fetch("/api/higher-lower-stats", { cache: "no-store" });
+    if (!response.ok) return HIGHER_LOWER_ITEMS;
+    const data = await response.json() as { items?: unknown };
+    if (!Array.isArray(data.items) || !data.items.length) return HIGHER_LOWER_ITEMS;
+    return data.items as HigherLowerItem[];
+  } catch (error) {
+    console.error("Higher / Lower live stats unavailable", error);
+    return HIGHER_LOWER_ITEMS;
+  }
+}

@@ -5,6 +5,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import {
   HIGHER_LOWER_CATEGORIES,
   HIGHER_LOWER_ITEMS,
+  getHigherLowerItems,
   type HigherLowerCategory,
   type HigherLowerItem,
 } from "../lib/games/higher-lower-data";
@@ -38,12 +39,13 @@ function randomItem<T>(items: T[]): T {
 function createRound(
   selectedCategory: CategoryValue,
   previous?: RoundState | null,
+  items: HigherLowerItem[] = HIGHER_LOWER_ITEMS,
 ): RoundState {
   const category =
     selectedCategory === "all"
       ? randomItem(CATEGORY_IDS)
       : selectedCategory;
-  const pool = HIGHER_LOWER_ITEMS.filter((item) => item.category === category);
+  const pool = items.filter((item) => item.category === category);
   const carryPrevious =
     selectedCategory !== "all" && previous?.mystery.category === category;
   const known = carryPrevious ? previous.mystery : randomItem(pool);
@@ -69,6 +71,7 @@ function milestoneFor(streak: number) {
 export default function HigherLowerPage() {
   const [selectedCategory, setSelectedCategory] =
     useState<CategoryValue>("all");
+  const [items, setItems] = useState<HigherLowerItem[]>(HIGHER_LOWER_ITEMS);
   const [round, setRound] = useState<RoundState | null>(null);
   const [streak, setStreak] = useState(0);
   const [bestStreak, setBestStreak] = useState(0);
@@ -111,7 +114,10 @@ export default function HigherLowerPage() {
       const savedName = window.localStorage.getItem(PLAYER_NAME_KEY);
       setBestStreak(Number.isFinite(savedBest) ? savedBest : 0);
       if (savedName) setPlayerName(savedName);
-      setRound(createRound("all"));
+      const liveItems = await getHigherLowerItems();
+      if (!active) return;
+      setItems(liveItems);
+      setRound(createRound("all", undefined, liveItems));
 
       if (new URLSearchParams(window.location.search).get("leaderboard") === "1") {
         setLeaderboardOpen(true);
@@ -158,7 +164,7 @@ export default function HigherLowerPage() {
     setStreakCelebrating(false);
     setMessage("");
     setScoreSaved(false);
-    setRound(createRound(category));
+    setRound(createRound(category, undefined, items));
   };
 
   const handleCategoryChange = (value: CategoryValue) => {
@@ -190,7 +196,7 @@ export default function HigherLowerPage() {
       );
       nextRoundTimer.current = window.setTimeout(() => {
         setFeedback(null);
-        setRound((current) => createRound(selectedCategory, current));
+        setRound((current) => createRound(selectedCategory, current, items));
       }, 900);
       return;
     }
