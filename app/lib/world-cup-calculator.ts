@@ -10,6 +10,35 @@ export interface CalculatorScore {
 
 export type CalculatorScores = Record<string, CalculatorScore>;
 
+type ResultSeed = readonly [string, string, number, number];
+
+// Bundled score snapshot used whenever a live provider is not configured.
+// Keep scores keyed by teams, not match number: the legacy schedule order can change.
+const FALLBACK_RESULT_SEEDS: ResultSeed[] = [
+  ["MEX", "RSA", 2, 0], ["KOR", "CZE", 2, 1], ["CAN", "BIH", 1, 1], ["USA", "PAR", 4, 1],
+  ["HAI", "SCO", 0, 1], ["AUS", "TUR", 2, 0], ["BRA", "MAR", 1, 1], ["QAT", "SUI", 1, 1],
+  ["CIV", "ECU", 1, 0], ["GER", "CUW", 7, 1], ["NED", "JPN", 2, 2], ["SWE", "TUN", 5, 1],
+  ["KSA", "URU", 1, 1], ["ESP", "CPV", 0, 0], ["IRN", "NZL", 2, 2], ["BEL", "EGY", 1, 1],
+  ["FRA", "SEN", 3, 1], ["IRQ", "NOR", 1, 4], ["ARG", "ALG", 3, 0], ["AUT", "JOR", 3, 1],
+  ["GHA", "PAN", 1, 0], ["ENG", "CRO", 4, 2], ["POR", "COD", 1, 1], ["UZB", "COL", 1, 3],
+  ["CZE", "RSA", 1, 1], ["SUI", "BIH", 4, 1], ["CAN", "QAT", 6, 0], ["MEX", "KOR", 1, 0],
+  ["BRA", "HAI", 3, 0], ["SCO", "MAR", 0, 1], ["TUR", "PAR", 0, 1], ["USA", "AUS", 2, 0],
+  ["GER", "CIV", 2, 1], ["ECU", "CUW", 0, 0], ["NED", "SWE", 5, 1], ["TUN", "JPN", 0, 4],
+  ["URU", "CPV", 2, 2], ["ESP", "KSA", 4, 0], ["BEL", "IRN", 0, 0], ["NZL", "EGY", 1, 3],
+  ["NOR", "SEN", 3, 2], ["ARG", "AUT", 2, 0], ["JOR", "ALG", 1, 2],
+];
+
+export function getFallbackCalculatorScores(): CalculatorScores {
+  const byPair = new Map(FALLBACK_RESULT_SEEDS.map(([home, away, homeGoals, awayGoals]) => [`${home}-${away}`, { homeGoals, awayGoals }]));
+  return WALL_CHART_FIXTURES.reduce<CalculatorScores>((scores, fixture) => {
+    const direct = byPair.get(`${fixture.home.code}-${fixture.away.code}`);
+    const reverse = byPair.get(`${fixture.away.code}-${fixture.home.code}`);
+    if (direct) scores[fixture.id] = { home: String(direct.homeGoals), away: String(direct.awayGoals) };
+    if (reverse) scores[fixture.id] = { home: String(reverse.awayGoals), away: String(reverse.homeGoals) };
+    return scores;
+  }, {});
+}
+
 const emptyRow = (nation: GroupTableRow["nation"]): GroupTableRow => ({
   nation,
   played: 0,
