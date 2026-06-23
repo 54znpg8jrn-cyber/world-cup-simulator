@@ -1,4 +1,4 @@
-import type { Player, PlayerPosition } from "../app/lib/types";
+import type { DetailedPosition, Player, PlayerPosition } from "../app/lib/types";
 
 export interface OfficialPlayerSeed {
   id: string;
@@ -1349,8 +1349,90 @@ export function generatePlayerRatings(
   };
 }
 
+// The official squad list uses broad positions. These role mappings keep the picker
+// realistic while allowing players who genuinely cover more than one role.
+const POSITION_OVERRIDES: Record<string, DetailedPosition[]> = {
+  "Josko Gvardiol": ["CB", "LB"],
+  "Mikel Merino": ["CM", "CDM", "ST"],
+  "Federico Valverde": ["CM", "RW"],
+  "Jude Bellingham": ["CM", "CAM"],
+  "Alphonso Davies": ["LB", "LW"],
+  "David Alaba": ["CB", "LB", "CDM"],
+  "Rayan Ait-Nouri": ["LB", "LW"],
+  "Ramy Bensebaini": ["LB", "CB"],
+  "Nicolas Tagliafico": ["LB", "CB"],
+  "Gonzalo Montiel": ["RB"],
+  "Nahuel Molina": ["RB", "RW"],
+  "Valentin Barco": ["LB", "CM"],
+  "Lisandro Martinez": ["CB", "LB"],
+  "Cristian Romero": ["CB"],
+  "Reece James": ["RB", "CB"],
+  "Trent Alexander-Arnold": ["RB", "CM"],
+  "Marc Guehi": ["CB"],
+  "Myles Lewis-Skelly": ["LB", "CM"],
+  "Bukayo Saka": ["RW", "LW"],
+  "Cole Palmer": ["CAM", "RW"],
+  "Phil Foden": ["CAM", "LW", "RW"],
+  "Declan Rice": ["CDM", "CM"],
+  "Theo Hernandez": ["LB", "LW"],
+  "Jules Kounde": ["RB", "CB"],
+  "William Saliba": ["CB"],
+  "Eduardo Camavinga": ["CM", "CDM", "LB"],
+  "Aurelien Tchouameni": ["CDM", "CB"],
+  "Kylian Mbappe": ["ST", "LW"],
+  "Ousmane Dembele": ["RW", "ST", "LW"],
+  "Nuno Mendes": ["LB", "LW"],
+  "Joao Cancelo": ["RB", "LB"],
+  "Diogo Dalot": ["RB", "LB"],
+  "Ruben Dias": ["CB"],
+  "Bruno Fernandes": ["CAM", "CM"],
+  "Pedro Neto": ["RW", "LW"],
+  "Lamine Yamal": ["RW", "LW"],
+  "Dani Olmo": ["CAM", "LW"],
+  "Pedri": ["CM", "CAM"],
+  "Rodri": ["CDM", "CB"],
+  "Ferran Torres": ["ST", "RW", "LW"],
+  "Alejandro Grimaldo": ["LB", "LW"],
+  "Achraf Hakimi": ["RB", "RW"],
+  "Noussair Mazraoui": ["RB", "LB"],
+  "Denzel Dumfries": ["RB", "RW"],
+  "Jeremie Frimpong": ["RB", "RW"],
+  "Jurrien Timber": ["RB", "CB", "LB"],
+  "Vinicius Junior": ["LW", "ST"],
+  "Rodrygo": ["RW", "ST", "LW"],
+  "Danilo": ["RB", "CB"],
+  "Marquinhos": ["CB", "RB"],
+  "Eder Militao": ["CB", "RB"],
+  "Florian Wirtz": ["CAM", "LW"],
+  "Joshua Kimmich": ["RB", "CDM", "CM"],
+  "Antonio Rudiger": ["CB"],
+  "Ricardo Rodriguez": ["LB", "CB"],
+  "Konrad Laimer": ["CM", "RB"],
+};
+
+const DEFAULT_DETAILED_POSITIONS: Record<PlayerPosition, DetailedPosition[]> = {
+  GK: ["GK"],
+  DF: ["CB"],
+  MF: ["CM"],
+  FW: ["ST"],
+};
+
+export function getPlayerPositions(
+  player: Pick<OfficialPlayerSeed, "name" | "position">,
+): DetailedPosition[] {
+  return POSITION_OVERRIDES[player.name] ?? DEFAULT_DETAILED_POSITIONS[player.position];
+}
+
+export function canPlayPosition(
+  player: Pick<Player, "positions">,
+  position: DetailedPosition,
+) {
+  return player.positions.includes(position);
+}
+
 export const PLAYERS: Player[] = OFFICIAL_PLAYER_SEEDS.map((player) => ({
   ...player,
+  positions: getPlayerPositions(player),
   ...generatePlayerRatings(player),
 }));
 
