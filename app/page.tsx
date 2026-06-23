@@ -1423,7 +1423,7 @@ export default function Home() {
               <span className="truncate text-[11px] font-black uppercase tracking-[0.1em] sm:text-sm sm:tracking-[0.15em]">World Cup Games</span>
             </div>
             <div className="flex items-center gap-2">
-              <Link href="/wall-chart" className="flex min-h-11 items-center rounded-full border border-[#d8b75b]/25 bg-[#d8b75b]/10 px-3 py-2 text-[9px] font-black uppercase tracking-[0.12em] text-[#f6dc86] hover:bg-[#d8b75b]/15 sm:min-h-0 sm:py-1.5 sm:tracking-[0.18em]">Wall Chart</Link>
+              <Link href="/wall-chart" className="flex h-10 items-center rounded-full border border-[#d8b75b]/25 bg-[#d8b75b]/10 px-4 text-[10px] font-black uppercase tracking-[0.12em] text-[#f6dc86] hover:bg-[#d8b75b]/15 sm:tracking-[0.18em]">Wall Chart</Link>
               <span className="hidden rounded-full border border-white/10 bg-white/5 px-3 py-1.5 text-[9px] font-black uppercase tracking-[0.18em] text-white/50 sm:inline">Version 0.1</span>
             </div>
           </nav>
@@ -1439,12 +1439,12 @@ export default function Home() {
             <p className="mt-6 max-w-md text-base leading-7 text-white/55 sm:text-lg">
               Play addictive World Cup minigames, chase high scores, challenge friends, and climb the leaderboards.
             </p>
-            <div className="mt-9 grid w-full max-w-5xl min-w-0 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+            <div className="mt-9 grid w-full max-w-5xl min-w-0 gap-3 sm:grid-cols-2 xl:grid-cols-4">
               <div className="min-w-0 rounded-[1.5rem] border border-[#d8b75b]/25 bg-[#d8b75b]/8 p-5 text-left">
                 <p className="text-[9px] font-black uppercase tracking-[0.18em] text-[#d8b75b]">Tournament game</p>
                 <h2 className="mt-1 font-black">World Cup Simulator</h2>
                 <p className="mt-2 min-h-10 text-xs leading-5 text-white/45">Build your XI and simulate the tournament.</p>
-                <div className="mt-4 grid grid-cols-2 gap-2"><button onClick={() => setNationModalOpen(true)} className="min-h-11 rounded-xl bg-[#d8b75b] px-3 py-3 text-xs font-black uppercase tracking-wider text-black">Play</button><button type="button" onClick={() => setLeaderboardOpen(true)} className="min-h-11 rounded-xl border border-[#d8b75b]/25 bg-[#d8b75b]/10 px-3 py-3 text-xs font-black uppercase tracking-wider text-[#f6dc86]">Leaderboard</button></div>
+                <div className="mt-4 grid grid-cols-2 gap-2"><button onClick={() => setNationModalOpen(true)} className="flex min-h-11 items-center justify-center rounded-xl bg-[#d8b75b] px-3 py-3 text-xs font-black uppercase tracking-wider text-black">Play</button><button type="button" onClick={() => setLeaderboardOpen(true)} className="flex min-h-11 items-center justify-center rounded-xl border border-[#d8b75b]/25 bg-[#d8b75b]/10 px-3 py-3 text-xs font-black uppercase tracking-wider text-[#f6dc86]">Leaderboard</button></div>
               </div>
               <div className="min-w-0 rounded-[1.5rem] border border-emerald-300/20 bg-emerald-300/[0.05] p-5 text-left">
                 <p className="text-[9px] font-black uppercase tracking-[0.18em] text-emerald-200">Stat battle</p>
@@ -1457,6 +1457,12 @@ export default function Home() {
                 <h2 className="font-black">World Cup Wordle</h2>
                 <p className="mt-2 min-h-10 text-xs leading-5 text-white/45">Guess the mystery World Cup player.</p>
                 <div className="mt-4 grid grid-cols-2 gap-2"><Link href="/wordle" className="flex min-h-11 items-center justify-center rounded-xl border border-[#d8b75b]/25 bg-[#d8b75b]/10 px-3 py-3 text-center text-xs font-black uppercase tracking-wider text-[#f6dc86]">Play</Link><Link href="/wordle?leaderboard=1" className="flex min-h-11 items-center justify-center rounded-xl border border-white/10 bg-white/5 px-3 py-3 text-center text-xs font-black uppercase tracking-wider text-white/75">Leaderboard</Link></div>
+              </div>
+              <div className="min-w-0 rounded-[1.5rem] border border-rose-300/20 bg-rose-300/[0.045] p-5 text-left">
+                <p className="text-[9px] font-black uppercase tracking-[0.18em] text-rose-200">Community debate</p>
+                <h2 className="mt-1 font-black">World Cup Hot Takes</h2>
+                <p className="mt-2 min-h-10 text-xs leading-5 text-white/45">Swipe through controversial football takes.</p>
+                <Link href="/hot-takes" className="mt-4 flex min-h-11 w-full items-center justify-center rounded-xl border border-rose-300/25 bg-rose-300/10 px-3 py-3 text-center text-xs font-black uppercase tracking-wider text-rose-100">Play</Link>
               </div>
             </div>
           </div>
