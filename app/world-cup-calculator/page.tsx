@@ -23,6 +23,8 @@ export default function WorldCupCalculatorPage() {
   const [lastUpdated, setLastUpdated] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [liveError, setLiveError] = useState("");
+  const [dataStatus, setDataStatus] = useState<"live" | "demo" | "unavailable">("demo");
+  const [liveFixtureIds, setLiveFixtureIds] = useState<string[]>([]);
   const [showManual, setShowManual] = useState(false);
   const loaded = useRef(false);
   const scores = useMemo(() => ({ ...liveScores, ...manualScores }), [liveScores, manualScores]);
@@ -51,12 +53,14 @@ export default function WorldCupCalculatorPage() {
       try {
         const response = await fetch("/api/world-cup-live", { cache: "no-store" });
         if (!response.ok) throw new Error("Live results request failed");
-        const data = await response.json() as { source?: string; results?: CalculatorScores; updatedAt?: string };
+        const data = await response.json() as { status?: "live" | "demo" | "unavailable"; results?: CalculatorScores; liveFixtureIds?: string[]; updatedAt?: string };
         if (!active) return;
         setLiveScores(data.results ?? {});
+        setDataStatus(data.status ?? "demo");
+        setLiveFixtureIds(data.liveFixtureIds ?? []);
         setLastUpdated(data.updatedAt ?? new Date().toISOString());
-        setNotice(data.source === "live" ? "Live provider connected" : "Current results snapshot");
-        setLiveError("");
+        setNotice(data.status === "live" ? "Live API connected" : data.status === "demo" ? "Live API not connected — demo data" : "Live API unavailable — demo data");
+        setLiveError(data.status === "unavailable" ? "Live API could not be reached. The calculator is showing bundled demo results instead." : "");
       } catch (error) {
         console.error("World Cup Calculator live data failed", error);
         if (!active) return;
@@ -67,7 +71,7 @@ export default function WorldCupCalculatorPage() {
       }
     };
     void loadLiveResults();
-    const interval = window.setInterval(() => void loadLiveResults(), 60_000);
+    const interval = window.setInterval(() => void loadLiveResults(), 30_000);
     return () => { active = false; window.clearInterval(interval); };
   }, []);
 
@@ -95,7 +99,7 @@ export default function WorldCupCalculatorPage() {
         <nav className="flex flex-wrap gap-2"><Link href="/" className="flex min-h-11 items-center rounded-xl border border-white/10 bg-white/5 px-4 text-xs font-black uppercase tracking-wider text-white/70">Home</Link><button type="button" onClick={() => setShowManual((current) => !current)} className="min-h-11 rounded-xl border border-white/10 bg-white/5 px-4 text-xs font-black uppercase tracking-wider text-white/70">Manual Override</button></nav>
       </header>
 
-      <section className="mt-5 rounded-[1.5rem] border border-[#d8b75b]/25 bg-[#d8b75b]/[0.06] p-4 shadow-[0_20px_60px_rgba(0,0,0,.2)] sm:p-6"><div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between"><div><p className="text-[10px] font-black uppercase tracking-[0.22em] text-[#d8b75b]">Live tournament view</p><h2 className="mt-1 text-2xl font-black">If it ended now...</h2><p className="mt-1 text-sm text-white/50">The provisional Round of 32 uses the current group order and top eight third-placed teams.</p></div><div className="text-left sm:text-right"><span className="inline-flex w-fit rounded-full border border-emerald-300/20 bg-emerald-300/10 px-3 py-2 text-xs font-black text-emerald-100">{loading ? "Refreshing..." : notice}</span><p className="mt-2 text-[10px] font-black uppercase tracking-wider text-white/35">Last updated: {lastUpdated ? new Date(lastUpdated).toLocaleTimeString() : "--"}</p></div></div>{liveError ? <p className="mt-3 rounded-xl border border-amber-300/20 bg-amber-300/10 p-3 text-xs font-bold text-amber-100">{liveError}</p> : null}</section>
+      <section className="mt-5 rounded-[1.5rem] border border-[#d8b75b]/25 bg-[#d8b75b]/[0.06] p-4 shadow-[0_20px_60px_rgba(0,0,0,.2)] sm:p-6"><div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between"><div><p className="text-[10px] font-black uppercase tracking-[0.22em] text-[#d8b75b]">Live tournament view</p><h2 className="mt-1 text-2xl font-black">If it ended now...</h2><p className="mt-1 text-sm text-white/50">The provisional Round of 32 uses the current group order and top eight third-placed teams.</p></div><div className="text-left sm:text-right"><span className={`inline-flex w-fit rounded-full border px-3 py-2 text-xs font-black ${dataStatus === "live" ? "border-emerald-300/20 bg-emerald-300/10 text-emerald-100" : dataStatus === "demo" ? "border-[#d8b75b]/25 bg-[#d8b75b]/10 text-[#f6dc86]" : "border-rose-300/25 bg-rose-300/10 text-rose-100"}`}>{loading ? "Refreshing..." : dataStatus === "live" ? "Live" : dataStatus === "demo" ? "Demo data" : "API unavailable"}</span><p className="mt-2 text-[10px] font-black uppercase tracking-wider text-white/35">Last updated: {lastUpdated ? new Date(lastUpdated).toLocaleTimeString() : "--:--:--"}</p><p className="mt-1 text-[10px] font-bold text-white/40">{notice}</p></div></div>{liveError ? <p className="mt-3 rounded-xl border border-amber-300/20 bg-amber-300/10 p-3 text-xs font-bold text-amber-100">{liveError}</p> : null}</section>
 
       <section className="mt-8"><SectionHeading eyebrow="Current standings" title="Live Group Tables" description="Points, goal difference, then goals scored decide each group." /><div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-3">{Object.keys(WORLD_CUP_GROUPS).map((group) => <GroupTable key={group} group={group} rows={tables[group]} />)}</div></section>
 
@@ -103,7 +107,7 @@ export default function WorldCupCalculatorPage() {
 
       <section className="mt-10"><SectionHeading eyebrow="Provisional knockout stage" title="If It Ended Now..." description="Group winners, runners-up and the best third-placed teams fill the official Round of 32 slots." /><div className="mt-4 grid gap-3 md:grid-cols-2">{bracket.map((fixture) => <article key={fixture.id} className="rounded-2xl border border-white/10 bg-black/20 p-3"><p className="text-[9px] font-black uppercase tracking-[0.18em] text-[#d8b75b]">Round of 32 · Match {fixture.matchNumber}</p><div className="mt-3 grid grid-cols-[1fr_auto_1fr] items-center gap-2 text-sm font-black"><span className="min-w-0 truncate text-right"><NationFlag nation={fixture.home.name} className="mr-1" />{fixture.home.name}</span><span className="text-white/30">vs</span><span className="min-w-0 truncate"><NationFlag nation={fixture.away.name} className="mr-1" />{fixture.away.name}</span></div></article>)}</div></section>
 
-      <section className="mt-10"><SectionHeading eyebrow="What is next" title="Upcoming / Live Matches" description="Matches without a completed score remain ready for the next live refresh." /><div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">{WALL_CHART_FIXTURES.filter((fixture) => !scores[fixture.id] || scores[fixture.id].home === "" || scores[fixture.id].away === "").slice(0, 12).map((fixture) => <article key={fixture.id} className="rounded-xl border border-white/10 bg-white/[0.035] p-3"><p className="text-[9px] font-black uppercase tracking-wider text-[#d8b75b]">Group {fixture.group} · Match {fixture.matchNumber}</p><p className="mt-2 text-sm font-black"><NationFlag nation={fixture.home.name} className="mr-1" />{fixture.home.name} <span className="text-white/35">vs</span> <NationFlag nation={fixture.away.name} className="ml-1" />{fixture.away.name}</p></article>)}</div></section>
+      <section className="mt-10"><SectionHeading eyebrow="What is next" title="Upcoming / Live Matches" description="A live provider marks in-progress matches; scheduled fixtures remain ready for the next refresh." /><div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">{WALL_CHART_FIXTURES.filter((fixture) => liveFixtureIds.includes(fixture.id) || !scores[fixture.id] || scores[fixture.id].home === "" || scores[fixture.id].away === "").slice(0, 12).map((fixture) => <article key={fixture.id} className={`rounded-xl border p-3 ${liveFixtureIds.includes(fixture.id) ? "border-rose-300/30 bg-rose-300/[0.08]" : "border-white/10 bg-white/[0.035]"}`}><p className={`text-[9px] font-black uppercase tracking-wider ${liveFixtureIds.includes(fixture.id) ? "text-rose-200" : "text-[#d8b75b]"}`}>{liveFixtureIds.includes(fixture.id) ? "Live now" : `Group ${fixture.group} · Match ${fixture.matchNumber}`}</p><p className="mt-2 text-sm font-black"><NationFlag nation={fixture.home.name} className="mr-1" />{fixture.home.name} <span className="text-white/35">{liveFixtureIds.includes(fixture.id) ? `${scores[fixture.id]?.home ?? 0} - ${scores[fixture.id]?.away ?? 0}` : "vs"}</span> <NationFlag nation={fixture.away.name} className="ml-1" />{fixture.away.name}</p></article>)}</div></section>
 
       {showManual ? <section className="mt-10 pb-8"><div className="flex flex-wrap items-end justify-between gap-3"><SectionHeading eyebrow="Optional override" title="Manual Results" description="Use only to test scenarios. Live results stay the default source." /><button type="button" onClick={reset} className="min-h-11 rounded-xl border border-rose-300/25 bg-rose-300/[0.08] px-4 text-xs font-black uppercase tracking-wider text-rose-100">Clear overrides</button></div><div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-3">{WALL_CHART_FIXTURES.map((fixture) => <article key={fixture.id} className="rounded-2xl border border-white/10 bg-white/[0.035] p-3"><div className="flex items-center justify-between text-[9px] font-black uppercase tracking-[0.16em] text-white/35"><span>Match {fixture.matchNumber}</span><span className="text-[#d8b75b]">Group {fixture.group}</span></div><div className="mt-3 grid grid-cols-[minmax(0,1fr)_2.5rem_1rem_2.5rem_minmax(0,1fr)] items-center gap-1.5 text-xs font-black"><span className="truncate text-right">{fixture.home.name} <NationFlag nation={fixture.home.name} /></span><ScoreBox value={manualScores[fixture.id]?.home ?? ""} label={`${fixture.home.name} score`} onChange={(value) => updateScore(fixture.id, "home", value)} /><span className="text-center text-white/30">-</span><ScoreBox value={manualScores[fixture.id]?.away ?? ""} label={`${fixture.away.name} score`} onChange={(value) => updateScore(fixture.id, "away", value)} /><span className="truncate"><NationFlag nation={fixture.away.name} /> {fixture.away.name}</span></div></article>)}</div></section> : null}
     </div>

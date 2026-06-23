@@ -26,6 +26,7 @@ const FALLBACK_RESULT_SEEDS: ResultSeed[] = [
   ["GER", "CIV", 2, 1], ["ECU", "CUW", 0, 0], ["NED", "SWE", 5, 1], ["TUN", "JPN", 0, 4],
   ["URU", "CPV", 2, 2], ["ESP", "KSA", 4, 0], ["BEL", "IRN", 0, 0], ["NZL", "EGY", 1, 3],
   ["NOR", "SEN", 3, 2], ["ARG", "AUT", 2, 0], ["JOR", "ALG", 1, 2],
+  ["FRA", "IRQ", 3, 0], ["POR", "UZB", 5, 0],
 ];
 
 export function getFallbackCalculatorScores(): CalculatorScores {
