@@ -1460,7 +1460,7 @@ export default function Home() {
               </div>
               <div className="min-w-0 rounded-[1.5rem] border border-rose-300/20 bg-rose-300/[0.045] p-5 text-left">
                 <p className="text-[9px] font-black uppercase tracking-[0.18em] text-rose-200">Community debate</p>
-                <h2 className="mt-1 font-black">World Cup Hot Takes</h2>
+                <h2 className="mt-1 font-black">Hot Takes</h2>
                 <p className="mt-2 min-h-10 text-xs leading-5 text-white/45">Swipe through controversial football takes.</p>
                 <Link href="/hot-takes" className="mt-4 flex min-h-11 w-full items-center justify-center rounded-xl border border-rose-300/25 bg-rose-300/10 px-3 py-3 text-center text-xs font-black uppercase tracking-wider text-rose-100">Play</Link>
               </div>

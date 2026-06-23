@@ -119,6 +119,31 @@ button {
   animation: screen-enter .38s ease-out both;
 }
 
+.hot-take-reveal {
+  animation: hot-take-reveal .42s cubic-bezier(.2,.8,.2,1) both;
+}
+
+.hot-take-confetti {
+  position: relative;
+  isolation: isolate;
+}
+
+.hot-take-confetti::before {
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  border-radius: inherit;
+  opacity: .48;
+  background-image:
+    radial-gradient(circle, #f6dc86 0 2px, transparent 3px),
+    radial-gradient(circle, #fb7185 0 2px, transparent 3px),
+    radial-gradient(circle, #86efac 0 2px, transparent 3px);
+  background-position: 8% 8%, 84% 18%, 50% 92%;
+  background-size: 52px 52px, 64px 64px, 44px 44px;
+  content: "";
+  animation: confetti-drift 2.4s linear infinite;
+}
+
 .premium-card {
   position: relative;
   box-shadow: 0 24px 80px rgba(0, 0, 0, .32), inset 0 1px 0 rgba(255,255,255,.05);
@@ -204,6 +229,12 @@ button {
 @keyframes screen-enter {
   from { opacity: 0; transform: translateY(14px) scale(.985); }
   to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+@keyframes hot-take-reveal {
+  from { opacity: 0; transform: scale(.86); }
+  72% { opacity: 1; transform: scale(1.05); }
+  to { opacity: 1; transform: scale(1); }
 }
 
 @keyframes selected-player-pulse {
