@@ -31,13 +31,13 @@ function normalizedName(name?: string) {
   return providerNameAliases[name ?? ""] ?? name ?? "";
 }
 
-function providerUrl(baseUrl: string, endpoint: string) {
-  const base = baseUrl.endsWith("/") ? baseUrl : `${baseUrl}/`;
-  return new URL(endpoint, base).toString();
+function fixturesUrl(baseUrl: string) {
+  const base = baseUrl.replace(/\/+$/, "");
+  return `${base}/fixtures?league=1&season=2026`;
 }
 
 function normalizeProviderResults(payload: unknown) {
-  const data = payload as { results?: CalculatorScores; response?: ProviderFixture[] };
+  const data = payload as { results?: CalculatorScores; response?: ProviderFixture[]; errors?: Record<string, string> };
   if (data.results && typeof data.results === "object") {
     const scoredFixtureIds = Object.entries(data.results).filter(([, score]) => score.home !== "" && score.away !== "").map(([id]) => id);
     return { results: data.results, liveFixtureIds: [] as string[], recognizedFixtureCount: scoredFixtureIds.length, scoredFixtureCount: scoredFixtureIds.length };
@@ -72,23 +72,21 @@ export async function GET() {
 
   try {
     const headers = { "x-apisports-key": apiKey };
-    const [fixtureResponse, standingsResponse] = await Promise.all([
-      fetch(providerUrl(url, "fixtures?league=1&season=2026"), {
-        headers,
-        cache: "no-store",
-        next: { revalidate: 0 },
-      }),
-      fetch(providerUrl(url, "standings?league=1&season=2026"), {
-        headers,
-        cache: "no-store",
-        next: { revalidate: 0 },
-      }),
-    ]);
+    const fixtureResponse = await fetch(fixturesUrl(url), {
+      headers,
+      cache: "no-store",
+      next: { revalidate: 0 },
+    });
     if (!fixtureResponse.ok) throw new Error(`Live fixtures provider responded ${fixtureResponse.status}`);
     const fixturePayload = await fixtureResponse.json();
-    const standingsPayload = standingsResponse.ok ? await standingsResponse.json() : { response: [] };
-    if (!standingsResponse.ok) {
-      console.error(`Live standings provider responded ${standingsResponse.status}; continuing with fixture-derived tables`);
+    const providerErrors = (fixturePayload as { errors?: Record<string, string> }).errors;
+    if (providerErrors && Object.keys(providerErrors).length) {
+      console.error("API-Football fixtures response contained errors", providerErrors);
+      throw new Error(`API-Football returned: ${Object.values(providerErrors).join(", ")}`);
+    }
+    if (!Array.isArray((fixturePayload as { response?: unknown }).response)) {
+      console.error("API-Football fixtures response has no response array", fixturePayload);
+      throw new Error("API-Football returned an invalid fixtures payload");
     }
     const live = normalizeProviderResults(fixturePayload);
     if (live.recognizedFixtureCount === 0 || live.scoredFixtureCount === 0) {
@@ -98,15 +96,12 @@ export async function GET() {
       });
       return NextResponse.json({ status: "api-error", valid: false, fixtures: WALL_CHART_FIXTURES, results: {}, liveFixtureIds: [], updatedAt: new Date().toISOString() }, { headers: { "Cache-Control": "no-store, max-age=0" } });
     }
-    const knockoutFixtures = (fixturePayload.response ?? []).filter((fixture: ProviderFixture & { league?: { round?: string } }) => !fixture.league?.round?.toLowerCase().includes("group"));
     return NextResponse.json({
       status: "live",
       valid: true,
       fixtures: WALL_CHART_FIXTURES,
       results: live.results,
       liveFixtureIds: live.liveFixtureIds,
-      standings: standingsPayload.response ?? [],
-      knockoutFixtures,
       updatedAt: new Date().toISOString(),
     }, { headers: { "Cache-Control": "no-store, max-age=0" } });
   } catch (error) {
