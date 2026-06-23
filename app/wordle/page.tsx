@@ -9,6 +9,12 @@ import {
   type WordlePlayer,
   type WordlePosition,
 } from "../lib/games/wordle-players";
+import {
+  fetchWordleLeaderboard,
+  getLocalWordleLeaderboard,
+  saveWordleLeaderboardScore,
+  type WordleLeaderboardEntry,
+} from "../lib/games/wordle-leaderboard";
 
 type WordleMode = "daily" | "unlimited";
 type GameStatus = "playing" | "won" | "lost";
@@ -37,6 +43,7 @@ type WordleStats = {
 const MAX_GUESSES = 6;
 const STATS_KEY = "world-cup-wordle-stats-v1";
 const DAILY_GAME_PREFIX = "world-cup-wordle-daily-v1-";
+const PLAYER_NAME_KEY = "world-cup-wordle-player-name-v1";
 
 const EMPTY_STATS: WordleStats = {
   currentStreak: 0,
@@ -159,6 +166,13 @@ export default function WorldCupWordlePage() {
   const [query, setQuery] = useState("");
   const [message, setMessage] = useState("");
   const [isSharing, setIsSharing] = useState(false);
+  const [playerName, setPlayerName] = useState("World Cup Fan");
+  const [leaderboardOpen, setLeaderboardOpen] = useState(false);
+  const [leaderboardEntries, setLeaderboardEntries] = useState<WordleLeaderboardEntry[]>([]);
+  const [leaderboardLoading, setLeaderboardLoading] = useState(false);
+  const [leaderboardError, setLeaderboardError] = useState("");
+  const [scoreSaved, setScoreSaved] = useState(false);
+  const [scoreSaving, setScoreSaving] = useState(false);
 
   useEffect(() => {
     let active = true;
@@ -171,9 +185,11 @@ export default function WorldCupWordlePage() {
       const nextGame =
         mode === "daily" ? readDailyGame(day) ?? gameForPlayer(target) : gameForPlayer(target);
       setStats(readStats());
+      setPlayerName(localStorage.getItem(PLAYER_NAME_KEY) ?? "World Cup Fan");
       setGame(nextGame);
       setQuery("");
       setMessage("");
+      setScoreSaved(false);
     };
 
     void loadGame();
@@ -261,6 +277,63 @@ export default function WorldCupWordlePage() {
     setGame(gameForPlayer(randomPlayer(target.id)));
     setQuery("");
     setMessage("");
+    setScoreSaved(false);
+  };
+
+  const openLeaderboard = async () => {
+    setLeaderboardOpen(true);
+    setLeaderboardLoading(true);
+    setLeaderboardError("");
+    try {
+      setLeaderboardEntries(await fetchWordleLeaderboard());
+    } catch (error) {
+      console.error("Wordle leaderboard fetch failed", error);
+      setLeaderboardEntries(getLocalWordleLeaderboard());
+      setLeaderboardError("Global leaderboard temporarily unavailable. Showing scores saved on this device.");
+    } finally {
+      setLeaderboardLoading(false);
+    }
+  };
+
+  const saveScore = async () => {
+    if (!game || game.status !== "won" || scoreSaved || scoreSaving) return;
+    setScoreSaving(true);
+    setMessage("");
+    try {
+      const result = await saveWordleLeaderboardScore({
+        playerName,
+        mode,
+        guesses: guesses.length,
+        solved: true,
+        streak: stats.currentStreak,
+      });
+      setLeaderboardEntries(result.entries);
+      setScoreSaved(true);
+      setMessage(result.fallback ? "Score saved on this device." : "Score saved to the global leaderboard!");
+    } catch (error) {
+      console.error("Wordle leaderboard save failed", error);
+      setMessage("Could not save globally right now. Your score was kept on this device.");
+      setScoreSaved(true);
+    } finally {
+      setScoreSaving(false);
+    }
+  };
+
+  const challengeFriend = async () => {
+    const url = `${window.location.origin}/wordle`;
+    const text = "I just played World Cup Wordle. Can you solve today’s player faster than me?";
+    try {
+      if (navigator.share) {
+        await navigator.share({ title: "World Cup Wordle", text, url });
+        setMessage("Challenge shared!");
+        return;
+      }
+      await navigator.clipboard.writeText(`${text}\n${url}`);
+      setMessage("Challenge link copied!");
+    } catch (error) {
+      console.error("Wordle challenge share failed", error);
+      setMessage("Could not share the challenge right now.");
+    }
   };
 
   const shareResult = async () => {
@@ -328,9 +401,12 @@ export default function WorldCupWordlePage() {
               <h1 className="truncate text-xl font-black uppercase tracking-[-0.04em] sm:text-3xl">World Cup Wordle</h1>
             </div>
           </div>
-          <div className="grid w-full grid-cols-2 gap-2 rounded-2xl border border-white/10 bg-black/20 p-1 sm:w-auto">
-            <ModeButton active={mode === "daily"} onClick={() => setMode("daily")}>Daily</ModeButton>
-            <ModeButton active={mode === "unlimited"} onClick={() => setMode("unlimited")}>Unlimited</ModeButton>
+          <div className="flex w-full gap-2 sm:w-auto">
+            <div className="grid min-w-0 flex-1 grid-cols-2 gap-2 rounded-2xl border border-white/10 bg-black/20 p-1 sm:flex-none">
+              <ModeButton active={mode === "daily"} onClick={() => setMode("daily")}>Daily</ModeButton>
+              <ModeButton active={mode === "unlimited"} onClick={() => setMode("unlimited")}>Unlimited</ModeButton>
+            </div>
+            <button type="button" onClick={() => void openLeaderboard()} className="min-h-10 rounded-xl border border-[#d8b75b]/25 bg-[#d8b75b]/10 px-3 text-[9px] font-black uppercase tracking-wider text-[#f6dc86]">Top 20</button>
           </div>
         </header>
 
@@ -410,12 +486,23 @@ export default function WorldCupWordlePage() {
               guesses={guesses.length}
               mode={mode}
               onShare={() => void shareResult()}
+              onChallenge={() => void challengeFriend()}
               onNewUnlimited={newUnlimitedGame}
               sharing={isSharing}
+              playerName={playerName}
+              onPlayerNameChange={(value) => {
+                const nextName = value.slice(0, 40);
+                setPlayerName(nextName);
+                localStorage.setItem(PLAYER_NAME_KEY, nextName);
+              }}
+              onSaveScore={() => void saveScore()}
+              scoreSaved={scoreSaved}
+              scoreSaving={scoreSaving}
             />
           ) : null}
         </section>
       </div>
+      {leaderboardOpen ? <WordleLeaderboardModal entries={leaderboardEntries} loading={leaderboardLoading} error={leaderboardError} onClose={() => setLeaderboardOpen(false)} /> : null}
     </main>
   );
 }
@@ -461,7 +548,7 @@ function HintCell({ color, value, label }: { color: HintColor; value: string; la
   </div>;
 }
 
-function ResultPanel({ status, target, guesses, mode, onShare, onNewUnlimited, sharing }: { status: Exclude<GameStatus, "playing">; target: WordlePlayer; guesses: number; mode: WordleMode; onShare: () => void; onNewUnlimited: () => void; sharing: boolean }) {
+function ResultPanel({ status, target, guesses, mode, onShare, onChallenge, onNewUnlimited, sharing, playerName, onPlayerNameChange, onSaveScore, scoreSaved, scoreSaving }: { status: Exclude<GameStatus, "playing">; target: WordlePlayer; guesses: number; mode: WordleMode; onShare: () => void; onChallenge: () => void; onNewUnlimited: () => void; sharing: boolean; playerName: string; onPlayerNameChange: (value: string) => void; onSaveScore: () => void; scoreSaved: boolean; scoreSaving: boolean }) {
   const won = status === "won";
   return <div className={`screen-enter mt-5 rounded-2xl border p-4 text-center ${won ? "border-emerald-300/30 bg-emerald-300/[0.08]" : "border-rose-300/25 bg-rose-300/[0.06]"}`}>
     <p className={`text-[10px] font-black uppercase tracking-[0.22em] ${won ? "text-emerald-200" : "text-rose-200"}`}>{won ? "Solved" : "Out of guesses"}</p>
@@ -470,8 +557,23 @@ function ResultPanel({ status, target, guesses, mode, onShare, onNewUnlimited, s
     {won ? <p className="mt-2 text-sm font-black text-[#f6dc86]">Solved in {guesses} guesses</p> : null}
     <div className="mx-auto mt-4 grid max-w-md gap-2 sm:grid-cols-2">
       <button type="button" onClick={onShare} disabled={sharing} className="min-h-11 rounded-xl border border-[#d8b75b]/25 bg-[#d8b75b]/10 px-4 text-xs font-black uppercase tracking-wider text-[#f6dc86] disabled:opacity-50">{sharing ? "Creating image..." : "Share Result"}</button>
+      <button type="button" onClick={onChallenge} className="min-h-11 rounded-xl border border-white/15 bg-white/5 px-4 text-xs font-black uppercase tracking-wider text-white/80">Challenge a Friend</button>
       {mode === "unlimited" ? <button type="button" onClick={onNewUnlimited} className="min-h-11 rounded-xl bg-[#d8b75b] px-4 text-xs font-black uppercase tracking-wider text-black">Next Player</button> : <p className="flex min-h-11 items-center justify-center rounded-xl border border-white/10 bg-white/5 px-4 text-xs font-black uppercase tracking-wider text-white/55">New daily puzzle tomorrow</p>}
     </div>
+    {won ? <div className="mx-auto mt-3 grid max-w-md gap-2 sm:grid-cols-[1fr_auto]">
+      <input value={playerName} onChange={(event) => onPlayerNameChange(event.target.value)} maxLength={40} aria-label="Leaderboard player name" className="min-h-11 min-w-0 rounded-xl border border-white/10 bg-black/20 px-3 text-sm font-bold outline-none focus:border-[#d8b75b]/50" />
+      <button type="button" onClick={onSaveScore} disabled={scoreSaved || scoreSaving} className="min-h-11 rounded-xl bg-[#d8b75b] px-4 text-xs font-black uppercase tracking-wider text-black disabled:opacity-50">{scoreSaved ? "Score Saved" : scoreSaving ? "Saving..." : "Save Score"}</button>
+    </div> : null}
+  </div>;
+}
+
+function WordleLeaderboardModal({ entries, loading, error, onClose }: { entries: WordleLeaderboardEntry[]; loading: boolean; error: string; onClose: () => void }) {
+  return <div className="fixed inset-0 z-50 flex items-end bg-black/70 p-3 backdrop-blur-sm sm:items-center sm:justify-center" role="dialog" aria-modal="true" aria-label="World Cup Wordle leaderboard">
+    <section className="max-h-[85dvh] w-full max-w-xl overflow-y-auto rounded-3xl border border-[#d8b75b]/25 bg-[#08110c] p-4 shadow-2xl sm:p-6">
+      <div className="flex items-center justify-between gap-3"><div><p className="text-[10px] font-black uppercase tracking-[0.2em] text-[#d8b75b]">Global leaderboard</p><h2 className="text-2xl font-black">Wordle Top 20</h2></div><button type="button" onClick={onClose} className="min-h-11 rounded-xl border border-white/10 px-4 text-xs font-black uppercase text-white/65">Close</button></div>
+      {error ? <p className="mt-3 rounded-xl border border-amber-300/20 bg-amber-300/10 p-3 text-xs font-bold text-amber-100">{error}</p> : null}
+      {loading ? <p className="py-10 text-center text-sm font-bold text-white/50">Loading scores...</p> : entries.length ? <div className="mt-4 overflow-hidden rounded-2xl border border-white/10"><div className="grid grid-cols-[2.25rem_minmax(0,1fr)_3.25rem_3rem_3.25rem] gap-2 border-b border-white/10 bg-white/[0.04] px-3 py-2 text-[8px] font-black uppercase tracking-wider text-white/40"><span>#</span><span>Player</span><span>Mode</span><span>Guess</span><span>Streak</span></div>{entries.map((entry, index) => <div key={entry.id} className={`grid grid-cols-[2.25rem_minmax(0,1fr)_3.25rem_3rem_3.25rem] items-center gap-2 border-b border-white/5 px-3 py-3 text-xs last:border-b-0 ${index < 3 ? "bg-[#d8b75b]/[0.06]" : ""}`}><span className={`font-black ${index === 0 ? "text-yellow-300" : index === 1 ? "text-slate-200" : index === 2 ? "text-amber-500" : "text-white/45"}`}>{index + 1}</span><div className="min-w-0"><p className="truncate font-black">{entry.playerName}</p><p className="text-[9px] text-white/35">{new Date(entry.createdAt).toLocaleDateString()}</p></div><span className="uppercase text-white/60">{entry.mode}</span><span className="font-black text-[#f6dc86]">{entry.guesses}</span><span className="font-black text-emerald-200">{entry.streak}</span></div>)}</div> : <p className="py-10 text-center text-sm font-bold text-white/50">No scores yet. Set the first benchmark.</p>}
+    </section>
   </div>;
 }
 
