@@ -15,6 +15,26 @@ type ProviderFixture = {
   goals?: { home?: number | null; away?: number | null };
 };
 
+const providerNameAliases: Record<string, string> = {
+  "Korea Republic": "South Korea",
+  "IR Iran": "Iran",
+  "Côte d'Ivoire": "Ivory Coast",
+  "Cabo Verde": "Cape Verde",
+  "Congo DR": "DR Congo",
+  "Türkiye": "Turkey",
+  "United States": "USA",
+  "Curacao": "Curaçao",
+};
+
+function normalizedName(name?: string) {
+  return providerNameAliases[name ?? ""] ?? name ?? "";
+}
+
+function providerUrl(baseUrl: string, endpoint: string) {
+  const base = baseUrl.endsWith("/") ? baseUrl : `${baseUrl}/`;
+  return new URL(endpoint, base).toString();
+}
+
 function normalizeProviderResults(payload: unknown) {
   const data = payload as { results?: CalculatorScores; response?: ProviderFixture[] };
   if (data.results && typeof data.results === "object") return { results: data.results, liveFixtureIds: [] as string[] };
@@ -22,8 +42,8 @@ function normalizeProviderResults(payload: unknown) {
     const home = match.teams?.home;
     const away = match.teams?.away;
     const fixture = WALL_CHART_FIXTURES.find((candidate) =>
-      (candidate.home.code === home?.code || candidate.home.name === home?.name) &&
-      (candidate.away.code === away?.code || candidate.away.name === away?.name),
+      (candidate.home.code === home?.code || candidate.home.name === normalizedName(home?.name)) &&
+      (candidate.away.code === away?.code || candidate.away.name === normalizedName(away?.name)),
     );
     if (!fixture) return accumulator;
     const status = match.fixture?.status?.short;
@@ -37,23 +57,42 @@ function normalizeProviderResults(payload: unknown) {
 
 export async function GET() {
   const fallback = getFallbackCalculatorScores();
-  const url = process.env.WORLD_CUP_LIVE_API_URL;
-  const apiKey = process.env.WORLD_CUP_LIVE_API_KEY;
+  const url = process.env.worldcup_live_api_url ?? process.env.WORLD_CUP_LIVE_API_URL;
+  const apiKey = process.env.worldcup_live_api_key ?? process.env.WORLD_CUP_LIVE_API_KEY;
 
   if (!url || !apiKey) {
     return NextResponse.json({ status: "demo", fixtures: WALL_CHART_FIXTURES, results: fallback, liveFixtureIds: [], updatedAt: new Date().toISOString() }, { headers: { "Cache-Control": "no-store, max-age=0" } });
   }
 
   try {
-    // TODO: Set the provider URL to its 2026 World Cup feed and extend this normalizer for provider-specific fields.
-    const response = await fetch(url, {
-      headers: { Authorization: `Bearer ${apiKey}`, "x-api-key": apiKey },
-      cache: "no-store",
-      next: { revalidate: 0 },
-    });
-    if (!response.ok) throw new Error(`Live data provider responded ${response.status}`);
-    const live = normalizeProviderResults(await response.json());
-    return NextResponse.json({ status: "live", fixtures: WALL_CHART_FIXTURES, results: { ...fallback, ...live.results }, liveFixtureIds: live.liveFixtureIds, updatedAt: new Date().toISOString() }, { headers: { "Cache-Control": "no-store, max-age=0" } });
+    const headers = { "x-apisports-key": apiKey };
+    const [fixtureResponse, standingsResponse] = await Promise.all([
+      fetch(providerUrl(url, "fixtures?league=1&season=2026"), {
+        headers,
+        cache: "no-store",
+        next: { revalidate: 0 },
+      }),
+      fetch(providerUrl(url, "standings?league=1&season=2026"), {
+        headers,
+        cache: "no-store",
+        next: { revalidate: 0 },
+      }),
+    ]);
+    if (!fixtureResponse.ok) throw new Error(`Live fixtures provider responded ${fixtureResponse.status}`);
+    if (!standingsResponse.ok) throw new Error(`Live standings provider responded ${standingsResponse.status}`);
+    const fixturePayload = await fixtureResponse.json();
+    const standingsPayload = await standingsResponse.json();
+    const live = normalizeProviderResults(fixturePayload);
+    const knockoutFixtures = (fixturePayload.response ?? []).filter((fixture: ProviderFixture & { league?: { round?: string } }) => !fixture.league?.round?.toLowerCase().includes("group"));
+    return NextResponse.json({
+      status: "live",
+      fixtures: WALL_CHART_FIXTURES,
+      results: live.results,
+      liveFixtureIds: live.liveFixtureIds,
+      standings: standingsPayload.response ?? [],
+      knockoutFixtures,
+      updatedAt: new Date().toISOString(),
+    }, { headers: { "Cache-Control": "no-store, max-age=0" } });
   } catch (error) {
     console.error("World Cup live data request failed", error);
     return NextResponse.json({ status: "unavailable", fixtures: WALL_CHART_FIXTURES, results: fallback, liveFixtureIds: [], updatedAt: new Date().toISOString() }, { headers: { "Cache-Control": "no-store, max-age=0" } });
