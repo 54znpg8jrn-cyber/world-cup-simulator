@@ -53,7 +53,7 @@ export function InstallHint() {
         </span>
         <div className="min-w-0 flex-1">
           <p className="text-sm font-black text-white">
-            Add World Cup Simulator to your Home Screen
+            Add World Cup Games to your Home Screen
           </p>
           <p className="mt-1 text-xs text-white/55">
             On iPhone, tap Share → Add to Home Screen.

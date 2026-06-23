@@ -190,6 +190,21 @@ export default function WorldCupWordlePage() {
       setQuery("");
       setMessage("");
       setScoreSaved(false);
+
+      if (new URLSearchParams(window.location.search).get("leaderboard") === "1") {
+        setLeaderboardOpen(true);
+        setLeaderboardLoading(true);
+        setLeaderboardError("");
+        try {
+          setLeaderboardEntries(await fetchWordleLeaderboard());
+        } catch (error) {
+          console.error("Wordle leaderboard fetch failed", error);
+          setLeaderboardEntries(getLocalWordleLeaderboard());
+          setLeaderboardError("Global leaderboard temporarily unavailable. Showing scores saved on this device.");
+        } finally {
+          if (active) setLeaderboardLoading(false);
+        }
+      }
     };
 
     void loadGame();

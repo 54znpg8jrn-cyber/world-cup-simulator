@@ -4,12 +4,12 @@ import { InstallHint } from "./components/InstallHint";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "World Cup Simulator",
-  description: "Choose a nation, build your XI, and simulate the tournament.",
+  title: "World Cup Games",
+  description: "Play World Cup minigames, chase high scores, and challenge friends.",
   manifest: "/manifest.json",
   appleWebApp: {
     capable: true,
-    title: "World Cup Simulator",
+    title: "World Cup Games",
     statusBarStyle: "black-translucent",
   },
   other: {

@@ -112,6 +112,21 @@ export default function HigherLowerPage() {
       setBestStreak(Number.isFinite(savedBest) ? savedBest : 0);
       if (savedName) setPlayerName(savedName);
       setRound(createRound("all"));
+
+      if (new URLSearchParams(window.location.search).get("leaderboard") === "1") {
+        setLeaderboardOpen(true);
+        setLeaderboardLoading(true);
+        setLeaderboardError("");
+        setLeaderboardCategory("");
+        try {
+          setLeaderboardEntries(await fetchHigherLowerLeaderboard());
+        } catch (error) {
+          console.error("Higher / Lower leaderboard fetch failed", error);
+          setLeaderboardError("Top scores are temporarily unavailable.");
+        } finally {
+          if (active) setLeaderboardLoading(false);
+        }
+      }
     };
 
     void loadGame();

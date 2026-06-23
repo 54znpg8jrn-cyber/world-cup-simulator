@@ -1420,16 +1420,10 @@ export default function Home() {
           <nav className="flex items-center justify-between gap-3">
             <div className="flex min-w-0 items-center gap-2 sm:gap-3">
               <span className="grid h-10 w-10 place-items-center rounded-full border border-[#d8b75b]/50 bg-[#d8b75b]/10 font-black text-[#f6dc86]">W</span>
-              <span className="truncate text-[11px] font-black uppercase tracking-[0.1em] sm:text-sm sm:tracking-[0.15em]">World Cup Simulator</span>
+              <span className="truncate text-[11px] font-black uppercase tracking-[0.1em] sm:text-sm sm:tracking-[0.15em]">World Cup Games</span>
             </div>
             <div className="flex items-center gap-2">
-              <button
-                type="button"
-                onClick={() => setLeaderboardOpen(true)}
-                className="min-h-11 rounded-full border border-white/10 bg-white/5 px-3 py-2 text-[9px] font-black uppercase tracking-[0.12em] text-white/50 hover:bg-white/10 hover:text-white/70 sm:min-h-0 sm:py-1.5 sm:tracking-[0.18em]"
-              >
-                Leaderboard
-              </button>
+              <Link href="/wall-chart" className="flex min-h-11 items-center rounded-full border border-[#d8b75b]/25 bg-[#d8b75b]/10 px-3 py-2 text-[9px] font-black uppercase tracking-[0.12em] text-[#f6dc86] hover:bg-[#d8b75b]/15 sm:min-h-0 sm:py-1.5 sm:tracking-[0.18em]">Wall Chart</Link>
               <span className="hidden rounded-full border border-white/10 bg-white/5 px-3 py-1.5 text-[9px] font-black uppercase tracking-[0.18em] text-white/50 sm:inline">Version 0.1</span>
             </div>
           </nav>
@@ -1438,33 +1432,31 @@ export default function Home() {
             <div className="mb-7 grid h-28 w-28 place-items-center rounded-full border border-[#d8b75b]/30 bg-[#d8b75b]/5 shadow-[0_0_80px_rgba(216,183,91,.2)]">
               <div className="ball-mark h-16 w-16 rounded-full border-2 border-[#f6dc86]" />
             </div>
-            <p className="mb-4 text-xs font-black uppercase tracking-[0.4em] text-[#d8b75b]">Your nation. Your legacy.</p>
+            <p className="mb-4 text-xs font-black uppercase tracking-[0.4em] text-[#d8b75b]">Play. Compete. Share.</p>
             <h1 className="max-w-4xl text-4xl font-black uppercase leading-[0.9] tracking-[-0.045em] sm:text-7xl sm:leading-[0.88] sm:tracking-[-0.055em] lg:text-8xl">
-              World Cup<br /><span className="text-gradient">Simulator</span>
+              World Cup<br /><span className="text-gradient">Games</span>
             </h1>
             <p className="mt-6 max-w-md text-base leading-7 text-white/55 sm:text-lg">
-              Pick your nation. Build your XI. Simulate the tournament.
+              Play addictive World Cup minigames, chase high scores, challenge friends, and climb the leaderboards.
             </p>
-            <div className="mt-9 grid w-full max-w-5xl min-w-0 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+            <div className="mt-9 grid w-full max-w-5xl min-w-0 gap-3 sm:grid-cols-2 lg:grid-cols-3">
               <div className="min-w-0 rounded-[1.5rem] border border-[#d8b75b]/25 bg-[#d8b75b]/8 p-5 text-left">
-                <h2 className="font-black">World Cup Simulator</h2>
+                <p className="text-[9px] font-black uppercase tracking-[0.18em] text-[#d8b75b]">Tournament game</p>
+                <h2 className="mt-1 font-black">World Cup Simulator</h2>
                 <p className="mt-2 min-h-10 text-xs leading-5 text-white/45">Build your XI and simulate the tournament.</p>
-                <button onClick={() => setNationModalOpen(true)} className="mt-4 min-h-11 w-full rounded-xl bg-[#d8b75b] px-4 py-3 text-xs font-black uppercase tracking-wider text-black">Start Simulator</button>
+                <div className="mt-4 grid grid-cols-2 gap-2"><button onClick={() => setNationModalOpen(true)} className="min-h-11 rounded-xl bg-[#d8b75b] px-3 py-3 text-xs font-black uppercase tracking-wider text-black">Play</button><button type="button" onClick={() => setLeaderboardOpen(true)} className="min-h-11 rounded-xl border border-[#d8b75b]/25 bg-[#d8b75b]/10 px-3 py-3 text-xs font-black uppercase tracking-wider text-[#f6dc86]">Leaderboard</button></div>
               </div>
-              <div className="min-w-0 rounded-[1.5rem] border border-white/10 bg-white/[0.04] p-5 text-left">
-                <h2 className="font-black">World Cup Wall Chart</h2>
-                <p className="mt-2 min-h-10 text-xs leading-5 text-white/45">Fill in results, track tables and complete the bracket.</p>
-                <Link href="/wall-chart" className="mt-4 flex min-h-11 w-full items-center justify-center rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-center text-xs font-black uppercase tracking-wider">Open Wall Chart</Link>
-              </div>
-              <div className="min-w-0 rounded-[1.5rem] border border-emerald-300/20 bg-emerald-300/[0.05] p-5 text-left sm:col-span-2 lg:col-span-1">
+              <div className="min-w-0 rounded-[1.5rem] border border-emerald-300/20 bg-emerald-300/[0.05] p-5 text-left">
+                <p className="text-[9px] font-black uppercase tracking-[0.18em] text-emerald-200">Stat battle</p>
                 <h2 className="font-black">Higher / Lower</h2>
                 <p className="mt-2 min-h-10 text-xs leading-5 text-white/45">Guess which World Cup stat is higher.</p>
-                <Link href="/higher-lower" className="mt-4 flex min-h-11 w-full items-center justify-center rounded-xl border border-emerald-300/20 bg-emerald-300/10 px-4 py-3 text-center text-xs font-black uppercase tracking-wider text-emerald-100">Play Higher / Lower</Link>
+                <div className="mt-4 grid grid-cols-2 gap-2"><Link href="/higher-lower" className="flex min-h-11 items-center justify-center rounded-xl border border-emerald-300/20 bg-emerald-300/10 px-3 py-3 text-center text-xs font-black uppercase tracking-wider text-emerald-100">Play</Link><Link href="/higher-lower?leaderboard=1" className="flex min-h-11 items-center justify-center rounded-xl border border-white/10 bg-white/5 px-3 py-3 text-center text-xs font-black uppercase tracking-wider text-white/75">Leaderboard</Link></div>
               </div>
-              <div className="min-w-0 rounded-[1.5rem] border border-[#d8b75b]/25 bg-[#d8b75b]/[0.06] p-5 text-left sm:col-span-2 lg:col-span-1 xl:col-span-1">
+              <div className="min-w-0 rounded-[1.5rem] border border-[#d8b75b]/25 bg-[#d8b75b]/[0.06] p-5 text-left">
+                <p className="text-[9px] font-black uppercase tracking-[0.18em] text-[#f6dc86]">Daily puzzle</p>
                 <h2 className="font-black">World Cup Wordle</h2>
                 <p className="mt-2 min-h-10 text-xs leading-5 text-white/45">Guess the mystery World Cup player.</p>
-                <Link href="/wordle" className="mt-4 flex min-h-11 w-full items-center justify-center rounded-xl border border-[#d8b75b]/25 bg-[#d8b75b]/10 px-4 py-3 text-center text-xs font-black uppercase tracking-wider text-[#f6dc86]">Play Wordle</Link>
+                <div className="mt-4 grid grid-cols-2 gap-2"><Link href="/wordle" className="flex min-h-11 items-center justify-center rounded-xl border border-[#d8b75b]/25 bg-[#d8b75b]/10 px-3 py-3 text-center text-xs font-black uppercase tracking-wider text-[#f6dc86]">Play</Link><Link href="/wordle?leaderboard=1" className="flex min-h-11 items-center justify-center rounded-xl border border-white/10 bg-white/5 px-3 py-3 text-center text-xs font-black uppercase tracking-wider text-white/75">Leaderboard</Link></div>
               </div>
             </div>
           </div>
