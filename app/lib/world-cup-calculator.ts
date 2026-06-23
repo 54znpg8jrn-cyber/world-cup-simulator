@@ -91,6 +91,7 @@ export function calculateKnockoutBracket(tables: Record<string, GroupTableRow[]>
         }
         return fixtures;
       }, []);
+  }
 }
 
 export function updateFixtureResult(
