@@ -210,6 +210,8 @@ button {
 .premium-game-card-higher-lower { background: linear-gradient(135deg, #352a79, #111b4b 70%); }
 .premium-game-card-wordle { background: linear-gradient(135deg, #153f72, #0c233f 70%); }
 .premium-game-card-hot-takes { background: linear-gradient(135deg, #7a2634, #41111f 70%); }
+.premium-game-card-guess-nation { background: linear-gradient(135deg, #12576d, #10294d 70%); }
+.premium-game-card-nation-ranker { background: linear-gradient(135deg, #56369b, #21164d 70%); }
 .premium-game-card-calculator { background: linear-gradient(135deg, #0e655e, #082c2d 70%); }
 
 .premium-game-badge {

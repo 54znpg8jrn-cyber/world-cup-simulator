@@ -345,7 +345,7 @@ function GameLaunchCard({
   icon,
   children,
 }: {
-  tone: "simulator" | "higher-lower" | "wordle" | "hot-takes" | "calculator";
+  tone: "simulator" | "higher-lower" | "wordle" | "hot-takes" | "calculator" | "guess-nation" | "nation-ranker";
   badge: string;
   title: string;
   subtitle: string;
@@ -1477,6 +1477,8 @@ export default function Home() {
               <GameLaunchCard tone="higher-lower" badge="Addictive" title="Higher / Lower" subtitle="Can you spot the bigger World Cup stat?" icon="⚡"><div className="grid grid-cols-2 gap-2"><Link href="/higher-lower" className="premium-play-button">Play</Link><Link href="/higher-lower?leaderboard=1" className="premium-secondary-button">Leaderboard</Link></div></GameLaunchCard>
               <GameLaunchCard tone="wordle" badge="Daily" title="World Cup Wordle" subtitle="Guess the mystery player in six." icon="🟨"><div className="grid grid-cols-2 gap-2"><Link href="/wordle" className="premium-play-button">Play</Link><Link href="/wordle?leaderboard=1" className="premium-secondary-button">Leaderboard</Link></div></GameLaunchCard>
               <GameLaunchCard tone="hot-takes" badge="Viral" title="Hot Takes" subtitle="Swipe your side of football's biggest debates." icon="🔥"><Link href="/hot-takes" className="premium-play-button">Play</Link></GameLaunchCard>
+              <GameLaunchCard tone="guess-nation" badge="New" title="Guess the Nation" subtitle="Name the World Cup team from its club XI." icon="⚽"><Link href="/guess-the-nation" className="premium-play-button">Play</Link></GameLaunchCard>
+              <GameLaunchCard tone="nation-ranker" badge="New" title="Nation Ranker" subtitle="Rank World Cup nations by wild squad stats." icon="↕"><Link href="/nation-ranker" className="premium-play-button">Play</Link></GameLaunchCard>
               <GameLaunchCard tone="calculator" badge="Live" title="World Cup Calculator" subtitle="Live tables, races, and the knockout picture." icon="📊"><Link href="/world-cup-calculator" className="premium-play-button">Open Calculator</Link></GameLaunchCard>
             </div>
           </div>
