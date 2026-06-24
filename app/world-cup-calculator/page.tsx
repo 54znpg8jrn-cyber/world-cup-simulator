@@ -86,7 +86,11 @@ export default function WorldCupCalculatorPage() {
 
   useEffect(() => {
     if (!loaded.current) return;
-    try { localStorage.setItem(STORAGE_KEY, JSON.stringify(manualScores)); } catch { setNotice("Manual overrides update for this session"); }
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(manualScores));
+    } catch (error) {
+      console.warn("Could not persist calculator manual overrides", error);
+    }
   }, [manualScores]);
 
   const updateScore = (fixtureId: string, side: "home" | "away", value: string) => {
@@ -101,7 +105,7 @@ export default function WorldCupCalculatorPage() {
     setNotice("Manual overrides reset");
   };
 
-  return <main className="stadium-bg min-h-dvh w-full max-w-full overflow-x-hidden px-3 py-4 text-white sm:px-5 sm:py-6 lg:px-8">
+  return <main className="stadium-bg min-h-dvh w-full max-w-full overflow-x-hidden px-3 pb-[max(1rem,env(safe-area-inset-bottom))] pt-[max(1rem,env(safe-area-inset-top))] text-white sm:px-5 sm:py-6 lg:px-8">
     <div className="mx-auto w-full max-w-7xl min-w-0">
       <header className="flex flex-col gap-4 border-b border-white/10 pb-5 sm:flex-row sm:items-center sm:justify-between">
         <div><p className="text-[10px] font-black uppercase tracking-[0.25em] text-[#d8b75b]">World Cup Games</p><h1 className="mt-1 text-3xl font-black tracking-[-0.05em] sm:text-5xl">World Cup Calculator</h1><p className="mt-2 max-w-xl text-sm leading-6 text-white/55">Live standings, qualifying races, and the tournament picture as it stands right now.</p></div>

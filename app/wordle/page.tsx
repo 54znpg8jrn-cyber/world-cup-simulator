@@ -19,6 +19,7 @@ import {
 type WordleMode = "daily" | "unlimited";
 type GameStatus = "playing" | "won" | "lost";
 type HintColor = "green" | "yellow" | "gray";
+type HintKind = "nation" | "position" | "age" | "caps" | "goals";
 type GuessHints = {
   nation: HintColor;
   position: HintColor;
@@ -139,7 +140,7 @@ function getGuessHints(guess: WordlePlayer, target: WordlePlayer): GuessHints {
     nation: nationHint(guess.nation, target.nation),
     position: positionHint(guess.position, target.position),
     age: numericHint(guess.age, target.age, 2),
-    caps: numericHint(guess.caps, target.caps, 3),
+    caps: numericHint(guess.caps, target.caps, 1),
     goals: numericHint(guess.goals, target.goals, 2),
   };
 }
@@ -173,6 +174,7 @@ export default function WorldCupWordlePage() {
   const [leaderboardError, setLeaderboardError] = useState("");
   const [scoreSaved, setScoreSaved] = useState(false);
   const [scoreSaving, setScoreSaving] = useState(false);
+  const [helpOpen, setHelpOpen] = useState(false);
 
   useEffect(() => {
     let active = true;
@@ -404,7 +406,7 @@ export default function WorldCupWordlePage() {
   };
 
   return (
-    <main className="stadium-bg min-h-dvh w-full max-w-full overflow-x-hidden px-3 py-3 text-white sm:px-5 sm:py-5 lg:px-8">
+    <main className="stadium-bg min-h-dvh w-full max-w-full overflow-x-hidden px-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-[max(0.75rem,env(safe-area-inset-top))] text-white sm:px-5 sm:py-5 lg:px-8">
       <div className="mx-auto w-full max-w-4xl min-w-0">
         <header className="flex min-w-0 flex-col gap-3 border-b border-white/10 pb-3 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex min-w-0 items-center gap-3">
@@ -422,6 +424,7 @@ export default function WorldCupWordlePage() {
               <ModeButton active={mode === "unlimited"} onClick={() => setMode("unlimited")}>Unlimited</ModeButton>
             </div>
             <button type="button" onClick={() => void openLeaderboard()} className="min-h-10 rounded-xl border border-[#d8b75b]/25 bg-[#d8b75b]/10 px-3 text-[9px] font-black uppercase tracking-wider text-[#f6dc86]">Top 20</button>
+            <button type="button" onClick={() => setHelpOpen(true)} className="min-h-10 rounded-xl border border-white/10 bg-white/5 px-3 text-sm font-black text-white/80" aria-label="How to play World Cup Wordle">?</button>
           </div>
         </header>
 
@@ -518,6 +521,7 @@ export default function WorldCupWordlePage() {
         </section>
       </div>
       {leaderboardOpen ? <WordleLeaderboardModal entries={leaderboardEntries} loading={leaderboardLoading} error={leaderboardError} onClose={() => setLeaderboardOpen(false)} /> : null}
+      {helpOpen ? <WordleHelpModal onClose={() => setHelpOpen(false)} /> : null}
     </main>
   );
 }
@@ -534,11 +538,11 @@ function GuessRow({ guess, target }: { guess: WordlePlayer; target: WordlePlayer
   const hints = getGuessHints(guess, target);
   return <div className="screen-enter grid grid-cols-[1.25fr_repeat(5,minmax(0,1fr))] gap-1">
     <div className="flex min-w-0 items-center rounded-lg border border-white/10 bg-black/20 px-2 text-xs font-black"><span className="truncate">{guess.name}</span></div>
-    <HintCell color={hints.nation} value={guess.nation} />
-    <HintCell color={hints.position} value={guess.position} />
-    <HintCell color={hints.age.color} value={`${guess.age}${hints.age.arrow ?? ""}`} />
-    <HintCell color={hints.caps.color} value={`${guess.caps}${hints.caps.arrow ?? ""}`} />
-    <HintCell color={hints.goals.color} value={`${guess.goals}${hints.goals.arrow ?? ""}`} />
+    <HintCell kind="nation" color={hints.nation} value={guess.nation} />
+    <HintCell kind="position" color={hints.position} value={guess.position} />
+    <HintCell kind="age" color={hints.age.color} arrow={hints.age.arrow} value={`${guess.age}${hints.age.arrow ?? ""}`} />
+    <HintCell kind="caps" color={hints.caps.color} arrow={hints.caps.arrow} value={`${guess.caps}${hints.caps.arrow ?? ""}`} />
+    <HintCell kind="goals" color={hints.goals.color} arrow={hints.goals.arrow} value={`${guess.goals}${hints.goals.arrow ?? ""}`} />
   </div>;
 }
 
@@ -547,20 +551,41 @@ function MobileGuessCard({ guess, target }: { guess: WordlePlayer; target: Wordl
   return <article className="screen-enter rounded-xl border border-white/10 bg-black/20 p-3">
     <p className="truncate text-sm font-black">{guess.name}</p>
     <div className="mt-2 grid grid-cols-3 gap-1.5">
-      <HintCell label="Nation" color={hints.nation} value={guess.nation} />
-      <HintCell label="Position" color={hints.position} value={guess.position} />
-      <HintCell label="Age" color={hints.age.color} value={`${guess.age}${hints.age.arrow ?? ""}`} />
-      <HintCell label="Caps" color={hints.caps.color} value={`${guess.caps}${hints.caps.arrow ?? ""}`} />
-      <HintCell label="Goals" color={hints.goals.color} value={`${guess.goals}${hints.goals.arrow ?? ""}`} />
+      <HintCell label="Nation" kind="nation" color={hints.nation} value={guess.nation} />
+      <HintCell label="Position" kind="position" color={hints.position} value={guess.position} />
+      <HintCell label="Age" kind="age" color={hints.age.color} arrow={hints.age.arrow} value={`${guess.age}${hints.age.arrow ?? ""}`} />
+      <HintCell label="Caps" kind="caps" color={hints.caps.color} arrow={hints.caps.arrow} value={`${guess.caps}${hints.caps.arrow ?? ""}`} />
+      <HintCell label="Goals" kind="goals" color={hints.goals.color} arrow={hints.goals.arrow} value={`${guess.goals}${hints.goals.arrow ?? ""}`} />
     </div>
   </article>;
 }
 
-function HintCell({ color, value, label }: { color: HintColor; value: string; label?: string }) {
-  return <div className={`flex min-h-12 min-w-0 flex-col items-center justify-center rounded-lg border px-1 text-center text-xs font-black ${cellClass(color)}`}>
+function HintCell({ kind, color, value, label, arrow }: { kind: HintKind; color: HintColor; value: string; label?: string; arrow?: "↑" | "↓" | null }) {
+  const [open, setOpen] = useState(false);
+  const explanation = hintExplanation(kind, color, arrow);
+  return <button type="button" title={explanation} aria-label={`${label ?? kind}: ${value}. ${explanation}`} onClick={() => setOpen((current) => !current)} onMouseEnter={() => setOpen(true)} onMouseLeave={() => setOpen(false)} onFocus={() => setOpen(true)} onBlur={() => setOpen(false)} className={`relative flex min-h-12 min-w-0 flex-col items-center justify-center rounded-lg border px-1 text-center text-xs font-black outline-none transition focus:ring-2 focus:ring-[#d8b75b]/70 ${cellClass(color)}`}>
     {label ? <span className="text-[8px] uppercase tracking-wider opacity-60">{label}</span> : null}
     <span className="max-w-full truncate">{value}</span>
+    {open ? <span role="tooltip" className="pointer-events-none absolute bottom-[calc(100%+0.45rem)] left-1/2 z-30 w-44 -translate-x-1/2 rounded-lg border border-white/10 bg-[#07110d] px-2 py-1.5 text-[10px] font-bold leading-4 text-white shadow-xl">{explanation}</span> : null}
+  </button>;
+}
+
+function hintExplanation(kind: HintKind, color: HintColor, arrow?: "↑" | "↓" | null) {
+  if (kind === "nation") return color === "green" ? "Correct nation." : color === "yellow" ? "Right continent, but not the right nation." : "Different continent.";
+  if (kind === "position") return color === "green" ? "Exact position match." : color === "yellow" ? "Same position group, but not the exact position." : "Different position group.";
+  if (kind === "age") return color === "green" ? "Exact age." : color === "yellow" ? `Close age. ${arrow === "↑" ? "Answer is older." : "Answer is younger."}` : `Not close. ${arrow === "↑" ? "Answer is older." : "Answer is younger."}`;
+  if (kind === "caps") return color === "green" ? "Exact World Cup appearances." : color === "yellow" ? `Close. Answer has ${arrow === "↑" ? "more" : "fewer"} appearances.` : `Not close. Answer has ${arrow === "↑" ? "more" : "fewer"} appearances.`;
+  return color === "green" ? "Exact World Cup goals." : color === "yellow" ? `Close. Answer has ${arrow === "↑" ? "more" : "fewer"} goals.` : `Not close. Answer has ${arrow === "↑" ? "more" : "fewer"} goals.`;
+}
+
+function WordleHelpModal({ onClose }: { onClose: () => void }) {
+  return <div className="fixed inset-0 z-[60] flex items-end bg-black/75 px-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-[max(0.75rem,env(safe-area-inset-top))] backdrop-blur-sm sm:items-center sm:justify-center" role="dialog" aria-modal="true" aria-label="How to play World Cup Wordle">
+    <section className="screen-enter max-h-full w-full max-w-lg overflow-y-auto rounded-3xl border border-[#d8b75b]/25 bg-[#08110c] p-5 shadow-2xl sm:p-7"><p className="text-[10px] font-black uppercase tracking-[0.24em] text-[#d8b75b]">World Cup Games</p><h2 className="mt-2 text-2xl font-black sm:text-3xl">How to Play World Cup Wordle</h2><p className="mt-3 text-sm leading-6 text-white/65">Guess the mystery World Cup player. Every colour shows how close your guess is.</p><div className="mt-5 grid gap-3 text-sm"><HelpRule title="Nation" text="Green: correct nation. Yellow: same continent. Gray: different continent." /><HelpRule title="Position" text="Green: exact position. Yellow: same position group. Gray: different group." /><HelpRule title="Age" text="Green: exact. Yellow: within 2 years. Gray: further away. ↑ means older, ↓ means younger." /><HelpRule title="Appearances" text="Green: exact. Yellow: within 1. Gray: further away. ↑ means more, ↓ means fewer." /><HelpRule title="Goals" text="Green: exact. Yellow: within 2. Gray: further away. ↑ means more, ↓ means fewer." /></div><p className="mt-5 text-sm font-bold text-[#f6dc86]">Solve the player in as few guesses as possible.</p><button type="button" onClick={onClose} className="mt-6 flex min-h-12 w-full items-center justify-center rounded-xl bg-[#d8b75b] px-4 text-xs font-black uppercase tracking-wider text-black transition hover:bg-[#f6dc86] active:scale-[.98]">Got it</button></section>
   </div>;
+}
+
+function HelpRule({ title, text }: { title: string; text: string }) {
+  return <div className="rounded-xl border border-white/10 bg-white/[0.04] p-3"><p className="font-black text-white">{title}</p><p className="mt-1 text-xs leading-5 text-white/55">{text}</p></div>;
 }
 
 function ResultPanel({ status, target, guesses, mode, onShare, onChallenge, onNewUnlimited, sharing, playerName, onPlayerNameChange, onSaveScore, scoreSaved, scoreSaving }: { status: Exclude<GameStatus, "playing">; target: WordlePlayer; guesses: number; mode: WordleMode; onShare: () => void; onChallenge: () => void; onNewUnlimited: () => void; sharing: boolean; playerName: string; onPlayerNameChange: (value: string) => void; onSaveScore: () => void; scoreSaved: boolean; scoreSaving: boolean }) {

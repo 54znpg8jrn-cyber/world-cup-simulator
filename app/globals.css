@@ -123,6 +123,11 @@ button {
   animation: hot-take-reveal .42s cubic-bezier(.2,.8,.2,1) both;
 }
 
+.hot-takes-playfield {
+  touch-action: none;
+  overscroll-behavior: none;
+}
+
 .hot-take-confetti {
   position: relative;
   isolation: isolate;

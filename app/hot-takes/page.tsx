@@ -10,7 +10,7 @@ type FanDna = { title: string; description: string; category?: HotTakeCategory }
 
 const ROUND_LENGTH = 10;
 const HISTORY_KEY = "world-cup-hot-takes-recent-v1";
-const SWIPE_THRESHOLD = 96;
+const SWIPE_THRESHOLD = 76;
 
 const DNA: Record<string, FanDna> = {
   Messi: { title: "Messi Loyalist", description: "You trust football's greatest artist when the pressure peaks.", category: "Messi" },
@@ -88,7 +88,7 @@ export default function HotTakesPage() {
   const [dragX, setDragX] = useState(0);
   const [isDragging, setIsDragging] = useState(false);
   const [message, setMessage] = useState("");
-  const pointerStart = useRef<number | null>(null);
+  const pointerStart = useRef<{ x: number; y: number } | null>(null);
 
   useEffect(() => {
     const frame = window.requestAnimationFrame(() => {
@@ -185,9 +185,18 @@ export default function HotTakesPage() {
   };
 
   const overlayStrength = Math.min(Math.abs(dragX) / SWIPE_THRESHOLD, 1);
-  const cardStyle = { transform: `translateX(${dragX}px) rotate(${dragX / 22}deg)` };
+  const cardStyle = { transform: `translate3d(${dragX}px, 0, 0) rotate(${dragX / 22}deg)` };
+  const selectedPercentage = revealedVote === "agree" ? take?.agreePercentage : take?.disagreePercentage;
+  const otherPercentage = revealedVote === "agree" ? take?.disagreePercentage : take?.agreePercentage;
+  const selectedLabel = revealedVote === "agree" ? "agree" : "disagree";
+  const otherLabel = revealedVote === "agree" ? "disagree" : "agree";
+  const crowdVerdict = selectedPercentage === otherPercentage
+    ? "Fans are split."
+    : (selectedPercentage ?? 0) > (otherPercentage ?? 0)
+      ? "You are with the majority."
+      : "You are in the minority.";
 
-  return <main className="stadium-bg relative flex h-dvh w-full max-w-full overflow-hidden px-3 pb-3 pt-[max(0.75rem,env(safe-area-inset-top))] text-white sm:p-5">
+  return <main className="stadium-bg hot-takes-playfield relative flex h-dvh w-full max-w-full overflow-hidden overscroll-none px-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-[max(0.75rem,env(safe-area-inset-top))] text-white sm:p-5">
     <div className="mx-auto flex h-full w-full max-w-6xl min-w-0 flex-col">
       <header className="flex shrink-0 items-center justify-between gap-2 sm:gap-4">
         <Link href="/" className="flex h-10 items-center rounded-full border border-white/10 bg-black/20 px-4 text-[10px] font-black uppercase tracking-wider text-white/65 transition hover:bg-white/5 active:scale-95">Home</Link>
@@ -199,18 +208,18 @@ export default function HotTakesPage() {
         <div className="relative w-full max-w-[34rem]">
           <div
             onClick={() => { if (revealedVote) nextTake(); }}
-            onPointerDown={(event) => { if (!revealedVote) { pointerStart.current = event.clientX; event.currentTarget.setPointerCapture(event.pointerId); setIsDragging(true); } }}
-            onPointerMove={(event) => { if (pointerStart.current !== null && !revealedVote) setDragX(event.clientX - pointerStart.current); }}
-            onPointerUp={(event) => { const distance = pointerStart.current === null ? 0 : event.clientX - pointerStart.current; pointerStart.current = null; setIsDragging(false); if (distance >= SWIPE_THRESHOLD) vote("agree"); else if (distance <= -SWIPE_THRESHOLD) vote("disagree"); else setDragX(0); }}
+            onPointerDown={(event) => { if (!revealedVote) { pointerStart.current = { x: event.clientX, y: event.clientY }; event.currentTarget.setPointerCapture(event.pointerId); setIsDragging(true); } }}
+            onPointerMove={(event) => { if (pointerStart.current !== null && !revealedVote) setDragX(event.clientX - pointerStart.current.x); }}
+            onPointerUp={(event) => { const distance = pointerStart.current === null ? 0 : event.clientX - pointerStart.current.x; pointerStart.current = null; setIsDragging(false); if (distance >= SWIPE_THRESHOLD) vote("agree"); else if (distance <= -SWIPE_THRESHOLD) vote("disagree"); else setDragX(0); }}
             onPointerCancel={() => { pointerStart.current = null; setIsDragging(false); setDragX(0); }}
             style={cardStyle}
-            className={`relative aspect-square w-full touch-pan-y select-none overflow-hidden rounded-[2rem] border bg-[#0a1710]/95 p-7 text-center shadow-[0_28px_90px_rgba(0,0,0,.4)] ${isDragging ? "cursor-grabbing transition-none" : "cursor-grab transition-transform duration-300"} ${revealedVote === "agree" ? "border-emerald-300/50" : revealedVote === "disagree" ? "border-rose-300/50" : "border-white/10"}`}
+            className={`relative aspect-square w-full touch-none select-none overflow-hidden rounded-[2rem] border bg-[#0a1710]/95 p-7 text-center shadow-[0_28px_90px_rgba(0,0,0,.4)] ${isDragging ? "cursor-grabbing transition-none" : "cursor-grab transition-transform duration-300"} ${revealedVote === "agree" ? "border-emerald-300/50" : revealedVote === "disagree" ? "border-rose-300/50" : "border-white/10"}`}
           >
             <div className="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-rose-300 via-[#d8b75b] to-emerald-300" />
             <div className="pointer-events-none absolute inset-y-0 left-0 flex w-1/2 items-center justify-center bg-rose-400/20 transition-opacity" style={{ opacity: dragX < 0 ? overlayStrength : 0 }}><span className="rounded-full border border-rose-200/60 px-4 py-2 text-lg font-black tracking-widest text-rose-100">DISAGREE</span></div>
             <div className="pointer-events-none absolute inset-y-0 right-0 flex w-1/2 items-center justify-center bg-emerald-400/20 transition-opacity" style={{ opacity: dragX > 0 ? overlayStrength : 0 }}><span className="rounded-full border border-emerald-200/60 px-4 py-2 text-lg font-black tracking-widest text-emerald-100">AGREE</span></div>
             <div className="relative z-10 flex h-full flex-col items-center justify-center">
-              {revealedVote ? <div className="hot-take-reveal"><p className={`text-xs font-black uppercase tracking-[0.24em] ${revealedVote === "agree" ? "text-emerald-200" : "text-rose-200"}`}>{revealedVote === "agree" ? "You agreed" : "You disagreed"}</p><p className="mt-4 text-6xl font-black text-[#f6dc86] sm:text-7xl">{take.agreePercentage}%</p><p className="mt-1 text-sm font-black text-emerald-200">Agree · {take.disagreePercentage}% disagree</p><div className="mt-5 rounded-2xl border border-white/10 bg-black/20 px-4 py-3 text-sm font-bold text-white/70">{(revealedVote === "agree" ? take.agreePercentage : take.disagreePercentage) >= 50 ? "You are with the majority." : "You went against the crowd."}</div><p className="mt-5 text-[10px] font-black uppercase tracking-[0.18em] text-white/35">Tap the card or continue below</p></div> : <><p className="mb-6 text-[10px] font-black uppercase tracking-[0.28em] text-[#d8b75b]">Hot take</p><h2 className="max-w-[26rem] text-3xl font-black leading-[1.04] tracking-[-0.055em] sm:text-5xl">{take.text}</h2><p className="mt-8 text-[10px] font-black uppercase tracking-[0.18em] text-white/35">Swipe or choose your side</p></>}
+              {revealedVote ? <div className="hot-take-reveal"><p className={`text-xs font-black uppercase tracking-[0.24em] ${revealedVote === "agree" ? "text-emerald-200" : "text-rose-200"}`}>{revealedVote === "agree" ? "You agreed" : "You disagreed"}</p><p className="mt-4 text-6xl font-black text-[#f6dc86] sm:text-7xl">{selectedPercentage}%</p><div className="mt-2 space-y-1 text-sm font-black"><p className={revealedVote === "agree" ? "text-emerald-200" : "text-rose-200"}>{selectedPercentage}% {selectedLabel}</p><p className="text-white/55">{otherPercentage}% {otherLabel}</p></div><div className="mt-5 rounded-2xl border border-white/10 bg-black/20 px-4 py-3 text-sm font-bold text-white/70">{crowdVerdict}</div><p className="mt-5 text-[10px] font-black uppercase tracking-[0.18em] text-white/35">Tap the card or continue below</p></div> : <><p className="mb-6 text-[10px] font-black uppercase tracking-[0.28em] text-[#d8b75b]">Hot take</p><h2 className="max-w-[26rem] text-3xl font-black leading-[1.04] tracking-[-0.055em] sm:text-5xl">{take.text}</h2><p className="mt-8 text-[10px] font-black uppercase tracking-[0.18em] text-white/35">Swipe or choose your side</p></>}
             </div>
           </div>
         </div>
