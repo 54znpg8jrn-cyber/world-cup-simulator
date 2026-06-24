@@ -36,6 +36,17 @@ function fixturesUrl(baseUrl: string) {
   return `${base}/fixtures?league=1&season=2026`;
 }
 
+function safeProviderUrl(url: string | null) {
+  if (!url) return null;
+  try {
+    const parsed = new URL(url);
+    ["key", "apiKey", "apikey", "token"].forEach((name) => parsed.searchParams.delete(name));
+    return parsed.toString();
+  } catch {
+    return url.replace(/([?&](?:key|apiKey|apikey|token)=)[^&]+/i, "$1[redacted]");
+  }
+}
+
 function normalizeProviderResults(payload: unknown) {
   const data = payload as { results?: CalculatorScores; response?: ProviderFixture[]; errors?: Record<string, string> };
   if (data.results && typeof data.results === "object") {
@@ -65,23 +76,34 @@ export async function GET() {
   const fallback = getFallbackCalculatorScores();
   const url = process.env.worldcup_live_api_url ?? process.env.WORLD_CUP_LIVE_API_URL;
   const apiKey = process.env.worldcup_live_api_key ?? process.env.WORLD_CUP_LIVE_API_KEY;
+  const providerUrl = url ? fixturesUrl(url) : null;
 
   if (!url || !apiKey) {
-    return NextResponse.json({ status: "fallback", valid: true, fixtures: WALL_CHART_FIXTURES, results: fallback, liveFixtureIds: [], updatedAt: new Date().toISOString() }, { headers: { "Cache-Control": "no-store, max-age=0" } });
+    return NextResponse.json({ status: "fallback", valid: true, fixtures: WALL_CHART_FIXTURES, results: fallback, liveFixtureIds: [], updatedAt: new Date().toISOString(), providerStatus: null, providerUrl: safeProviderUrl(providerUrl), providerError: "WORLD_CUP_LIVE_API_URL or WORLD_CUP_LIVE_API_KEY is missing", providerResponse: null }, { headers: { "Cache-Control": "no-store, max-age=0" } });
   }
 
+  let providerStatus: number | null = null;
+  let providerStatusText: string | null = null;
+  let providerResponse: unknown = null;
+  const providerStatusDetail = () =>
+    providerStatus === null ? null : { status: providerStatus, statusText: providerStatusText };
   try {
     const headers = { "x-apisports-key": apiKey };
-    const fixtureResponse = await fetch(fixturesUrl(url), {
+    const fixtureResponse = await fetch(providerUrl!, {
       headers,
       cache: "no-store",
       next: { revalidate: 0 },
     });
-    if (!fixtureResponse.ok) throw new Error(`Live fixtures provider responded ${fixtureResponse.status}`);
-    const fixturePayload = await fixtureResponse.json();
+    providerStatus = fixtureResponse.status;
+    providerStatusText = fixtureResponse.statusText;
+    providerResponse = await fixtureResponse.json().catch(() => null);
+    if (!fixtureResponse.ok) {
+      throw new Error(`API-Football HTTP ${fixtureResponse.status} ${fixtureResponse.statusText}`);
+    }
+    const fixturePayload = providerResponse;
     const providerErrors = (fixturePayload as { errors?: Record<string, string> }).errors;
     if (providerErrors && Object.keys(providerErrors).length) {
-      console.error("API-Football fixtures response contained errors", providerErrors);
+      console.error("API-Football fixtures response contained errors", { providerStatus, providerStatusText, providerUrl: safeProviderUrl(providerUrl), providerErrors, providerResponse });
       throw new Error(`API-Football returned: ${Object.values(providerErrors).join(", ")}`);
     }
     if (!Array.isArray((fixturePayload as { response?: unknown }).response)) {
@@ -94,7 +116,7 @@ export async function GET() {
         recognizedFixtureCount: live.recognizedFixtureCount,
         scoredFixtureCount: live.scoredFixtureCount,
       });
-      return NextResponse.json({ status: "api-error", valid: false, fixtures: WALL_CHART_FIXTURES, results: {}, liveFixtureIds: [], updatedAt: new Date().toISOString() }, { headers: { "Cache-Control": "no-store, max-age=0" } });
+      return NextResponse.json({ status: "api-error", valid: false, fixtures: WALL_CHART_FIXTURES, results: {}, liveFixtureIds: [], updatedAt: new Date().toISOString(), providerStatus: providerStatusDetail(), providerUrl: safeProviderUrl(providerUrl), providerError: "API-Football returned no scored fixtures that match this project schedule", providerResponse }, { headers: { "Cache-Control": "no-store, max-age=0" } });
     }
     return NextResponse.json({
       status: "live",
@@ -103,9 +125,14 @@ export async function GET() {
       results: live.results,
       liveFixtureIds: live.liveFixtureIds,
       updatedAt: new Date().toISOString(),
+      providerStatus: providerStatusDetail(),
+      providerUrl: safeProviderUrl(providerUrl),
+      providerError: null,
+      providerResponse,
     }, { headers: { "Cache-Control": "no-store, max-age=0" } });
   } catch (error) {
-    console.error("World Cup live data request failed", error);
-    return NextResponse.json({ status: "api-error", valid: false, fixtures: WALL_CHART_FIXTURES, results: {}, liveFixtureIds: [], updatedAt: new Date().toISOString() }, { headers: { "Cache-Control": "no-store, max-age=0" } });
+    const providerError = error instanceof Error ? error.message : "Unknown API-Football request error";
+    console.error("World Cup live data request failed", { providerStatus, providerStatusText, providerUrl: safeProviderUrl(providerUrl), providerError, providerResponse });
+    return NextResponse.json({ status: "api-error", valid: false, fixtures: WALL_CHART_FIXTURES, results: {}, liveFixtureIds: [], updatedAt: new Date().toISOString(), providerStatus: providerStatusDetail(), providerUrl: safeProviderUrl(providerUrl), providerError, providerResponse }, { headers: { "Cache-Control": "no-store, max-age=0" } });
   }
 }
