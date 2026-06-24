@@ -88,7 +88,6 @@ export default function HotTakesPage() {
   const [dragX, setDragX] = useState(0);
   const [isDragging, setIsDragging] = useState(false);
   const [message, setMessage] = useState("");
-  const timer = useRef<number | null>(null);
   const pointerStart = useRef<number | null>(null);
 
   useEffect(() => {
@@ -99,7 +98,6 @@ export default function HotTakesPage() {
     });
     return () => {
       window.cancelAnimationFrame(frame);
-      if (timer.current) window.clearTimeout(timer.current);
     };
   }, []);
 
@@ -117,14 +115,6 @@ export default function HotTakesPage() {
     [answers],
   );
 
-  const advance = () => {
-    timer.current = window.setTimeout(() => {
-      setIndex((current) => current + 1);
-      setRevealedVote(null);
-      setDragX(0);
-    }, 900);
-  };
-
   const vote = (nextVote: Vote) => {
     if (!take || revealedVote) return;
     const communityAgreement = nextVote === "agree" ? take.agreePercentage : take.disagreePercentage;
@@ -132,11 +122,16 @@ export default function HotTakesPage() {
     setRevealedVote(nextVote);
     setIsDragging(false);
     setDragX(nextVote === "agree" ? 28 : -28);
-    advance();
+  };
+
+  const nextTake = () => {
+    if (!revealedVote) return;
+    setIndex((current) => current + 1);
+    setRevealedVote(null);
+    setDragX(0);
   };
 
   const startNewDeck = () => {
-    if (timer.current) window.clearTimeout(timer.current);
     const next = selectDeck(readHistory());
     saveHistory(next.map((take) => take.id));
     setDeck(next);
@@ -203,6 +198,7 @@ export default function HotTakesPage() {
       {complete ? <FanDnaResult fanDna={fanDna} agreementRate={agreementRate} controversyScore={controversyScore} mostControversial={mostControversial} message={message} onShare={() => void shareResult()} onChallenge={() => void challengeFriend()} onNext={startNewDeck} /> : take ? <section className="flex min-h-0 flex-1 flex-col items-center justify-center py-3 sm:py-4">
         <div className="relative w-full max-w-[34rem]">
           <div
+            onClick={() => { if (revealedVote) nextTake(); }}
             onPointerDown={(event) => { if (!revealedVote) { pointerStart.current = event.clientX; event.currentTarget.setPointerCapture(event.pointerId); setIsDragging(true); } }}
             onPointerMove={(event) => { if (pointerStart.current !== null && !revealedVote) setDragX(event.clientX - pointerStart.current); }}
             onPointerUp={(event) => { const distance = pointerStart.current === null ? 0 : event.clientX - pointerStart.current; pointerStart.current = null; setIsDragging(false); if (distance >= SWIPE_THRESHOLD) vote("agree"); else if (distance <= -SWIPE_THRESHOLD) vote("disagree"); else setDragX(0); }}
@@ -214,14 +210,11 @@ export default function HotTakesPage() {
             <div className="pointer-events-none absolute inset-y-0 left-0 flex w-1/2 items-center justify-center bg-rose-400/20 transition-opacity" style={{ opacity: dragX < 0 ? overlayStrength : 0 }}><span className="rounded-full border border-rose-200/60 px-4 py-2 text-lg font-black tracking-widest text-rose-100">DISAGREE</span></div>
             <div className="pointer-events-none absolute inset-y-0 right-0 flex w-1/2 items-center justify-center bg-emerald-400/20 transition-opacity" style={{ opacity: dragX > 0 ? overlayStrength : 0 }}><span className="rounded-full border border-emerald-200/60 px-4 py-2 text-lg font-black tracking-widest text-emerald-100">AGREE</span></div>
             <div className="relative z-10 flex h-full flex-col items-center justify-center">
-              {revealedVote ? <div className="hot-take-reveal"><p className={`text-xs font-black uppercase tracking-[0.24em] ${revealedVote === "agree" ? "text-emerald-200" : "text-rose-200"}`}>{revealedVote === "agree" ? "You agree" : "You disagree"}</p><p className="mt-4 text-6xl font-black text-[#f6dc86] sm:text-7xl">{take.agreePercentage}%</p><div className="mt-3 grid grid-cols-2 gap-3 text-xs font-black uppercase tracking-wider"><span className="text-emerald-200">Agree {take.agreePercentage}%</span><span className="text-rose-200">Disagree {take.disagreePercentage}%</span></div><p className="mt-5 text-sm font-bold text-white/55">of fans chose the same as you</p></div> : <><p className="mb-6 text-[10px] font-black uppercase tracking-[0.28em] text-[#d8b75b]">Hot take</p><h2 className="max-w-[26rem] text-3xl font-black leading-[1.04] tracking-[-0.055em] sm:text-5xl">{take.text}</h2><p className="mt-8 text-[10px] font-black uppercase tracking-[0.18em] text-white/35">Swipe or choose your side</p></>}
+              {revealedVote ? <div className="hot-take-reveal"><p className={`text-xs font-black uppercase tracking-[0.24em] ${revealedVote === "agree" ? "text-emerald-200" : "text-rose-200"}`}>{revealedVote === "agree" ? "You agreed" : "You disagreed"}</p><p className="mt-4 text-6xl font-black text-[#f6dc86] sm:text-7xl">{take.agreePercentage}%</p><p className="mt-1 text-sm font-black text-emerald-200">Agree · {take.disagreePercentage}% disagree</p><div className="mt-5 rounded-2xl border border-white/10 bg-black/20 px-4 py-3 text-sm font-bold text-white/70">{(revealedVote === "agree" ? take.agreePercentage : take.disagreePercentage) >= 50 ? "You are with the majority." : "You went against the crowd."}</div><p className="mt-5 text-[10px] font-black uppercase tracking-[0.18em] text-white/35">Tap the card or continue below</p></div> : <><p className="mb-6 text-[10px] font-black uppercase tracking-[0.28em] text-[#d8b75b]">Hot take</p><h2 className="max-w-[26rem] text-3xl font-black leading-[1.04] tracking-[-0.055em] sm:text-5xl">{take.text}</h2><p className="mt-8 text-[10px] font-black uppercase tracking-[0.18em] text-white/35">Swipe or choose your side</p></>}
             </div>
           </div>
         </div>
-        <div className="mt-3 grid w-full max-w-[34rem] grid-cols-2 gap-3">
-          <button type="button" onClick={() => vote("disagree")} disabled={Boolean(revealedVote)} className="min-h-14 rounded-2xl border border-rose-300/25 bg-rose-300/[0.08] px-4 text-sm font-black uppercase tracking-wider text-rose-100 transition hover:bg-rose-300/[0.15] active:scale-[.97] disabled:opacity-50">← Disagree</button>
-          <button type="button" onClick={() => vote("agree")} disabled={Boolean(revealedVote)} className="min-h-14 rounded-2xl border border-emerald-300/25 bg-emerald-300/[0.1] px-4 text-sm font-black uppercase tracking-wider text-emerald-100 transition hover:bg-emerald-300/[0.17] active:scale-[.97] disabled:opacity-50">Agree →</button>
-        </div>
+        {revealedVote ? <button type="button" onClick={nextTake} className="mt-3 flex min-h-14 w-full max-w-[34rem] items-center justify-center rounded-2xl bg-[#d8b75b] px-4 text-sm font-black uppercase tracking-wider text-black transition hover:bg-[#f6dc86] active:scale-[.97]">{index + 1 === ROUND_LENGTH ? "See Your Fan DNA" : "Next Take"}</button> : <div className="mt-3 grid w-full max-w-[34rem] grid-cols-2 gap-3"><button type="button" onClick={() => vote("disagree")} className="min-h-14 rounded-2xl border border-rose-300/25 bg-rose-300/[0.08] px-4 text-sm font-black uppercase tracking-wider text-rose-100 transition hover:bg-rose-300/[0.15] active:scale-[.97]">← Disagree</button><button type="button" onClick={() => vote("agree")} className="min-h-14 rounded-2xl border border-emerald-300/25 bg-emerald-300/[0.1] px-4 text-sm font-black uppercase tracking-wider text-emerald-100 transition hover:bg-emerald-300/[0.17] active:scale-[.97]">Agree →</button></div>}
         <p className="mt-3 text-[10px] font-black uppercase tracking-[0.16em] text-white/25">World Cup Games</p>
       </section> : null}
     </div>

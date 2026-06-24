@@ -337,6 +337,31 @@ function getNationDifficulty(nation: Nation) {
   return "Underdog Run";
 }
 
+function GameLaunchCard({
+  tone,
+  badge,
+  title,
+  subtitle,
+  icon,
+  children,
+}: {
+  tone: "simulator" | "higher-lower" | "wordle" | "hot-takes" | "calculator";
+  badge: string;
+  title: string;
+  subtitle: string;
+  icon: string;
+  children: ReactNode;
+}) {
+  return <article className={`premium-game-card premium-game-card-${tone} min-w-0 p-5 text-left sm:p-6`}>
+    <div className="relative z-10 flex h-full flex-col">
+      <div className="flex items-start justify-between gap-3"><span className="premium-game-badge">{badge}</span><span className="text-3xl drop-shadow-lg">{icon}</span></div>
+      <h2 className="mt-7 text-2xl font-black tracking-[-0.04em]">{title}</h2>
+      <p className="mt-2 min-h-10 max-w-xs text-sm leading-5 text-white/65">{subtitle}</p>
+      <div className="mt-auto pt-5">{children}</div>
+    </div>
+  </article>;
+}
+
 function PlayerModal({
   open,
   nation,
@@ -1436,42 +1461,23 @@ export default function Home() {
             </div>
           </nav>
 
-          <div className="flex flex-1 flex-col items-center justify-center py-16 text-center">
-            <div className="mb-7 grid h-28 w-28 place-items-center rounded-full border border-[#d8b75b]/30 bg-[#d8b75b]/5 shadow-[0_0_80px_rgba(216,183,91,.2)]">
+          <div className="flex flex-1 flex-col items-center justify-center py-12 text-center sm:py-16">
+            <div className="mb-6 grid h-24 w-24 place-items-center rounded-[2rem] border border-[#d8b75b]/35 bg-[#d8b75b]/10 shadow-[0_0_80px_rgba(216,183,91,.2)] sm:h-28 sm:w-28">
               <div className="ball-mark h-16 w-16 rounded-full border-2 border-[#f6dc86]" />
             </div>
             <p className="mb-4 text-xs font-black uppercase tracking-[0.4em] text-[#d8b75b]">Play. Compete. Share.</p>
             <h1 className="max-w-4xl text-4xl font-black uppercase leading-[0.9] tracking-[-0.045em] sm:text-7xl sm:leading-[0.88] sm:tracking-[-0.055em] lg:text-8xl">
               World Cup<br /><span className="text-gradient">Games</span>
             </h1>
-            <p className="mt-6 max-w-md text-base leading-7 text-white/55 sm:text-lg">
-              Play addictive World Cup minigames, chase high scores, challenge friends, and climb the leaderboards.
+            <p className="mt-5 max-w-md text-base leading-7 text-white/60 sm:text-lg">
+              Daily football games, viral takes, and tournament glory. Pick a mode and chase your next high score.
             </p>
-            <div className="mt-9 grid w-full max-w-5xl min-w-0 gap-3 sm:grid-cols-2 xl:grid-cols-4">
-              <div className="min-w-0 rounded-[1.5rem] border border-[#d8b75b]/25 bg-[#d8b75b]/8 p-5 text-left">
-                <p className="text-[9px] font-black uppercase tracking-[0.18em] text-[#d8b75b]">Tournament game</p>
-                <h2 className="mt-1 font-black">World Cup Simulator</h2>
-                <p className="mt-2 min-h-10 text-xs leading-5 text-white/45">Build your XI and simulate the tournament.</p>
-                <div className="mt-4 grid grid-cols-2 gap-2"><button onClick={() => setNationModalOpen(true)} className="flex min-h-11 items-center justify-center rounded-xl bg-[#d8b75b] px-3 py-3 text-xs font-black uppercase tracking-wider text-black">Play</button><button type="button" onClick={() => setLeaderboardOpen(true)} className="flex min-h-11 items-center justify-center rounded-xl border border-[#d8b75b]/25 bg-[#d8b75b]/10 px-3 py-3 text-xs font-black uppercase tracking-wider text-[#f6dc86]">Leaderboard</button></div>
-              </div>
-              <div className="min-w-0 rounded-[1.5rem] border border-emerald-300/20 bg-emerald-300/[0.05] p-5 text-left">
-                <p className="text-[9px] font-black uppercase tracking-[0.18em] text-emerald-200">Stat battle</p>
-                <h2 className="font-black">Higher / Lower</h2>
-                <p className="mt-2 min-h-10 text-xs leading-5 text-white/45">Guess which World Cup stat is higher.</p>
-                <div className="mt-4 grid grid-cols-2 gap-2"><Link href="/higher-lower" className="flex min-h-11 items-center justify-center rounded-xl border border-emerald-300/20 bg-emerald-300/10 px-3 py-3 text-center text-xs font-black uppercase tracking-wider text-emerald-100">Play</Link><Link href="/higher-lower?leaderboard=1" className="flex min-h-11 items-center justify-center rounded-xl border border-white/10 bg-white/5 px-3 py-3 text-center text-xs font-black uppercase tracking-wider text-white/75">Leaderboard</Link></div>
-              </div>
-              <div className="min-w-0 rounded-[1.5rem] border border-[#d8b75b]/25 bg-[#d8b75b]/[0.06] p-5 text-left">
-                <p className="text-[9px] font-black uppercase tracking-[0.18em] text-[#f6dc86]">Daily puzzle</p>
-                <h2 className="font-black">World Cup Wordle</h2>
-                <p className="mt-2 min-h-10 text-xs leading-5 text-white/45">Guess the mystery World Cup player.</p>
-                <div className="mt-4 grid grid-cols-2 gap-2"><Link href="/wordle" className="flex min-h-11 items-center justify-center rounded-xl border border-[#d8b75b]/25 bg-[#d8b75b]/10 px-3 py-3 text-center text-xs font-black uppercase tracking-wider text-[#f6dc86]">Play</Link><Link href="/wordle?leaderboard=1" className="flex min-h-11 items-center justify-center rounded-xl border border-white/10 bg-white/5 px-3 py-3 text-center text-xs font-black uppercase tracking-wider text-white/75">Leaderboard</Link></div>
-              </div>
-              <div className="min-w-0 rounded-[1.5rem] border border-rose-300/20 bg-rose-300/[0.045] p-5 text-left">
-                <p className="text-[9px] font-black uppercase tracking-[0.18em] text-rose-200">Community debate</p>
-                <h2 className="mt-1 font-black">Hot Takes</h2>
-                <p className="mt-2 min-h-10 text-xs leading-5 text-white/45">Swipe through controversial football takes.</p>
-                <Link href="/hot-takes" className="mt-4 flex min-h-11 w-full items-center justify-center rounded-xl border border-rose-300/25 bg-rose-300/10 px-3 py-3 text-center text-xs font-black uppercase tracking-wider text-rose-100">Play</Link>
-              </div>
+            <div className="mt-8 grid w-full max-w-6xl min-w-0 gap-4 text-left sm:grid-cols-2 xl:grid-cols-3">
+              <GameLaunchCard tone="simulator" badge="Classic" title="World Cup Simulator" subtitle="Build your XI. Chase the trophy." icon="🏆"><div className="grid grid-cols-2 gap-2"><button onClick={() => setNationModalOpen(true)} className="premium-play-button">Play</button><button type="button" onClick={() => setLeaderboardOpen(true)} className="premium-secondary-button">Leaderboard</button></div></GameLaunchCard>
+              <GameLaunchCard tone="higher-lower" badge="Addictive" title="Higher / Lower" subtitle="Can you spot the bigger World Cup stat?" icon="⚡"><div className="grid grid-cols-2 gap-2"><Link href="/higher-lower" className="premium-play-button">Play</Link><Link href="/higher-lower?leaderboard=1" className="premium-secondary-button">Leaderboard</Link></div></GameLaunchCard>
+              <GameLaunchCard tone="wordle" badge="Daily" title="World Cup Wordle" subtitle="Guess the mystery player in six." icon="🟨"><div className="grid grid-cols-2 gap-2"><Link href="/wordle" className="premium-play-button">Play</Link><Link href="/wordle?leaderboard=1" className="premium-secondary-button">Leaderboard</Link></div></GameLaunchCard>
+              <GameLaunchCard tone="hot-takes" badge="Viral" title="Hot Takes" subtitle="Swipe your side of football's biggest debates." icon="🔥"><Link href="/hot-takes" className="premium-play-button">Play</Link></GameLaunchCard>
+              <GameLaunchCard tone="calculator" badge="Live" title="World Cup Calculator" subtitle="Live tables, races, and the knockout picture." icon="📊"><Link href="/world-cup-calculator" className="premium-play-button">Open Calculator</Link></GameLaunchCard>
             </div>
           </div>
           <div className="grid grid-cols-3 gap-2 border-t border-white/10 pt-5 text-center text-[9px] font-black uppercase tracking-widest text-white/30">
