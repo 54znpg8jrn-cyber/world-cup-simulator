@@ -2,6 +2,8 @@
 
 import Link from "next/link";
 import { useEffect, useMemo, useRef, useState } from "react";
+import { ChallengeFriendButton } from "../components/ChallengeFriendButton";
+import { ShareResultButton } from "../components/ShareResultButton";
 import {
   HIGHER_LOWER_CATEGORIES,
   HIGHER_LOWER_ITEMS,
@@ -14,6 +16,7 @@ import {
   saveHigherLowerScore,
   type HigherLowerLeaderboardEntry,
 } from "../lib/games/higher-lower-leaderboard";
+import type { SquareCarouselSlide } from "../lib/share/createSquareCarousel";
 
 type Guess = "higher" | "lower";
 type CategoryValue = "all" | HigherLowerCategory;
@@ -205,27 +208,6 @@ export default function HigherLowerPage() {
     nextRoundTimer.current = window.setTimeout(() => setGameOver(true), 760);
   };
 
-  const shareScore = async () => {
-    const shareText = `I scored ${streak} in World Cup Higher / Lower. Can you beat me?`;
-    const url = window.location.href;
-
-    try {
-      if (navigator.share) {
-        await navigator.share({
-          title: "World Cup Higher / Lower",
-          text: shareText,
-          url,
-        });
-        setMessage("Challenge shared!");
-        return;
-      }
-      await navigator.clipboard.writeText(`${shareText}\n${url}`);
-      setMessage("Challenge copied!");
-    } catch {
-      setMessage("Could not share right now. Try again.");
-    }
-  };
-
   const updatePlayerName = (value: string) => {
     const nextName = value.slice(0, 40);
     setPlayerName(nextName);
@@ -349,10 +331,11 @@ export default function HigherLowerPage() {
           bestStreak={bestStreak}
           category={gameOverCategory}
           milestone={milestoneFor(streak)}
+          round={round}
           playerName={playerName}
           onPlayerNameChange={updatePlayerName}
           onPlayAgain={() => playAgain()}
-          onShare={() => void shareScore()}
+          onStatus={setMessage}
           onSave={() => void saveScore()}
           onShowLeaderboard={() => void openLeaderboard(gameOverCategory)}
           saved={scoreSaved}
@@ -685,10 +668,11 @@ function GameOverModal({
   bestStreak,
   category,
   milestone,
+  round,
   playerName,
   onPlayerNameChange,
   onPlayAgain,
-  onShare,
+  onStatus,
   onSave,
   onShowLeaderboard,
   saved,
@@ -699,16 +683,49 @@ function GameOverModal({
   bestStreak: number;
   category: string;
   milestone: string | null;
+  round: RoundState | null;
   playerName: string;
   onPlayerNameChange: (value: string) => void;
   onPlayAgain: () => void;
-  onShare: () => void;
+  onStatus: (message: string) => void;
   onSave: () => void;
   onShowLeaderboard: () => void;
   saved: boolean;
   saving: boolean;
   message: string;
 }) {
+  const url = typeof window === "undefined" ? "/higher-lower" : `${window.location.origin}/higher-lower`;
+  const known = round?.known;
+  const mystery = round?.mystery;
+  const statLabel = known?.statLabel ?? category;
+  const higherItem = known && mystery ? (known.value >= mystery.value ? known : mystery) : null;
+  const slides: [SquareCarouselSlide, SquareCarouselSlide] = [
+    {
+      kicker: "Higher / Lower",
+      title: `Who has more ${statLabel}?`,
+      subtitle: known && mystery ? `${known.label} or ${mystery.label}?` : "Can you beat my streak?",
+      stats: [
+        { label: "Final streak", value: String(streak), highlight: true },
+        { label: "Best", value: String(bestStreak) },
+      ],
+      accent: "gold",
+    },
+    {
+      kicker: "World Cup Games",
+      title: known && mystery ? `${known.label} vs ${mystery.label}` : "Higher / Lower result",
+      stats: known && mystery ? [
+        { label: known.label, value: known.display, highlight: higherItem?.id === known.id },
+        { label: mystery.label, value: mystery.display, highlight: higherItem?.id === mystery.id },
+      ] : [
+        { label: "Final streak", value: String(streak), highlight: true },
+        { label: "Category", value: category },
+      ],
+      body: [`Correct answer: ${higherItem?.label ?? "Keep guessing"}`, `Category: ${category}`],
+      accent: "green",
+    },
+  ];
+  const shareText = `I scored ${streak} in World Cup Higher / Lower. Can you beat me?`;
+
   return (
     <div className="absolute inset-0 z-30 grid place-items-center bg-black/72 px-3 py-3 backdrop-blur-sm">
       <section className="screen-enter w-full max-w-md rounded-[1.75rem] border border-[#d8b75b]/30 bg-[#07110d]/95 p-4 text-center shadow-[0_30px_90px_rgba(0,0,0,.45)] sm:p-6">
@@ -744,23 +761,32 @@ function GameOverModal({
           />
         </label>
         <div className="mt-3 grid grid-cols-6 gap-2">
+          <ChallengeFriendButton
+            title="World Cup Higher / Lower"
+            url={url}
+            onStatus={onStatus}
+            className="col-span-6 min-h-11 rounded-xl border border-emerald-300/25 bg-emerald-300/[0.08] px-2 py-2 text-[10px] font-black uppercase tracking-wider text-emerald-100 sm:text-xs"
+          />
+          <ShareResultButton
+            title="World Cup Higher / Lower"
+            text={shareText}
+            url={url}
+            slides={slides}
+            filenamePrefix="world-cup-higher-lower"
+            fallbackText={`${shareText}\n${url}`}
+            onStatus={onStatus}
+            className="col-span-3 min-h-11 rounded-xl border border-[#d8b75b]/25 bg-[#d8b75b]/10 px-2 py-2 text-[10px] font-black uppercase tracking-wider text-[#f6dc86] sm:text-xs"
+          />
           <button
             type="button"
             onClick={onPlayAgain}
-            className="col-span-2 min-h-11 rounded-xl bg-[#d8b75b] px-2 py-2 text-[10px] font-black uppercase tracking-wider text-black sm:text-xs"
+            className="col-span-3 min-h-11 rounded-xl bg-[#d8b75b] px-2 py-2 text-[10px] font-black uppercase tracking-wider text-black sm:text-xs"
           >
             Play Again
           </button>
-          <button
-            type="button"
-            onClick={onShare}
-            className="col-span-2 min-h-11 rounded-xl border border-[#d8b75b]/25 bg-[#d8b75b]/10 px-2 py-2 text-[10px] font-black uppercase tracking-wider text-[#f6dc86] sm:text-xs"
-          >
-            Share Score
-          </button>
           <Link
             href="/"
-            className="col-span-2 flex min-h-11 items-center justify-center rounded-xl border border-white/10 bg-white/5 px-2 py-2 text-[10px] font-black uppercase tracking-wider text-white sm:text-xs"
+            className="col-span-6 flex min-h-11 items-center justify-center rounded-xl border border-white/10 bg-white/5 px-2 py-2 text-[10px] font-black uppercase tracking-wider text-white sm:text-xs"
           >
             Home
           </Link>

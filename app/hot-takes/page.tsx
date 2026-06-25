@@ -2,7 +2,10 @@
 
 import Link from "next/link";
 import { useEffect, useMemo, useRef, useState } from "react";
+import { ChallengeFriendButton } from "../components/ChallengeFriendButton";
+import { ShareResultButton } from "../components/ShareResultButton";
 import { HOT_TAKES, type HotTake, type HotTakeCategory } from "../lib/games/hot-takes-data";
+import type { SquareCarouselSlide } from "../lib/share/createSquareCarousel";
 
 type Vote = "agree" | "disagree";
 type Answer = { take: HotTake; vote: Vote; communityAgreement: number };
@@ -149,48 +152,6 @@ export default function HotTakesPage() {
     setMessage("");
   };
 
-  const shareResult = async () => {
-    const url = `${window.location.origin}/hot-takes`;
-    const text = `My World Cup Hot Takes DNA: ${fanDna.title}. I agreed with ${agreementRate}% of fans and scored ${controversyScore}/100 for controversy. Can you handle these takes?`;
-    try {
-      const blob = await createShareCard({ fanDna, agreementRate, controversyScore, take: mostControversial?.take.text ?? "No take selected" });
-      const file = new File([blob], "world-cup-hot-takes.png", { type: "image/png" });
-      if (navigator.share && navigator.canShare?.({ files: [file] })) {
-        await navigator.share({ title: "World Cup Games: Hot Takes", text, files: [file] });
-        setMessage("Share card sent!");
-        return;
-      }
-      downloadBlob(blob, "world-cup-hot-takes.png");
-      setMessage("Share card downloaded!");
-    } catch (error) {
-      console.error("Hot Takes share card failed", error);
-      try {
-        await navigator.clipboard.writeText(`${text}\n${url}`);
-        setMessage("Result copied!");
-      } catch {
-        setMessage("Could not share the result right now.");
-      }
-    }
-  };
-
-  const challengeFriend = async () => {
-    const url = `${window.location.origin}/hot-takes`;
-    const text = `I just got ${fanDna.title} in Hot Takes. Can you survive these football takes?`;
-    try {
-      if (navigator.share) {
-        await navigator.share({ title: "World Cup Games: Hot Takes", text, url });
-        setMessage("Challenge sent!");
-        return;
-      }
-      await navigator.clipboard.writeText(`${text}\n${url}`);
-      setMessage("Challenge link copied!");
-    } catch (error) {
-      console.error("Hot Takes challenge failed", error);
-      setMessage("Could not share the challenge right now.");
-    }
-    // TODO: Add shareable challenge sessions when community voting is introduced.
-  };
-
   const overlayStrength = Math.min(Math.abs(dragX) / SWIPE_THRESHOLD, 1);
   const cardStyle = { transform: `translate3d(${dragX}px, ${exitVote ? "-4vh" : "0"}, 0) rotate(${exitVote ? exitVote === "agree" ? 24 : -24 : dragX / 22}deg)` };
   const selectedPercentage = revealedVote === "agree" ? take?.agreePercentage : take?.disagreePercentage;
@@ -211,7 +172,7 @@ export default function HotTakesPage() {
         <span className="flex h-10 min-w-11 items-center justify-center rounded-full border border-[#d8b75b]/20 bg-[#d8b75b]/10 px-3 text-xs font-black text-[#f6dc86]">{Math.min(index + 1, ROUND_LENGTH)}/{ROUND_LENGTH}</span>
       </header>
 
-      {complete ? <FanDnaResult fanDna={fanDna} agreementRate={agreementRate} controversyScore={controversyScore} mostControversial={mostControversial} message={message} onShare={() => void shareResult()} onChallenge={() => void challengeFriend()} onNext={startNewDeck} /> : take ? <section className="flex min-h-0 flex-1 flex-col items-center justify-center py-3 sm:py-4">
+      {complete ? <FanDnaResult fanDna={fanDna} agreementRate={agreementRate} controversyScore={controversyScore} mostControversial={mostControversial} message={message} onStatus={setMessage} onNext={startNewDeck} /> : take ? <section className="flex min-h-0 flex-1 flex-col items-center justify-center py-3 sm:py-4">
         <div className="relative w-full max-w-[34rem]">
           {revealedVote ? <HotTakeVoteResult vote={revealedVote} selectedPercentage={selectedPercentage ?? 0} otherPercentage={otherPercentage ?? 0} selectedLabel={selectedLabel} otherLabel={otherLabel} verdict={crowdVerdict} onNext={nextTake} finalTake={index + 1 === ROUND_LENGTH} /> : <div
             onPointerDown={(event) => { if (!exitVote) { pointerStart.current = { x: event.clientX, y: event.clientY }; event.currentTarget.setPointerCapture(event.pointerId); setIsDragging(true); } }}
@@ -239,93 +200,36 @@ function HotTakeVoteResult({ vote, selectedPercentage, otherPercentage, selected
   return <div onClick={onNext} className={`hot-take-result-card hot-take-reveal aspect-square w-full cursor-pointer rounded-[2rem] border p-7 text-center shadow-[0_28px_90px_rgba(0,0,0,.4)] ${agreed ? "border-emerald-300/45 bg-emerald-400/[0.12]" : "border-rose-300/45 bg-rose-400/[0.12]"}`}><div className="flex h-full flex-col items-center justify-center"><p className={`text-xs font-black uppercase tracking-[0.24em] ${agreed ? "text-emerald-200" : "text-rose-200"}`}>{agreed ? "You agreed" : "You disagreed"}</p><p className="mt-4 text-7xl font-black text-[#f6dc86] sm:text-8xl">{selectedPercentage}%</p><div className="mt-3 space-y-1 text-sm font-black"><p className={agreed ? "text-emerald-100" : "text-rose-100"}>{selectedPercentage}% {selectedLabel}</p><p className="text-white/55">{otherPercentage}% {otherLabel}</p></div><div className="mt-6 rounded-2xl border border-white/10 bg-black/25 px-4 py-3 text-sm font-bold text-white/80">{verdict}</div><button type="button" onClick={(event) => { event.stopPropagation(); onNext(); }} className="mt-7 min-h-14 w-full rounded-2xl bg-[#d8b75b] px-4 text-sm font-black uppercase tracking-wider text-black transition hover:bg-[#f6dc86] active:scale-[.97]">{finalTake ? "See Your Fan DNA" : "Next Take"}</button><p className="mt-4 text-[10px] font-black uppercase tracking-[0.18em] text-white/35">Tap anywhere to continue</p></div></div>;
 }
 
-function FanDnaResult({ fanDna, agreementRate, controversyScore, mostControversial, message, onShare, onChallenge, onNext }: { fanDna: FanDna; agreementRate: number; controversyScore: number; mostControversial?: Answer; message: string; onShare: () => void; onChallenge: () => void; onNext: () => void }) {
+function FanDnaResult({ fanDna, agreementRate, controversyScore, mostControversial, message, onStatus, onNext }: { fanDna: FanDna; agreementRate: number; controversyScore: number; mostControversial?: Answer; message: string; onStatus: (message: string) => void; onNext: () => void }) {
   const percentile = Math.max(1, Math.round(100 - controversyScore));
-  return <section className="flex min-h-0 flex-1 items-center justify-center py-3"><div className={`screen-enter w-full max-w-2xl overflow-y-auto rounded-[2rem] border border-[#d8b75b]/25 bg-[#0a1710]/95 p-6 text-center shadow-2xl sm:p-9 ${controversyScore >= 70 ? "hot-take-confetti" : ""}`}><p className="text-[10px] font-black uppercase tracking-[0.28em] text-[#d8b75b]">Your Fan DNA</p><h2 className="mt-3 text-4xl font-black tracking-[-0.05em] text-gradient sm:text-6xl">{fanDna.title}</h2><p className="mx-auto mt-4 max-w-md text-sm leading-6 text-white/60">{fanDna.description}</p><div className="mt-6 grid grid-cols-2 gap-3"><ResultStat value={`${agreementRate}%`} label="Agree with fans" /><ResultStat value={`${controversyScore}/100`} label="Controversy score" /></div><p className="mt-3 text-[10px] font-black uppercase tracking-[0.17em] text-[#f6dc86]">Top {percentile}% most controversial fans</p>{mostControversial ? <div className="mt-5 rounded-2xl border border-white/10 bg-black/20 p-4 text-left"><p className="text-[9px] font-black uppercase tracking-[0.18em] text-white/40">Most controversial answer</p><p className="mt-2 text-sm font-black leading-5">“{mostControversial.take.text}”</p><p className="mt-2 text-xs font-bold text-rose-200">You {mostControversial.vote}d with {mostControversial.communityAgreement}% of fans.</p></div> : null}<div className="mt-6 grid gap-2 sm:grid-cols-2"><button type="button" onClick={onShare} className="min-h-12 rounded-xl border border-[#d8b75b]/30 bg-[#d8b75b]/10 px-4 text-xs font-black uppercase tracking-wider text-[#f6dc86] transition hover:bg-[#d8b75b]/15 active:scale-[.98]">Share Result</button><button type="button" onClick={onChallenge} className="min-h-12 rounded-xl border border-emerald-300/25 bg-emerald-300/[0.08] px-4 text-xs font-black uppercase tracking-wider text-emerald-100 transition hover:bg-emerald-300/[0.15] active:scale-[.98]">Challenge a Friend</button><button type="button" onClick={onNext} className="min-h-12 rounded-xl bg-[#d8b75b] px-4 text-xs font-black uppercase tracking-wider text-black transition hover:bg-[#f6dc86] active:scale-[.98]">Next 10 Takes</button><Link href="/" className="flex min-h-12 items-center justify-center rounded-xl border border-white/10 bg-white/5 px-4 text-xs font-black uppercase tracking-wider text-white/75 transition hover:bg-white/10">Home</Link></div>{message ? <p className="mt-3 text-xs font-bold text-[#f6dc86]">{message}</p> : null}</div></section>;
+  const url = typeof window === "undefined" ? "/hot-takes" : `${window.location.origin}/hot-takes`;
+  const take = mostControversial?.take;
+  const votePercentage = mostControversial?.communityAgreement ?? agreementRate;
+  const agreePercentage = take?.agreePercentage ?? agreementRate;
+  const disagreePercentage = take?.disagreePercentage ?? Math.max(0, 100 - agreementRate);
+  const slides: [SquareCarouselSlide, SquareCarouselSlide] = [
+    {
+      kicker: "Hot Takes",
+      title: `Only ${votePercentage}% agreed`,
+      subtitle: fanDna.title,
+      body: ["Football opinions, measured in public."],
+      accent: votePercentage < 50 ? "rose" : "gold",
+    },
+    {
+      kicker: "World Cup Games",
+      title: take?.text ?? "My Hot Takes result",
+      stats: [
+        { label: "Agree", value: `${agreePercentage}%`, highlight: mostControversial?.vote === "agree" },
+        { label: "Disagree", value: `${disagreePercentage}%`, highlight: mostControversial?.vote === "disagree" },
+      ],
+      body: [`Fan DNA: ${fanDna.title}`, `Controversy: ${controversyScore}/100`],
+      accent: "gold",
+    },
+  ];
+  const shareText = `My World Cup Hot Takes DNA: ${fanDna.title}. I agreed with ${agreementRate}% of fans.`;
+  return <section className="flex min-h-0 flex-1 items-center justify-center py-3"><div className={`screen-enter w-full max-w-2xl overflow-y-auto rounded-[2rem] border border-[#d8b75b]/25 bg-[#0a1710]/95 p-6 text-center shadow-2xl sm:p-9 ${controversyScore >= 70 ? "hot-take-confetti" : ""}`}><p className="text-[10px] font-black uppercase tracking-[0.28em] text-[#d8b75b]">Your Fan DNA</p><h2 className="mt-3 text-4xl font-black tracking-[-0.05em] text-gradient sm:text-6xl">{fanDna.title}</h2><p className="mx-auto mt-4 max-w-md text-sm leading-6 text-white/60">{fanDna.description}</p><div className="mt-6 grid grid-cols-2 gap-3"><ResultStat value={`${agreementRate}%`} label="Agree with fans" /><ResultStat value={`${controversyScore}/100`} label="Controversy score" /></div><p className="mt-3 text-[10px] font-black uppercase tracking-[0.17em] text-[#f6dc86]">Top {percentile}% most controversial fans</p>{mostControversial ? <div className="mt-5 rounded-2xl border border-white/10 bg-black/20 p-4 text-left"><p className="text-[9px] font-black uppercase tracking-[0.18em] text-white/40">Most controversial answer</p><p className="mt-2 text-sm font-black leading-5">“{mostControversial.take.text}”</p><p className="mt-2 text-xs font-bold text-rose-200">You {mostControversial.vote}d with {mostControversial.communityAgreement}% of fans.</p></div> : null}<div className="mt-6 grid gap-2 sm:grid-cols-2"><ChallengeFriendButton title="World Cup Games: Hot Takes" url={url} onStatus={onStatus} className="min-h-12 rounded-xl border border-emerald-300/25 bg-emerald-300/[0.08] px-4 text-xs font-black uppercase tracking-wider text-emerald-100 transition hover:bg-emerald-300/[0.15] active:scale-[.98]" /><ShareResultButton title="World Cup Games: Hot Takes" text={shareText} url={url} slides={slides} filenamePrefix="world-cup-hot-takes" fallbackText={`${shareText}\n${url}`} onStatus={onStatus} className="min-h-12 rounded-xl border border-[#d8b75b]/30 bg-[#d8b75b]/10 px-4 text-xs font-black uppercase tracking-wider text-[#f6dc86] transition hover:bg-[#d8b75b]/15 active:scale-[.98]" /><button type="button" onClick={onNext} className="min-h-12 rounded-xl bg-[#d8b75b] px-4 text-xs font-black uppercase tracking-wider text-black transition hover:bg-[#f6dc86] active:scale-[.98]">Next 10 Takes</button><Link href="/" className="flex min-h-12 items-center justify-center rounded-xl border border-white/10 bg-white/5 px-4 text-xs font-black uppercase tracking-wider text-white/75 transition hover:bg-white/10">Home</Link></div>{message ? <p className="mt-3 text-xs font-bold text-[#f6dc86]">{message}</p> : null}</div></section>;
 }
 
 function ResultStat({ value, label }: { value: string; label: string }) {
   return <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-4"><p className="text-3xl font-black text-[#f6dc86]">{value}</p><p className="mt-1 text-[9px] font-black uppercase tracking-wider text-white/40">{label}</p></div>;
-}
-
-async function createShareCard({ fanDna, agreementRate, controversyScore, take }: { fanDna: FanDna; agreementRate: number; controversyScore: number; take: string }) {
-  const canvas = document.createElement("canvas");
-  canvas.width = 1080;
-  canvas.height = 1350;
-  const context = canvas.getContext("2d");
-  if (!context) throw new Error("Canvas is unavailable");
-  const gradient = context.createLinearGradient(0, 0, 1080, 1350);
-  gradient.addColorStop(0, "#173a27");
-  gradient.addColorStop(.6, "#07140d");
-  gradient.addColorStop(1, "#020604");
-  context.fillStyle = gradient;
-  context.fillRect(0, 0, 1080, 1350);
-  context.textAlign = "center";
-  context.fillStyle = "#d8b75b";
-  context.font = "900 30px Arial";
-  context.fillText("WORLD CUP GAMES", 540, 92);
-  context.fillStyle = "#ffffff";
-  context.font = "900 62px Arial";
-  context.fillText("HOT TAKES", 540, 170);
-  context.fillStyle = "#f6dc86";
-  context.font = "900 76px Arial";
-  drawFittedText(context, fanDna.title.toUpperCase(), 540, 345, 850);
-  context.fillStyle = "rgba(255,255,255,.6)";
-  context.font = "800 24px Arial";
-  context.fillText("MY FAN DNA", 540, 400);
-  drawCard(context, 100, 480, 880, 215);
-  context.fillStyle = "#f6dc86";
-  context.font = "900 58px Arial";
-  context.fillText(`${agreementRate}%`, 360, 570);
-  context.fillText(`${controversyScore}/100`, 720, 570);
-  context.fillStyle = "rgba(255,255,255,.55)";
-  context.font = "800 20px Arial";
-  context.fillText("AGREE WITH FANS", 360, 620);
-  context.fillText("CONTROVERSY SCORE", 720, 620);
-  drawCard(context, 100, 750, 880, 300);
-  context.fillStyle = "rgba(255,255,255,.45)";
-  context.font = "800 20px Arial";
-  context.fillText("MY SPICIEST TAKE", 540, 810);
-  context.fillStyle = "#ffffff";
-  context.font = "900 36px Arial";
-  drawFittedText(context, `“${take}”`, 540, 885, 760, 42);
-  context.fillStyle = "#d8b75b";
-  context.font = "900 32px Arial";
-  context.fillText("CAN YOU HANDLE THESE TAKES?", 540, 1190);
-  context.fillStyle = "rgba(255,255,255,.45)";
-  context.font = "800 20px Arial";
-  context.fillText("WORLD CUP GAMES", 540, 1250);
-  return new Promise<Blob>((resolve, reject) => canvas.toBlob((blob) => blob ? resolve(blob) : reject(new Error("Could not create share image")), "image/png"));
-}
-
-function drawCard(context: CanvasRenderingContext2D, x: number, y: number, width: number, height: number) {
-  context.beginPath();
-  context.roundRect(x, y, width, height, 28);
-  context.fillStyle = "rgba(0,0,0,.26)";
-  context.fill();
-  context.strokeStyle = "rgba(216,183,91,.3)";
-  context.lineWidth = 2;
-  context.stroke();
-}
-
-function drawFittedText(context: CanvasRenderingContext2D, text: string, x: number, y: number, maxWidth: number, lineHeight = 60) {
-  const words = text.split(" ");
-  const lines: string[] = [];
-  let line = "";
-  words.forEach((word) => {
-    const candidate = line ? `${line} ${word}` : word;
-    if (context.measureText(candidate).width > maxWidth && line) { lines.push(line); line = word; } else line = candidate;
-  });
-  if (line) lines.push(line);
-  const start = y - ((lines.length - 1) * lineHeight) / 2;
-  lines.slice(0, 3).forEach((entry, index) => context.fillText(entry, x, start + index * lineHeight));
-}
-
-function downloadBlob(blob: Blob, filename: string) {
-  const url = URL.createObjectURL(blob);
-  const anchor = document.createElement("a");
-  anchor.href = url;
-  anchor.download = filename;
-  anchor.click();
-  window.setTimeout(() => URL.revokeObjectURL(url), 0);
 }

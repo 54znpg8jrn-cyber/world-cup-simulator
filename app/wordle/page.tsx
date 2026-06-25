@@ -2,6 +2,8 @@
 
 import Link from "next/link";
 import { type FormEvent, useEffect, useMemo, useState } from "react";
+import { ChallengeFriendButton } from "../components/ChallengeFriendButton";
+import { ShareResultButton } from "../components/ShareResultButton";
 import {
   getPositionGroup,
   NATION_CONFEDERATIONS,
@@ -15,6 +17,7 @@ import {
   saveWordleLeaderboardScore,
   type WordleLeaderboardEntry,
 } from "../lib/games/wordle-leaderboard";
+import type { SquareCarouselSlide } from "../lib/share/createSquareCarousel";
 
 type WordleMode = "daily" | "unlimited";
 type GameStatus = "playing" | "won" | "lost";
@@ -166,7 +169,6 @@ export default function WorldCupWordlePage() {
   const [stats, setStats] = useState<WordleStats>(EMPTY_STATS);
   const [query, setQuery] = useState("");
   const [message, setMessage] = useState("");
-  const [isSharing, setIsSharing] = useState(false);
   const [playerName, setPlayerName] = useState("World Cup Fan");
   const [leaderboardOpen, setLeaderboardOpen] = useState(false);
   const [leaderboardEntries, setLeaderboardEntries] = useState<WordleLeaderboardEntry[]>([]);
@@ -336,75 +338,6 @@ export default function WorldCupWordlePage() {
     }
   };
 
-  const challengeFriend = async () => {
-    const url = `${window.location.origin}/wordle`;
-    const text = "I just played World Cup Wordle. Can you solve today’s player faster than me?";
-    try {
-      if (navigator.share) {
-        await navigator.share({ title: "World Cup Wordle", text, url });
-        setMessage("Challenge shared!");
-        return;
-      }
-      await navigator.clipboard.writeText(`${text}\n${url}`);
-      setMessage("Challenge link copied!");
-    } catch (error) {
-      console.error("Wordle challenge share failed", error);
-      setMessage("Could not share the challenge right now.");
-    }
-  };
-
-  const shareResult = async () => {
-    if (!target || !game) return;
-    const grid = resultGrid(guesses, target);
-    const solved = game.status === "won";
-    const url = `${window.location.origin}/wordle`;
-    const text = [
-      "World Cup Wordle",
-      grid,
-      "",
-      solved ? `Solved in ${guesses.length} guesses` : "Failed to solve the player",
-      url,
-    ].join("\n");
-
-    setIsSharing(true);
-    try {
-      const blob = await generateWordleResultImage({
-        mode,
-        status: game.status,
-        guesses,
-        target,
-        streak: stats.currentStreak,
-        url,
-      });
-      const file = new File([blob], "world-cup-wordle-result.png", {
-        type: "image/png",
-      });
-
-      if (navigator.share && navigator.canShare?.({ files: [file] })) {
-        await navigator.share({
-          title: "World Cup Wordle",
-          text,
-          files: [file],
-        });
-        setMessage("Result shared!");
-        return;
-      }
-
-      downloadResultImage(blob);
-      setMessage("Result image downloaded!");
-    } catch (error) {
-      console.error("Wordle result image generation failed", error);
-      try {
-        await navigator.clipboard.writeText(text);
-        setMessage("Result copied! Image generation was unavailable.");
-      } catch {
-        setMessage("Could not create the result image or copy the result.");
-      }
-    } finally {
-      setIsSharing(false);
-    }
-  };
-
   return (
     <main className="stadium-bg min-h-dvh w-full max-w-full overflow-x-hidden px-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-[max(0.75rem,env(safe-area-inset-top))] text-white sm:px-5 sm:py-5 lg:px-8">
       <div className="mx-auto w-full max-w-4xl min-w-0">
@@ -502,11 +435,11 @@ export default function WorldCupWordlePage() {
               status={game.status}
               target={target}
               guesses={guesses.length}
+              grid={resultGrid(guesses, target)}
               mode={mode}
-              onShare={() => void shareResult()}
-              onChallenge={() => void challengeFriend()}
+              streak={stats.currentStreak}
+              onStatus={setMessage}
               onNewUnlimited={newUnlimitedGame}
-              sharing={isSharing}
               playerName={playerName}
               onPlayerNameChange={(value) => {
                 const nextName = value.slice(0, 40);
@@ -588,16 +521,44 @@ function HelpRule({ title, text }: { title: string; text: string }) {
   return <div className="rounded-xl border border-white/10 bg-white/[0.04] p-3"><p className="font-black text-white">{title}</p><p className="mt-1 text-xs leading-5 text-white/55">{text}</p></div>;
 }
 
-function ResultPanel({ status, target, guesses, mode, onShare, onChallenge, onNewUnlimited, sharing, playerName, onPlayerNameChange, onSaveScore, scoreSaved, scoreSaving }: { status: Exclude<GameStatus, "playing">; target: WordlePlayer; guesses: number; mode: WordleMode; onShare: () => void; onChallenge: () => void; onNewUnlimited: () => void; sharing: boolean; playerName: string; onPlayerNameChange: (value: string) => void; onSaveScore: () => void; scoreSaved: boolean; scoreSaving: boolean }) {
+function ResultPanel({ status, target, guesses, grid, mode, streak, onStatus, onNewUnlimited, playerName, onPlayerNameChange, onSaveScore, scoreSaved, scoreSaving }: { status: Exclude<GameStatus, "playing">; target: WordlePlayer; guesses: number; grid: string; mode: WordleMode; streak: number; onStatus: (message: string) => void; onNewUnlimited: () => void; playerName: string; onPlayerNameChange: (value: string) => void; onSaveScore: () => void; scoreSaved: boolean; scoreSaving: boolean }) {
   const won = status === "won";
+  const url = typeof window === "undefined" ? "/wordle" : `${window.location.origin}/wordle`;
+  const shareText = [
+    "World Cup Wordle",
+    grid,
+    "",
+    won ? `Solved in ${guesses} guesses` : "Failed to solve the player",
+    url,
+  ].join("\n");
+  const slides: [SquareCarouselSlide, SquareCarouselSlide] = [
+    {
+      kicker: "World Cup Wordle",
+      title: mode === "daily" ? "Can you guess today's World Cup player?" : "Can you guess this World Cup player?",
+      subtitle: mode === "daily" ? "Daily challenge" : "Unlimited mode",
+      body: ["Nation", "Position", "Age", "Appearances", "Goals"],
+      accent: "gold",
+    },
+    {
+      kicker: "World Cup Games",
+      title: won ? `Solved in ${guesses} guesses` : "Out of guesses",
+      subtitle: target.name,
+      body: grid.split("\n"),
+      stats: [
+        { label: "Mode", value: mode === "daily" ? "Daily" : "Unlimited" },
+        { label: "Streak", value: String(streak), highlight: won },
+      ],
+      accent: won ? "green" : "rose",
+    },
+  ];
   return <div className={`screen-enter mt-5 rounded-2xl border p-4 text-center ${won ? "border-emerald-300/30 bg-emerald-300/[0.08]" : "border-rose-300/25 bg-rose-300/[0.06]"}`}>
     <p className={`text-[10px] font-black uppercase tracking-[0.22em] ${won ? "text-emerald-200" : "text-rose-200"}`}>{won ? "Solved" : "Out of guesses"}</p>
     <h2 className="mt-2 text-2xl font-black">{target.name}</h2>
     <p className="mt-1 text-sm font-bold text-white/55">{target.nation} · {target.position} · {target.goals} international goals</p>
     {won ? <p className="mt-2 text-sm font-black text-[#f6dc86]">Solved in {guesses} guesses</p> : null}
     <div className="mx-auto mt-4 grid max-w-md gap-2 sm:grid-cols-2">
-      <button type="button" onClick={onShare} disabled={sharing} className="min-h-11 rounded-xl border border-[#d8b75b]/25 bg-[#d8b75b]/10 px-4 text-xs font-black uppercase tracking-wider text-[#f6dc86] disabled:opacity-50">{sharing ? "Creating image..." : "Share Result"}</button>
-      <button type="button" onClick={onChallenge} className="min-h-11 rounded-xl border border-white/15 bg-white/5 px-4 text-xs font-black uppercase tracking-wider text-white/80">Challenge a Friend</button>
+      <ChallengeFriendButton title="World Cup Wordle" text="I just played World Cup Wordle. Can you solve today’s player faster than me?" url={url} onStatus={onStatus} className="min-h-11 rounded-xl border border-emerald-300/25 bg-emerald-300/[0.08] px-4 text-xs font-black uppercase tracking-wider text-emerald-100" />
+      <ShareResultButton title="World Cup Wordle" text={shareText} url={url} slides={slides} filenamePrefix="world-cup-wordle" fallbackText={shareText} onStatus={onStatus} className="min-h-11 rounded-xl border border-[#d8b75b]/25 bg-[#d8b75b]/10 px-4 text-xs font-black uppercase tracking-wider text-[#f6dc86]" />
       {mode === "unlimited" ? <button type="button" onClick={onNewUnlimited} className="min-h-11 rounded-xl bg-[#d8b75b] px-4 text-xs font-black uppercase tracking-wider text-black">Next Player</button> : <p className="flex min-h-11 items-center justify-center rounded-xl border border-white/10 bg-white/5 px-4 text-xs font-black uppercase tracking-wider text-white/55">New daily puzzle tomorrow</p>}
     </div>
     {won ? <div className="mx-auto mt-3 grid max-w-md gap-2 sm:grid-cols-[1fr_auto]">
@@ -615,175 +576,4 @@ function WordleLeaderboardModal({ entries, loading, error, onClose }: { entries:
       {loading ? <p className="py-10 text-center text-sm font-bold text-white/50">Loading scores...</p> : entries.length ? <div className="mt-4 overflow-hidden rounded-2xl border border-white/10"><div className="grid grid-cols-[2.25rem_minmax(0,1fr)_3.25rem_3rem_3.25rem] gap-2 border-b border-white/10 bg-white/[0.04] px-3 py-2 text-[8px] font-black uppercase tracking-wider text-white/40"><span>#</span><span>Player</span><span>Mode</span><span>Guess</span><span>Streak</span></div>{entries.map((entry, index) => <div key={entry.id} className={`grid grid-cols-[2.25rem_minmax(0,1fr)_3.25rem_3rem_3.25rem] items-center gap-2 border-b border-white/5 px-3 py-3 text-xs last:border-b-0 ${index < 3 ? "bg-[#d8b75b]/[0.06]" : ""}`}><span className={`font-black ${index === 0 ? "text-yellow-300" : index === 1 ? "text-slate-200" : index === 2 ? "text-amber-500" : "text-white/45"}`}>{index + 1}</span><div className="min-w-0"><p className="truncate font-black">{entry.playerName}</p><p className="text-[9px] text-white/35">{new Date(entry.createdAt).toLocaleDateString()}</p></div><span className="uppercase text-white/60">{entry.mode}</span><span className="font-black text-[#f6dc86]">{entry.guesses}</span><span className="font-black text-emerald-200">{entry.streak}</span></div>)}</div> : <p className="py-10 text-center text-sm font-bold text-white/50">No scores yet. Set the first benchmark.</p>}
     </section>
   </div>;
-}
-
-async function generateWordleResultImage({
-  mode,
-  status,
-  guesses,
-  target,
-  streak,
-  url,
-}: {
-  mode: WordleMode;
-  status: GameStatus;
-  guesses: WordlePlayer[];
-  target: WordlePlayer;
-  streak: number;
-  url: string;
-}): Promise<Blob> {
-  const canvas = document.createElement("canvas");
-  canvas.width = 1080;
-  canvas.height = 1350;
-  const context = canvas.getContext("2d");
-  if (!context) throw new Error("Canvas 2D context unavailable");
-
-  const background = context.createLinearGradient(0, 0, 1080, 1350);
-  background.addColorStop(0, "#173a27");
-  background.addColorStop(0.6, "#07140d");
-  background.addColorStop(1, "#020604");
-  context.fillStyle = background;
-  context.fillRect(0, 0, canvas.width, canvas.height);
-
-  context.strokeStyle = "rgba(216,183,91,.12)";
-  context.lineWidth = 2;
-  for (let offset = 56; offset < 1080; offset += 72) {
-    context.beginPath();
-    context.moveTo(offset, 0);
-    context.lineTo(offset, 1350);
-    context.stroke();
-  }
-
-  context.textAlign = "center";
-  context.fillStyle = "#d8b75b";
-  context.font = "900 32px Arial, sans-serif";
-  context.fillText("WORLD CUP WORDLE", 540, 100);
-  context.fillStyle = "rgba(255,255,255,.5)";
-  context.font = "800 24px Arial, sans-serif";
-  context.fillText(mode === "daily" ? "DAILY CHALLENGE" : "UNLIMITED MODE", 540, 145);
-
-  const won = status === "won";
-  context.fillStyle = won ? "#9cf0b0" : "#ffb2b2";
-  context.font = "900 74px Arial, sans-serif";
-  context.fillText(won ? "SOLVED" : "FAILED", 540, 260);
-  context.fillStyle = "#f6dc86";
-  context.font = "900 38px Arial, sans-serif";
-  context.fillText(won ? `${guesses.length} GUESSES` : `${guesses.length} GUESSES USED`, 540, 315);
-
-  const squareSize = 94;
-  const gap = 18;
-  const rowWidth = squareSize * 5 + gap * 4;
-  const startX = (1080 - rowWidth) / 2;
-  let y = 390;
-  const colors: Record<HintColor, string> = {
-    green: "#34a866",
-    yellow: "#d8b75b",
-    gray: "#526057",
-  };
-
-  guesses.forEach((guess) => {
-    const hints = getGuessHints(guess, target);
-    const row = [hints.nation, hints.position, hints.age.color, hints.caps.color, hints.goals.color];
-    row.forEach((color, index) => {
-      drawCanvasRoundRect(context, startX + index * (squareSize + gap), y, squareSize, squareSize, 18);
-      context.fillStyle = colors[color];
-      context.fill();
-      context.strokeStyle = "rgba(255,255,255,.18)";
-      context.lineWidth = 2;
-      context.stroke();
-    });
-    y += squareSize + gap;
-  });
-
-  const infoY = Math.max(y + 38, 780);
-  drawCanvasRoundRect(context, 110, infoY, 860, 185, 28);
-  context.fillStyle = "rgba(0,0,0,.28)";
-  context.fill();
-  context.strokeStyle = "rgba(255,255,255,.12)";
-  context.stroke();
-  context.fillStyle = "rgba(255,255,255,.48)";
-  context.font = "800 22px Arial, sans-serif";
-  context.fillText("MYSTERY PLAYER", 540, infoY + 52);
-  context.fillStyle = "#ffffff";
-  context.font = "900 50px Arial, sans-serif";
-  drawCanvasFittedText(context, target.name.toUpperCase(), 540, infoY + 116, 760);
-  context.fillStyle = "#f6dc86";
-  context.font = "800 24px Arial, sans-serif";
-  context.fillText(`${target.nation.toUpperCase()} · ${target.position} · STREAK ${streak}`, 540, infoY + 156);
-
-  context.fillStyle = "#d8b75b";
-  context.font = "900 34px Arial, sans-serif";
-  context.fillText("CAN YOU SOLVE TOMORROW'S PLAYER?", 540, 1180);
-  context.fillStyle = "rgba(255,255,255,.45)";
-  context.font = "700 20px Arial, sans-serif";
-  drawCanvasFittedText(context, url, 540, 1240, 840);
-  context.fillText("WORLD CUP SIMULATOR", 540, 1290);
-
-  return canvasToBlob(canvas);
-}
-
-function drawCanvasRoundRect(
-  context: CanvasRenderingContext2D,
-  x: number,
-  y: number,
-  width: number,
-  height: number,
-  radius: number,
-) {
-  context.beginPath();
-  context.moveTo(x + radius, y);
-  context.lineTo(x + width - radius, y);
-  context.quadraticCurveTo(x + width, y, x + width, y + radius);
-  context.lineTo(x + width, y + height - radius);
-  context.quadraticCurveTo(x + width, y + height, x + width - radius, y + height);
-  context.lineTo(x + radius, y + height);
-  context.quadraticCurveTo(x, y + height, x, y + height - radius);
-  context.lineTo(x, y + radius);
-  context.quadraticCurveTo(x, y, x + radius, y);
-  context.closePath();
-}
-
-function drawCanvasFittedText(
-  context: CanvasRenderingContext2D,
-  text: string,
-  x: number,
-  y: number,
-  maxWidth: number,
-) {
-  if (context.measureText(text).width <= maxWidth) {
-    context.fillText(text, x, y);
-    return;
-  }
-  const words = text.split(" ");
-  const lines: string[] = [];
-  let line = "";
-  words.forEach((word) => {
-    const candidate = line ? `${line} ${word}` : word;
-    if (context.measureText(candidate).width > maxWidth && line) {
-      lines.push(line);
-      line = word;
-    } else {
-      line = candidate;
-    }
-  });
-  if (line) lines.push(line);
-  lines.slice(0, 2).forEach((item, index) => context.fillText(item, x, y + index * 46));
-}
-
-async function canvasToBlob(canvas: HTMLCanvasElement): Promise<Blob> {
-  const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, "image/png"));
-  if (blob) return blob;
-  const response = await fetch(canvas.toDataURL("image/png"));
-  const fallback = await response.blob();
-  if (!fallback.size) throw new Error("Canvas PNG export returned empty data");
-  return fallback;
-}
-
-function downloadResultImage(blob: Blob) {
-  const imageUrl = URL.createObjectURL(blob);
-  const link = document.createElement("a");
-  link.href = imageUrl;
-  link.download = "world-cup-wordle-result.png";
-  link.click();
-  window.setTimeout(() => URL.revokeObjectURL(imageUrl), 1000);
 }
