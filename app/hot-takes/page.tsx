@@ -174,7 +174,7 @@ export default function HotTakesPage() {
 
       {complete ? <FanDnaResult fanDna={fanDna} agreementRate={agreementRate} controversyScore={controversyScore} mostControversial={mostControversial} message={message} onStatus={setMessage} onNext={startNewDeck} /> : take ? <section className="flex min-h-0 flex-1 flex-col items-center justify-center py-3 sm:py-4">
         <div className="relative w-full max-w-[34rem]">
-          {revealedVote ? <HotTakeVoteResult vote={revealedVote} selectedPercentage={selectedPercentage ?? 0} otherPercentage={otherPercentage ?? 0} selectedLabel={selectedLabel} otherLabel={otherLabel} verdict={crowdVerdict} onNext={nextTake} finalTake={index + 1 === ROUND_LENGTH} /> : <div
+          {revealedVote ? <HotTakeVoteResult take={take} vote={revealedVote} selectedPercentage={selectedPercentage ?? 0} otherPercentage={otherPercentage ?? 0} selectedLabel={selectedLabel} otherLabel={otherLabel} verdict={crowdVerdict} onNext={nextTake} finalTake={index + 1 === ROUND_LENGTH} onStatus={setMessage} /> : <div
             onPointerDown={(event) => { if (!exitVote) { pointerStart.current = { x: event.clientX, y: event.clientY }; event.currentTarget.setPointerCapture(event.pointerId); setIsDragging(true); } }}
             onPointerMove={(event) => { if (pointerStart.current !== null && !exitVote) setDragX(event.clientX - pointerStart.current.x); }}
             onPointerUp={(event) => { const distance = pointerStart.current === null ? 0 : event.clientX - pointerStart.current.x; pointerStart.current = null; setIsDragging(false); if (distance >= SWIPE_THRESHOLD) vote("agree"); else if (distance <= -SWIPE_THRESHOLD) vote("disagree"); else setDragX(0); }}
@@ -189,15 +189,36 @@ export default function HotTakesPage() {
           </div>}
         </div>
         {!exitVote && !revealedVote ? <div className="mt-3 grid w-full max-w-[34rem] grid-cols-2 gap-3"><button type="button" onClick={() => vote("disagree")} className="min-h-14 rounded-2xl border border-rose-300/25 bg-rose-300/[0.08] px-4 text-sm font-black uppercase tracking-wider text-rose-100 transition hover:bg-rose-300/[0.15] active:scale-[.97]">← Disagree</button><button type="button" onClick={() => vote("agree")} className="min-h-14 rounded-2xl border border-emerald-300/25 bg-emerald-300/[0.1] px-4 text-sm font-black uppercase tracking-wider text-emerald-100 transition hover:bg-emerald-300/[0.17] active:scale-[.97]">Agree →</button></div> : null}
+        {message ? <p className="mt-2 text-xs font-bold text-[#f6dc86]">{message}</p> : null}
         <p className="mt-3 text-[10px] font-black uppercase tracking-[0.16em] text-white/25">World Cup Games</p>
       </section> : null}
     </div>
   </main>;
 }
 
-function HotTakeVoteResult({ vote, selectedPercentage, otherPercentage, selectedLabel, otherLabel, verdict, onNext, finalTake }: { vote: Vote; selectedPercentage: number; otherPercentage: number; selectedLabel: string; otherLabel: string; verdict: string; onNext: () => void; finalTake: boolean }) {
+function HotTakeVoteResult({ take, vote, selectedPercentage, otherPercentage, selectedLabel, otherLabel, verdict, onNext, finalTake, onStatus }: { take: HotTake; vote: Vote; selectedPercentage: number; otherPercentage: number; selectedLabel: string; otherLabel: string; verdict: string; onNext: () => void; finalTake: boolean; onStatus: (message: string) => void }) {
   const agreed = vote === "agree";
-  return <div onClick={onNext} className={`hot-take-result-card hot-take-reveal aspect-square w-full cursor-pointer rounded-[2rem] border p-7 text-center shadow-[0_28px_90px_rgba(0,0,0,.4)] ${agreed ? "border-emerald-300/45 bg-emerald-400/[0.12]" : "border-rose-300/45 bg-rose-400/[0.12]"}`}><div className="flex h-full flex-col items-center justify-center"><p className={`text-xs font-black uppercase tracking-[0.24em] ${agreed ? "text-emerald-200" : "text-rose-200"}`}>{agreed ? "You agreed" : "You disagreed"}</p><p className="mt-4 text-7xl font-black text-[#f6dc86] sm:text-8xl">{selectedPercentage}%</p><div className="mt-3 space-y-1 text-sm font-black"><p className={agreed ? "text-emerald-100" : "text-rose-100"}>{selectedPercentage}% {selectedLabel}</p><p className="text-white/55">{otherPercentage}% {otherLabel}</p></div><div className="mt-6 rounded-2xl border border-white/10 bg-black/25 px-4 py-3 text-sm font-bold text-white/80">{verdict}</div><button type="button" onClick={(event) => { event.stopPropagation(); onNext(); }} className="mt-7 min-h-14 w-full rounded-2xl bg-[#d8b75b] px-4 text-sm font-black uppercase tracking-wider text-black transition hover:bg-[#f6dc86] active:scale-[.97]">{finalTake ? "See Your Fan DNA" : "Next Take"}</button><p className="mt-4 text-[10px] font-black uppercase tracking-[0.18em] text-white/35">Tap anywhere to continue</p></div></div>;
+  const url = typeof window === "undefined" ? "/hot-takes" : `${window.location.origin}/hot-takes`;
+  const slides: [SquareCarouselSlide, SquareCarouselSlide] = [
+    {
+      kicker: "Hot Takes",
+      title: `Only ${take.agreePercentage}% agreed`,
+      subtitle: "Would you agree?",
+      body: ["Football debates, made for the group chat."],
+      accent: take.agreePercentage < 50 ? "rose" : "gold",
+    },
+    {
+      kicker: "World Cup Games",
+      title: take.text,
+      stats: [
+        { label: "Agree", value: `${take.agreePercentage}%`, highlight: vote === "agree" },
+        { label: "Disagree", value: `${take.disagreePercentage}%`, highlight: vote === "disagree" },
+      ],
+      accent: agreed ? "green" : "rose",
+    },
+  ];
+  const shareText = `Hot Take: ${take.text}\nAgree ${take.agreePercentage}% · Disagree ${take.disagreePercentage}%`;
+  return <div onClick={onNext} className={`hot-take-result-card hot-take-reveal aspect-square w-full cursor-pointer rounded-[2rem] border p-7 text-center shadow-[0_28px_90px_rgba(0,0,0,.4)] ${agreed ? "border-emerald-300/45 bg-emerald-400/[0.12]" : "border-rose-300/45 bg-rose-400/[0.12]"}`}><div className="flex h-full flex-col items-center justify-center"><p className={`text-xs font-black uppercase tracking-[0.24em] ${agreed ? "text-emerald-200" : "text-rose-200"}`}>{agreed ? "You agreed" : "You disagreed"}</p><p className="mt-4 text-7xl font-black text-[#f6dc86] sm:text-8xl">{selectedPercentage}%</p><div className="mt-3 space-y-1 text-sm font-black"><p className={agreed ? "text-emerald-100" : "text-rose-100"}>{selectedPercentage}% {selectedLabel}</p><p className="text-white/55">{otherPercentage}% {otherLabel}</p></div><div className="mt-6 rounded-2xl border border-white/10 bg-black/25 px-4 py-3 text-sm font-bold text-white/80">{verdict}</div><div className="mt-7 grid w-full grid-cols-2 gap-2"><button type="button" onClick={(event) => { event.stopPropagation(); onNext(); }} className="min-h-14 rounded-2xl bg-[#d8b75b] px-4 text-sm font-black uppercase tracking-wider text-black transition hover:bg-[#f6dc86] active:scale-[.97]">{finalTake ? "Fan DNA" : "Next Take"}</button><span onClick={(event) => event.stopPropagation()}><ShareResultButton title="World Cup Games: Hot Takes" text={shareText} url={url} slides={slides} filenamePrefix="world-cup-hot-take" fallbackText={`${shareText}\n${url}`} onStatus={onStatus} className="min-h-14 w-full rounded-2xl border border-[#d8b75b]/30 bg-[#d8b75b]/10 px-3 text-xs font-black uppercase tracking-wider text-[#f6dc86] transition hover:bg-[#d8b75b]/15 active:scale-[.98]" /></span></div><p className="mt-4 text-[10px] font-black uppercase tracking-[0.18em] text-white/35">Tap card for next</p></div></div>;
 }
 
 function FanDnaResult({ fanDna, agreementRate, controversyScore, mostControversial, message, onStatus, onNext }: { fanDna: FanDna; agreementRate: number; controversyScore: number; mostControversial?: Answer; message: string; onStatus: (message: string) => void; onNext: () => void }) {

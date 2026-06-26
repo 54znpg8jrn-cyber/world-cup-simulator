@@ -1,198 +1,273 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
+import { ChallengeFriendButton } from "../components/ChallengeFriendButton";
+import { ShareResultButton } from "../components/ShareResultButton";
 import { getNationFlag } from "../lib/flags";
 import {
-  NATION_RANKER_CATEGORIES,
-  rankNations,
-  type NationRankerCategory,
-  type NationRankerMode,
-} from "../lib/games/nation-ranker-data";
+  getRankingCategory,
+  getRankingItemsForCategory,
+  RANKING_CATEGORIES,
+  type RankingItem,
+} from "../lib/games/ranking-data";
+import type { SquareCarouselSlide } from "../lib/share/createSquareCarousel";
 
-type Round = { category: NationRankerCategory; nations: string[] };
-type RankerStats = { score: number; streak: number; bestScore: number; bestStreak: number };
+type TopSize = 3 | 5 | 10;
 
-const STATS_KEY = "world-cup-nation-ranker-stats-v1";
+const TOP_SIZES: TopSize[] = [3, 5, 10];
 
-function shuffle<T>(items: T[]) {
-  return [...items].sort(() => Math.random() - 0.5);
-}
-
-function createRound(mode: NationRankerMode): Round {
-  const categories = NATION_RANKER_CATEGORIES.filter((category) => category.mode === mode);
-  const category = categories[Math.floor(Math.random() * categories.length)];
-  const nations = shuffle(Object.keys(category.values)).slice(0, 5);
-  return { category, nations: shuffle(nations) };
-}
-
-function defaultStats(): RankerStats {
-  return { score: 0, streak: 0, bestScore: 0, bestStreak: 0 };
-}
-
-function loadStats() {
-  if (typeof window === "undefined") return defaultStats();
-  try { return { ...defaultStats(), ...(JSON.parse(localStorage.getItem(STATS_KEY) ?? "{}") as Partial<RankerStats>) }; } catch { return defaultStats(); }
+function makeRanking(categoryId: string, size: TopSize) {
+  const category = getRankingCategory(categoryId);
+  return getRankingItemsForCategory(category).slice(0, size);
 }
 
 export default function NationRankerPage() {
-  const [mode, setMode] = useState<NationRankerMode>("best");
-  const [round, setRound] = useState<Round>(() => createRound("best"));
-  const [order, setOrder] = useState<string[]>(round.nations);
-  const [submitted, setSubmitted] = useState(false);
-  const [draggedNation, setDraggedNation] = useState<string | null>(null);
-  const [stats, setStats] = useState<RankerStats>(defaultStats);
+  const [categoryId, setCategoryId] = useState(RANKING_CATEGORIES[0].id);
+  const [topSize, setTopSize] = useState<TopSize>(5);
+  const [ranking, setRanking] = useState<RankingItem[]>(() => makeRanking(RANKING_CATEGORIES[0].id, 5));
+  const [draggedId, setDraggedId] = useState<string | null>(null);
+  const [replaceSlot, setReplaceSlot] = useState<number | null>(null);
+  const [query, setQuery] = useState("");
   const [message, setMessage] = useState("");
 
-  useEffect(() => {
-    const frame = window.requestAnimationFrame(() => setStats(loadStats()));
-    return () => window.cancelAnimationFrame(frame);
-  }, []);
+  const category = getRankingCategory(categoryId);
+  const availableItems = useMemo(() => getRankingItemsForCategory(category), [category]);
+  const defaultRanking = useMemo(() => makeRanking(categoryId, topSize), [categoryId, topSize]);
+  const edited = ranking.map((item) => item.id).join("|") !== defaultRanking.map((item) => item.id).join("|");
+  const url = typeof window === "undefined" ? "/nation-ranker" : `${window.location.origin}/nation-ranker`;
 
-  const correctOrder = useMemo(() => rankNations(round.category, round.nations), [round]);
-  const distance = order.reduce((total, nation, index) => total + Math.abs(index - correctOrder.indexOf(nation)), 0);
-  const maximumDistance = order.length * (order.length - 1);
-  const roundScore = Math.round(100 * (1 - distance / maximumDistance));
-  const perfect = distance === 0;
+  const replaceOptions = useMemo(() => {
+    const normalized = query.trim().toLowerCase();
+    const used = new Set(ranking.map((item) => item.id));
+    return availableItems
+      .filter((item) => !used.has(item.id) || item.id === ranking[replaceSlot ?? -1]?.id)
+      .filter((item) => !normalized || item.label.toLowerCase().includes(normalized) || item.meta.toLowerCase().includes(normalized))
+      .slice(0, 12);
+  }, [availableItems, query, ranking, replaceSlot]);
 
-  const startRound = (nextMode = mode) => {
-    const nextRound = createRound(nextMode);
-    setRound(nextRound);
-    setOrder(nextRound.nations);
-    setSubmitted(false);
-    setDraggedNation(null);
+  const changeCategory = (nextCategoryId: string) => {
+    setCategoryId(nextCategoryId);
+    setRanking(makeRanking(nextCategoryId, topSize));
+    setReplaceSlot(null);
+    setQuery("");
     setMessage("");
   };
 
-  const changeMode = (nextMode: NationRankerMode) => {
-    setMode(nextMode);
-    startRound(nextMode);
+  const changeTopSize = (nextSize: TopSize) => {
+    setTopSize(nextSize);
+    setRanking(makeRanking(categoryId, nextSize));
+    setReplaceSlot(null);
+    setQuery("");
+    setMessage("");
   };
 
-  const moveNation = (nation: string, direction: -1 | 1) => {
-    if (submitted) return;
-    setOrder((current) => {
-      const index = current.indexOf(nation);
-      const destination = index + direction;
-      if (destination < 0 || destination >= current.length) return current;
+  const moveItem = (index: number, direction: -1 | 1) => {
+    const destination = index + direction;
+    if (destination < 0 || destination >= ranking.length) return;
+    setRanking((current) => {
       const next = [...current];
       [next[index], next[destination]] = [next[destination], next[index]];
       return next;
     });
   };
 
-  const dropNation = (target: string) => {
-    if (!draggedNation || draggedNation === target || submitted) return;
-    setOrder((current) => {
-      const from = current.indexOf(draggedNation);
-      const to = current.indexOf(target);
+  const dropItem = (targetId: string) => {
+    if (!draggedId || draggedId === targetId) return;
+    setRanking((current) => {
+      const from = current.findIndex((item) => item.id === draggedId);
+      const to = current.findIndex((item) => item.id === targetId);
+      if (from < 0 || to < 0) return current;
       const next = [...current];
-      next.splice(from, 1);
-      next.splice(to, 0, draggedNation);
+      const [item] = next.splice(from, 1);
+      next.splice(to, 0, item);
       return next;
     });
-    setDraggedNation(null);
+    setDraggedId(null);
   };
 
-  const submit = () => {
-    if (submitted) return;
-    const next: RankerStats = {
-      score: stats.score + roundScore,
-      streak: perfect ? stats.streak + 1 : 0,
-      bestScore: Math.max(stats.bestScore, stats.score + roundScore),
-      bestStreak: perfect ? Math.max(stats.bestStreak, stats.streak + 1) : stats.bestStreak,
-    };
-    setStats(next);
-    try { localStorage.setItem(STATS_KEY, JSON.stringify(next)); } catch { /* local score is optional */ }
-    setSubmitted(true);
+  const replaceItem = (item: RankingItem) => {
+    if (replaceSlot === null) return;
+    setRanking((current) => current.map((entry, index) => index === replaceSlot ? item : entry));
+    setReplaceSlot(null);
+    setQuery("");
+    setMessage("Ranking updated.");
   };
 
-  const share = async () => {
-    const text = `I scored ${stats.score} in Nation Ranker on World Cup Games. Can you rank the nations better?`;
-    const url = `${window.location.origin}/nation-ranker`;
-    try {
-      const blob = await createRankerShareCard(stats, round.category.label);
-      const file = new File([blob], "world-cup-nation-ranker.png", { type: "image/png" });
-      if (navigator.share && navigator.canShare?.({ files: [file] })) {
-        await navigator.share({ title: "Nation Ranker", text, files: [file] });
-      } else {
-        const link = document.createElement("a");
-        link.href = URL.createObjectURL(blob);
-        link.download = "world-cup-nation-ranker.png";
-        link.click();
-        URL.revokeObjectURL(link.href);
-        setMessage("Score card downloaded!");
-      }
-    } catch (error) {
-      console.error("Nation Ranker share failed", error);
-      try {
-        await navigator.clipboard.writeText(`${text}\n${url}`);
-        setMessage("Challenge link copied!");
-      } catch {
-        setMessage("Could not share right now.");
-      }
-    }
+  const resetRanking = () => {
+    setRanking(defaultRanking);
+    setReplaceSlot(null);
+    setQuery("");
+    setMessage("Reset to the website ranking.");
   };
 
-  return <main className="stadium-bg min-h-dvh w-full max-w-full overflow-x-hidden px-3 pb-[max(1rem,env(safe-area-inset-bottom))] pt-[max(0.75rem,env(safe-area-inset-top))] text-white sm:px-5 sm:py-5">
-    <div className="mx-auto w-full max-w-3xl min-w-0">
-      <header className="flex flex-col gap-3 border-b border-white/10 pb-4 sm:flex-row sm:items-center sm:justify-between"><div className="flex items-center gap-3"><Link href="/" className="flex min-h-11 items-center rounded-full border border-white/10 bg-white/5 px-4 text-[10px] font-black uppercase tracking-wider text-white/70">Home</Link><div><p className="text-[9px] font-black uppercase tracking-[0.24em] text-violet-200">Ranking challenge</p><h1 className="text-2xl font-black tracking-[-0.05em] sm:text-4xl">Nation Ranker</h1></div></div><div className="grid grid-cols-2 rounded-2xl border border-white/10 bg-black/20 p-1"><ModeButton active={mode === "best"} onClick={() => changeMode("best")}>Best first</ModeButton><ModeButton active={mode === "worst"} onClick={() => changeMode("worst")}>Worst first</ModeButton></div></header>
+  const slides: [SquareCarouselSlide, SquareCarouselSlide] = [
+    {
+      kicker: "Ranking Creator",
+      title: `Top ${topSize} ${category.shortLabel}?`,
+      subtitle: edited ? "My edited ranking" : "Website ranking",
+      body: ["Make yours. Post the debate."],
+      accent: "blue",
+    },
+    {
+      kicker: "World Cup Games",
+      title: `Top ${topSize} ${category.shortLabel}`,
+      body: ranking.map((item, index) => `${index + 1}. ${item.label}`),
+      footer: "Create yours at World Cup Games",
+      accent: "gold",
+    },
+  ];
+  const shareText = `My Top ${topSize} ${category.shortLabel} ranking on World Cup Games.`;
 
-      <section className="mt-4 grid grid-cols-3 gap-2 sm:max-w-md"><Stat label="Score" value={stats.score} /><Stat label="Perfect streak" value={stats.streak} /><Stat label="Best score" value={stats.bestScore} /></section>
+  return (
+    <main className="stadium-bg min-h-dvh w-full max-w-full overflow-x-hidden px-3 pb-[max(1rem,env(safe-area-inset-bottom))] pt-[max(0.75rem,env(safe-area-inset-top))] text-white sm:px-5 sm:py-5">
+      <div className="mx-auto w-full max-w-5xl min-w-0">
+        <header className="flex flex-col gap-4 border-b border-white/10 pb-4 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex min-w-0 items-center gap-3">
+            <Link href="/" className="flex min-h-11 shrink-0 items-center rounded-full border border-white/10 bg-white/5 px-4 text-[10px] font-black uppercase tracking-wider text-white/70">
+              Home
+            </Link>
+            <div className="min-w-0">
+              <p className="text-[9px] font-black uppercase tracking-[0.24em] text-violet-200">Ranking creator</p>
+              <h1 className="truncate text-2xl font-black tracking-[-0.05em] sm:text-4xl">Nation Ranker</h1>
+            </div>
+          </div>
+          <div className="rounded-full border border-[#d8b75b]/25 bg-[#d8b75b]/10 px-4 py-2 text-[10px] font-black uppercase tracking-wider text-[#f6dc86]">
+            TikTok-ready top lists
+          </div>
+        </header>
 
-      <section key={`${round.category.id}-${round.nations.join("-")}`} className="mt-4 rounded-[1.75rem] border border-violet-300/25 bg-[linear-gradient(135deg,rgba(57,39,125,.9),rgba(14,18,58,.96))] p-4 shadow-[0_24px_70px_rgba(0,0,0,.35)] sm:mt-5 sm:p-6"><div className="ranker-category-intro"><p className="text-[10px] font-black uppercase tracking-[0.22em] text-violet-200">{mode === "best" ? "Rank highest to lowest" : "Rank lowest to highest"}</p><h2 className="mt-2 text-3xl font-black tracking-[-0.05em] sm:text-4xl">{round.category.label}</h2><p className="mt-2 text-sm text-white/60">{round.category.description}</p></div><p className="mt-4 text-xs font-bold text-[#f6dc86]">Drag cards on desktop, or use the arrows on any device.</p>
-        <div className="mt-4 grid gap-2">{order.map((nation, index) => { const correctIndex = correctOrder.indexOf(nation); const matches = submitted && index === correctIndex; return <article key={nation} draggable={!submitted} onDragStart={() => setDraggedNation(nation)} onDragOver={(event) => event.preventDefault()} onDrop={() => dropNation(nation)} style={{ animationDelay: `${index * 55}ms` }} className={`ranker-nation-card flex min-w-0 items-center gap-2 rounded-2xl border p-3 transition ${submitted ? matches ? "border-emerald-300/35 bg-emerald-300/[0.12]" : "border-rose-300/30 bg-rose-300/[0.08]" : "border-white/10 bg-black/20 hover:border-violet-200/35"}`}><span className="grid h-8 w-8 shrink-0 place-items-center rounded-xl bg-white/10 text-xs font-black text-white/65">{index + 1}</span><span className="text-xl">{getNationFlag(nation)}</span><p className="min-w-0 flex-1 truncate text-sm font-black">{nation}</p>{submitted ? <span className="text-right text-xs font-black text-[#f6dc86]">#{correctIndex + 1}<span className="block text-[9px] font-bold text-white/45">{round.category.values[nation]}</span></span> : <div className="flex shrink-0 gap-1"><button type="button" aria-label={`Move ${nation} up`} onClick={() => moveNation(nation, -1)} disabled={index === 0} className="grid h-10 w-10 place-items-center rounded-xl border border-white/10 bg-white/5 text-sm font-black transition active:scale-95 disabled:opacity-25">↑</button><button type="button" aria-label={`Move ${nation} down`} onClick={() => moveNation(nation, 1)} disabled={index === order.length - 1} className="grid h-10 w-10 place-items-center rounded-xl border border-white/10 bg-white/5 text-sm font-black transition active:scale-95 disabled:opacity-25">↓</button></div>}</article>; })}</div>
-        {submitted ? <div className={`ranker-result mt-5 text-center ${perfect ? "ranker-perfect hot-take-confetti" : "ranker-partial"}`}><p className="text-4xl">{perfect ? "✓" : "↕"}</p><p className={`mt-1 text-3xl font-black ${perfect ? "text-emerald-200" : "text-[#f6dc86]"}`}>{perfect ? "Perfect ranking!" : `${roundScore} points`}</p><p className="mt-2 text-sm font-bold text-white/70">{perfect ? `Perfect streak: ${stats.streak}. Keep the run alive.` : "Your exact placements are shown on every card. Green cards were right."}</p><div className="mx-auto mt-4 grid max-w-md gap-2 sm:grid-cols-2"><button type="button" onClick={() => startRound()} className="min-h-12 rounded-xl bg-[#d8b75b] px-4 text-xs font-black uppercase tracking-wider text-black">Next Challenge</button><button type="button" onClick={() => void share()} className="min-h-12 rounded-xl border border-white/15 bg-white/5 px-4 text-xs font-black uppercase tracking-wider text-white/80">Share Score</button></div></div> : <button type="button" onClick={submit} className="mt-5 flex min-h-13 w-full items-center justify-center rounded-xl bg-[#d8b75b] px-4 text-sm font-black uppercase tracking-wider text-black transition hover:bg-[#f6dc86] active:scale-[.98]">Lock In Ranking</button>}
-        {message ? <p className="mt-3 text-center text-xs font-bold text-[#f6dc86]">{message}</p> : null}
-      </section>
-    </div>
-  </main>;
-}
+        <section className="mt-4 grid gap-3 rounded-[1.75rem] border border-violet-300/25 bg-[linear-gradient(135deg,rgba(57,39,125,.9),rgba(14,18,58,.96))] p-4 shadow-[0_24px_70px_rgba(0,0,0,.35)] sm:mt-5 sm:p-5 lg:grid-cols-[minmax(0,0.9fr)_minmax(0,1.2fr)]">
+          <div className="min-w-0">
+            <p className="text-[10px] font-black uppercase tracking-[0.22em] text-violet-200">1. Choose your debate</p>
+            <label className="mt-3 block text-[10px] font-black uppercase tracking-wider text-white/40">
+              Ranking category
+              <select
+                value={categoryId}
+                onChange={(event) => changeCategory(event.target.value)}
+                className="mt-2 min-h-12 w-full rounded-2xl border border-white/10 bg-[#07110d] px-3 text-sm font-black text-white outline-none focus:border-[#d8b75b]/50"
+              >
+                {RANKING_CATEGORIES.map((entry) => (
+                  <option key={entry.id} value={entry.id}>{entry.label}</option>
+                ))}
+              </select>
+            </label>
+            <div className="mt-3">
+              <p className="text-[10px] font-black uppercase tracking-wider text-white/40">Top size</p>
+              <div className="mt-2 grid grid-cols-3 gap-2">
+                {TOP_SIZES.map((size) => (
+                  <button
+                    key={size}
+                    type="button"
+                    onClick={() => changeTopSize(size)}
+                    className={`min-h-12 rounded-2xl px-3 text-xs font-black uppercase tracking-wider transition active:scale-[.98] ${topSize === size ? "bg-[#d8b75b] text-black" : "border border-white/10 bg-white/5 text-white/70"}`}
+                  >
+                    Top {size}
+                  </button>
+                ))}
+              </div>
+            </div>
+            <div className="mt-4 rounded-2xl border border-white/10 bg-black/20 p-4">
+              <p className="text-lg font-black tracking-[-0.03em]">{category.label}</p>
+              <p className="mt-2 text-sm leading-6 text-white/60">{category.description}</p>
+              <p className="mt-3 text-[10px] font-black uppercase tracking-wider text-[#f6dc86]">
+                {edited ? "Edited by you" : "Auto-generated website ranking"}
+              </p>
+            </div>
+          </div>
 
-function ModeButton({ active, onClick, children }: { active: boolean; onClick: () => void; children: React.ReactNode }) {
-  return <button type="button" onClick={onClick} className={`min-h-10 rounded-xl px-3 text-[9px] font-black uppercase tracking-wider sm:px-4 ${active ? "bg-[#d8b75b] text-black" : "text-white/60"}`}>{children}</button>;
-}
+          <div className="min-w-0">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <div>
+                <p className="text-[10px] font-black uppercase tracking-[0.22em] text-[#d8b75b]">2. Edit and post</p>
+                <h2 className="text-2xl font-black tracking-[-0.05em]">Top {topSize}</h2>
+              </div>
+              <button type="button" onClick={resetRanking} className="min-h-10 rounded-xl border border-white/10 bg-white/5 px-3 text-[10px] font-black uppercase tracking-wider text-white/70">
+                Reset
+              </button>
+            </div>
 
-function Stat({ label, value }: { label: string; value: number }) {
-  return <div className="rounded-xl border border-white/10 bg-white/[0.04] p-3 text-center"><p className="text-[8px] font-black uppercase tracking-wider text-white/40">{label}</p><p className="mt-1 text-xl font-black text-[#f6dc86]">{value}</p></div>;
-}
+            <div className="mt-3 grid gap-2">
+              {ranking.map((item, index) => (
+                <article
+                  key={item.id}
+                  draggable
+                  onDragStart={() => setDraggedId(item.id)}
+                  onDragEnd={() => setDraggedId(null)}
+                  onDragOver={(event) => event.preventDefault()}
+                  onDrop={() => dropItem(item.id)}
+                  className="ranker-nation-card group flex min-w-0 items-center gap-2 rounded-2xl border border-white/10 bg-black/24 p-2.5 transition hover:border-violet-200/35 sm:p-3"
+                >
+                  <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-[#d8b75b] text-sm font-black text-black">{index + 1}</span>
+                  <span className="shrink-0 text-xl">{item.type === "nation" ? getNationFlag(item.label) : "★"}</span>
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-sm font-black sm:text-base">{item.label}</p>
+                    <p className="truncate text-[10px] font-bold text-white/42">{item.meta}</p>
+                  </div>
+                  <div className="grid shrink-0 grid-cols-2 gap-1">
+                    <button type="button" aria-label={`Move ${item.label} up`} onClick={() => moveItem(index, -1)} disabled={index === 0} className="grid h-9 w-9 place-items-center rounded-lg border border-white/10 bg-white/5 text-sm font-black transition active:scale-95 disabled:opacity-25">↑</button>
+                    <button type="button" aria-label={`Move ${item.label} down`} onClick={() => moveItem(index, 1)} disabled={index === ranking.length - 1} className="grid h-9 w-9 place-items-center rounded-lg border border-white/10 bg-white/5 text-sm font-black transition active:scale-95 disabled:opacity-25">↓</button>
+                    <button type="button" onClick={() => { setReplaceSlot(index); setQuery(""); }} className="col-span-2 min-h-8 rounded-lg border border-[#d8b75b]/20 bg-[#d8b75b]/10 px-2 text-[9px] font-black uppercase tracking-wider text-[#f6dc86]">Replace</button>
+                  </div>
+                </article>
+              ))}
+            </div>
 
-function createRankerShareCard(stats: RankerStats, category: string): Promise<Blob> {
-  const canvas = document.createElement("canvas");
-  canvas.width = 1080;
-  canvas.height = 1080;
-  const context = canvas.getContext("2d");
-  if (!context) return Promise.reject(new Error("Canvas is unavailable"));
-  const gradient = context.createLinearGradient(0, 0, 1080, 1080);
-  gradient.addColorStop(0, "#56369b");
-  gradient.addColorStop(0.55, "#18103c");
-  gradient.addColorStop(1, "#07100b");
-  context.fillStyle = gradient;
-  context.fillRect(0, 0, 1080, 1080);
-  context.textAlign = "center";
-  context.fillStyle = "#f6dc86";
-  context.font = "900 34px Arial";
-  context.fillText("WORLD CUP GAMES", 540, 100);
-  context.fillStyle = "#ffffff";
-  context.font = "900 78px Arial";
-  context.fillText("NATION RANKER", 540, 195);
-  context.fillStyle = "rgba(255,255,255,.58)";
-  context.font = "800 26px Arial";
-  context.fillText(category.toUpperCase(), 540, 250);
-  context.fillStyle = "#f6dc86";
-  context.font = "900 180px Arial";
-  context.fillText(String(stats.score), 540, 520);
-  context.fillStyle = "rgba(255,255,255,.6)";
-  context.font = "800 28px Arial";
-  context.fillText("TOTAL SCORE", 540, 575);
-  context.fillStyle = "rgba(255,255,255,.1)";
-  context.fillRect(160, 680, 760, 2);
-  context.fillStyle = "#f6dc86";
-  context.font = "900 54px Arial";
-  context.fillText(`${stats.bestStreak} PERFECT STREAK`, 540, 770);
-  context.fillStyle = "rgba(255,255,255,.62)";
-  context.font = "800 26px Arial";
-  context.fillText("CAN YOU RANK THE NATIONS BETTER?", 540, 900);
-  context.fillText("WORLD CUP GAMES", 540, 970);
-  return new Promise((resolve, reject) => canvas.toBlob((blob) => blob ? resolve(blob) : reject(new Error("Could not create score card")), "image/png"));
+            <div className="mt-4 grid gap-2 sm:grid-cols-2">
+              <ChallengeFriendButton
+                title="World Cup Games: Nation Ranker"
+                text="Can you make a better ranking than this?"
+                url={url}
+                onStatus={setMessage}
+                className="min-h-12 rounded-xl border border-emerald-300/25 bg-emerald-300/[0.08] px-4 text-xs font-black uppercase tracking-wider text-emerald-100 transition hover:bg-emerald-300/[0.15] active:scale-[.98]"
+              />
+              <ShareResultButton
+                title="World Cup Games: Nation Ranker"
+                text={shareText}
+                url={url}
+                slides={slides}
+                filenamePrefix="world-cup-ranking"
+                fallbackText={`${shareText}\n${ranking.map((item, index) => `${index + 1}. ${item.label}`).join("\n")}\n${url}`}
+                onStatus={setMessage}
+                className="min-h-12 rounded-xl border border-[#d8b75b]/30 bg-[#d8b75b]/10 px-4 text-xs font-black uppercase tracking-wider text-[#f6dc86] transition hover:bg-[#d8b75b]/15 active:scale-[.98]"
+              />
+            </div>
+            {message ? <p className="mt-3 text-center text-xs font-bold text-[#f6dc86]">{message}</p> : null}
+          </div>
+        </section>
+      </div>
+
+      {replaceSlot !== null ? (
+        <div className="fixed inset-0 z-50 flex items-end bg-black/70 p-3 backdrop-blur-sm sm:items-center sm:justify-center" role="dialog" aria-modal="true" aria-label="Replace ranking item">
+          <section className="screen-enter max-h-[86dvh] w-full max-w-xl overflow-y-auto rounded-3xl border border-[#d8b75b]/25 bg-[#08110c] p-4 shadow-2xl sm:p-6">
+            <div className="flex items-center justify-between gap-3">
+              <div>
+                <p className="text-[10px] font-black uppercase tracking-[0.2em] text-[#d8b75b]">Replace #{replaceSlot + 1}</p>
+                <h2 className="text-2xl font-black">Search {category.itemType === "player" ? "players" : "nations"}</h2>
+              </div>
+              <button type="button" onClick={() => setReplaceSlot(null)} className="min-h-11 rounded-xl border border-white/10 px-4 text-xs font-black uppercase text-white/65">Close</button>
+            </div>
+            <input
+              value={query}
+              onChange={(event) => setQuery(event.target.value)}
+              autoFocus
+              placeholder="Type a name..."
+              className="mt-4 min-h-12 w-full rounded-xl border border-white/10 bg-black/25 px-4 text-sm font-bold outline-none placeholder:text-white/30 focus:border-[#d8b75b]/50"
+            />
+            <div className="mt-3 grid gap-2">
+              {replaceOptions.map((item) => (
+                <button key={item.id} type="button" onClick={() => replaceItem(item)} className="flex min-h-12 min-w-0 items-center gap-3 rounded-xl border border-white/10 bg-white/[0.04] px-3 text-left transition hover:bg-white/[0.08]">
+                  <span className="text-lg">{item.type === "nation" ? getNationFlag(item.label) : "★"}</span>
+                  <span className="min-w-0 flex-1">
+                    <span className="block truncate text-sm font-black">{item.label}</span>
+                    <span className="block truncate text-[10px] font-bold text-white/40">{item.meta}</span>
+                  </span>
+                </button>
+              ))}
+            </div>
+          </section>
+        </div>
+      ) : null}
+    </main>
+  );
 }
