@@ -162,6 +162,25 @@ function renderWholeBracket(rounds: BracketShareRound[]) {
     cards: getCardLayouts(column.matches.length, column.x, column.width, top, bottom),
   }));
 
+  const centerX = xs[4];
+  const centerWidth = widths[4];
+  const championName = final?.winner?.name ?? "TBD";
+  const championFontSize = getFittedFontSize(context, championName, centerWidth - 18, 21, 13);
+  const longestFinalist = Math.max(final?.teamA?.name.length ?? 0, final?.teamB?.name.length ?? 0);
+  const finalCardHeight = 122 + Math.max(0, longestFinalist - 14) * 1.4;
+  const finalTitleHeight = 24;
+  const titleToCardGap = 12;
+  const blockGap = 54;
+  const championCardHeight = 82 + championFontSize;
+  const stackTopBoundary = 290;
+  const stackBottomBoundary = 835;
+  const stackHeight = finalTitleHeight + titleToCardGap + finalCardHeight + blockGap + championCardHeight;
+  const stackTop = stackTopBoundary + Math.max(0, (stackBottomBoundary - stackTopBoundary - stackHeight) / 2);
+  const finalTitleY = stackTop + finalTitleHeight;
+  const finalCardY = finalTitleY + titleToCardGap;
+  const championCardY = finalCardY + finalCardHeight + blockGap;
+  const finalCenterY = finalCardY + finalCardHeight / 2;
+
   context.strokeStyle = "rgba(216,183,91,.58)";
   context.lineWidth = 3;
   for (let index = 0; index < 3; index += 1) {
@@ -172,7 +191,6 @@ function renderWholeBracket(rounds: BracketShareRound[]) {
   }
   const leftSemi = layouts[3].cards[0];
   const rightSemi = layouts[4].cards[0];
-  const finalCenterY = 419;
   context.beginPath();
   context.moveTo(leftSemi.x + leftSemi.width, leftSemi.y + leftSemi.height / 2);
   context.lineTo(xs[4], finalCenterY);
@@ -188,31 +206,44 @@ function renderWholeBracket(rounds: BracketShareRound[]) {
     column.matches.forEach((match, index) => drawMiniMatch(context, match, column.cards[index]));
   });
 
-  const centerX = xs[4];
-  const centerWidth = widths[4];
   context.textAlign = "center";
   context.fillStyle = GOLD_LIGHT;
   context.font = "900 17px Arial, sans-serif";
-  context.fillText("FINAL", centerX + centerWidth / 2, 335);
-  if (final) drawMiniMatch(context, final, { x: centerX, y: 360, width: centerWidth, height: 118 });
+  context.fillText("FINAL", centerX + centerWidth / 2, finalTitleY);
+  if (final) drawMiniMatch(context, final, { x: centerX, y: finalCardY, width: centerWidth, height: finalCardHeight });
 
-  roundRect(context, centerX, 525, centerWidth, 190, 24);
+  const connectorTop = finalCardY + finalCardHeight + 10;
+  const connectorBottom = championCardY - 10;
+  context.strokeStyle = "rgba(216,183,91,.75)";
+  context.lineWidth = 3;
+  context.beginPath();
+  context.moveTo(centerX + centerWidth / 2, connectorTop);
+  context.lineTo(centerX + centerWidth / 2, connectorBottom);
+  context.stroke();
+  context.fillStyle = GOLD;
+  context.beginPath();
+  context.moveTo(centerX + centerWidth / 2, connectorBottom + 5);
+  context.lineTo(centerX + centerWidth / 2 - 6, connectorBottom - 5);
+  context.lineTo(centerX + centerWidth / 2 + 6, connectorBottom - 5);
+  context.closePath();
+  context.fill();
+
+  roundRect(context, centerX, championCardY, centerWidth, championCardHeight, 22);
   context.fillStyle = "rgba(216,183,91,.16)";
   context.fill();
   context.strokeStyle = "rgba(246,220,134,.72)";
   context.lineWidth = 3;
   context.stroke();
   context.fillStyle = GOLD_LIGHT;
-  context.font = "900 18px Arial, sans-serif";
-  context.fillText("CHAMPION", centerX + centerWidth / 2, 565);
-  context.font = "900 38px Arial, sans-serif";
-  context.fillText("TROPHY", centerX + centerWidth / 2, 612);
+  context.font = "900 15px \"Apple Color Emoji\", \"Segoe UI Emoji\", Arial, sans-serif";
+  context.fillText("🏆 CHAMPION", centerX + centerWidth / 2, championCardY + 31);
   context.fillStyle = "#ffffff";
-  context.font = "900 20px Arial, sans-serif";
-  drawFittedText(context, final?.winner?.name ?? "", centerX + centerWidth / 2, 665, centerWidth - 18);
-  context.fillStyle = GOLD;
-  context.font = "900 15px Arial, sans-serif";
-  context.fillText(final?.winner?.code ?? "", centerX + centerWidth / 2, 694);
+  context.font = `900 ${championFontSize}px Arial, sans-serif`;
+  drawFittedText(context, championName, centerX + centerWidth / 2, championCardY + 64, centerWidth - 18);
+  if (final?.winner?.flag) {
+    context.font = "900 18px \"Apple Color Emoji\", \"Segoe UI Emoji\", Arial, sans-serif";
+    context.fillText(final.winner.flag, centerX + centerWidth / 2, championCardY + championCardHeight - 13);
+  }
 
   drawFooter(context);
   return canvas;
@@ -424,6 +455,22 @@ function drawFittedText(
     clipped = clipped.slice(0, -1);
   }
   context.fillText(`${clipped}...`, x, y);
+}
+
+function getFittedFontSize(
+  context: CanvasRenderingContext2D,
+  text: string,
+  maxWidth: number,
+  maximum: number,
+  minimum: number,
+) {
+  let size = maximum;
+  while (size > minimum) {
+    context.font = `900 ${size}px Arial, sans-serif`;
+    if (context.measureText(text).width <= maxWidth) return size;
+    size -= 1;
+  }
+  return minimum;
 }
 
 function roundRect(
