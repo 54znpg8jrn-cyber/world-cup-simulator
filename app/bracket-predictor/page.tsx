@@ -21,7 +21,7 @@ type PredictorMatch = {
   winner: PredictorTeam | null;
 };
 
-const STORAGE_KEY = "world-cup-bracket-predictor-picks-v1";
+const STORAGE_KEY = "world-cup-bracket-predictor-picks-v2";
 const ROUND_ORDER: RoundKey[] = ["r32", "r16", "qf", "sf", "final"];
 const ROUND_META: Record<RoundKey, { label: string; short: string; count: number }> = {
   r32: { label: "Round of 32", short: "R32", count: 16 },
@@ -30,6 +30,14 @@ const ROUND_META: Record<RoundKey, { label: string; short: string; count: number
   sf: { label: "Semi-finals", short: "SF", count: 2 },
   final: { label: "World Cup Final", short: "Final", count: 1 },
 };
+
+function matchId(round: RoundKey, index: number) {
+  if (round === "r32") return BRACKET_PREDICTOR_ROUND_OF_32[index].id;
+  if (round === "r16") return index < 4 ? `R16_L${index + 1}` : `R16_R${index - 3}`;
+  if (round === "qf") return index < 2 ? `QF_L${index + 1}` : `QF_R${index - 1}`;
+  if (round === "sf") return index === 0 ? "SF_L" : "SF_R";
+  return "FINAL";
+}
 
 function buildBracket(picks: Picks): Record<RoundKey, PredictorMatch[]> {
   const rounds = {} as Record<RoundKey, PredictorMatch[]>;
@@ -44,7 +52,7 @@ function buildBracket(picks: Picks): Record<RoundKey, PredictorMatch[]> {
   ROUND_ORDER.slice(1).forEach((round, roundIndex) => {
     const previous = rounds[ROUND_ORDER[roundIndex]];
     rounds[round] = Array.from({ length: ROUND_META[round].count }, (_, index) => {
-      const id = `${round}-${index + 1}`;
+      const id = matchId(round, index);
       const teamA = previous[index * 2]?.winner ?? null;
       const teamB = previous[index * 2 + 1]?.winner ?? null;
       return {
@@ -64,7 +72,7 @@ function descendantIds(round: RoundKey, index: number) {
   let descendantIndex = index;
   for (let next = ROUND_ORDER.indexOf(round) + 1; next < ROUND_ORDER.length; next += 1) {
     descendantIndex = Math.floor(descendantIndex / 2);
-    ids.push(`${ROUND_ORDER[next]}-${descendantIndex + 1}`);
+    ids.push(matchId(ROUND_ORDER[next], descendantIndex));
   }
   return ids;
 }
@@ -76,7 +84,7 @@ function TeamChoice({ team, selected, disabled, onSelect }: {
   onSelect: () => void;
 }) {
   return <button type="button" disabled={disabled || !team} onClick={onSelect} className={`flex min-h-11 w-full min-w-0 items-center gap-2 rounded-xl border px-2.5 py-2 text-left transition active:scale-[.98] disabled:cursor-default ${selected ? "border-[#f6dc86]/75 bg-[#d8b75b]/20 shadow-[0_0_22px_rgba(216,183,91,.18)]" : team ? "border-white/10 bg-white/[.055] hover:border-white/25 hover:bg-white/10" : "border-dashed border-white/8 bg-black/15 text-white/25"}`}>
-    {team ? <NationFlag nation={team.name} className="text-xl" /> : <span className="text-white/20">○</span>}
+    {team ? <NationFlag nation={team.flagNation} className="text-xl" /> : <span className="text-white/20">○</span>}
     <span className="min-w-0 flex-1 truncate text-[11px] font-black sm:text-xs">{team?.name ?? "Awaiting winner"}</span>
     {selected ? <span className="shrink-0 text-[#f6dc86]">✓</span> : null}
   </button>;
@@ -143,14 +151,17 @@ export default function BracketPredictorPage() {
   const url = typeof window === "undefined" ? "/bracket-predictor" : `${window.location.origin}/bracket-predictor`;
 
   useEffect(() => {
-    try {
-      const saved = window.localStorage.getItem(STORAGE_KEY);
-      if (saved) setPicks(JSON.parse(saved) as Picks);
-    } catch (error) {
-      console.error("Could not restore bracket predictor picks", error);
-    } finally {
-      setHydrated(true);
-    }
+    const restoreSavedPicks = window.setTimeout(() => {
+      try {
+        const saved = window.localStorage.getItem(STORAGE_KEY);
+        if (saved) setPicks(JSON.parse(saved) as Picks);
+      } catch (error) {
+        console.error("Could not restore bracket predictor picks", error);
+      } finally {
+        setHydrated(true);
+      }
+    }, 0);
+    return () => window.clearTimeout(restoreSavedPicks);
   }, []);
 
   useEffect(() => {
@@ -159,6 +170,7 @@ export default function BracketPredictorPage() {
 
   const pickWinner = (round: RoundKey, match: PredictorMatch, team: PredictorTeam) => {
     setPicks((current) => {
+      if (current[match.id] === team.code) return current;
       const next = { ...current, [match.id]: team.code };
       descendantIds(round, match.index).forEach((id) => delete next[id]);
       return next;
@@ -197,13 +209,13 @@ export default function BracketPredictorPage() {
 
       <section className="mt-5 hidden min-w-0 lg:block"><div className="w-full max-w-full overflow-x-auto overscroll-x-contain pb-3"><div className="bracket-predictor-desktop mx-auto grid min-h-[900px] min-w-[1420px] grid-cols-[1.22fr_1.08fr_.98fr_.9fr_1.12fr_.9fr_.98fr_1.08fr_1.22fr] gap-2 rounded-[2rem] border border-white/10 bg-black/20 p-4">
         <RoundColumn round="r32" matches={rounds.r32} indices={[0,1,2,3,4,5,6,7]} onPick={pickWinner} /><RoundColumn round="r16" matches={rounds.r16} indices={[0,1,2,3]} onPick={pickWinner} /><RoundColumn round="qf" matches={rounds.qf} indices={[0,1]} onPick={pickWinner} /><RoundColumn round="sf" matches={rounds.sf} indices={[0]} onPick={pickWinner} />
-        <div className="flex min-w-0 flex-col items-center justify-center px-1"><span className={`text-6xl ${champion ? "champion-trophy" : "opacity-30"}`}>🏆</span><p className="mt-3 text-center text-[9px] font-black uppercase tracking-[.2em] text-[#d8b75b]">World Cup Final</p><div className="mt-3 w-full"><MatchCard match={rounds.final[0]} round="final" compact onPick={pickWinner} /></div><div className={`mt-5 w-full rounded-2xl border p-3 text-center ${champion ? "champion-glow border-[#d8b75b]/50 bg-[#d8b75b]/15" : "border-white/8 bg-white/[.03]"}`}><p className="text-[8px] font-black uppercase tracking-[.2em] text-white/35">Champion</p>{champion ? <><NationFlag nation={champion.name} className="mt-2 text-4xl" /><p className="mt-2 truncate text-base font-black">{champion.name}</p></> : <p className="mt-2 text-xs font-bold text-white/25">Make 31 picks</p>}</div></div>
+        <div className="flex min-w-0 flex-col items-center justify-center px-1"><span className={`text-6xl ${champion ? "champion-trophy" : "opacity-30"}`}>🏆</span><p className="mt-3 text-center text-[9px] font-black uppercase tracking-[.2em] text-[#d8b75b]">World Cup Final</p><div className="mt-3 w-full"><MatchCard match={rounds.final[0]} round="final" compact onPick={pickWinner} /></div><div className={`mt-5 w-full rounded-2xl border p-3 text-center ${champion ? "champion-glow border-[#d8b75b]/50 bg-[#d8b75b]/15" : "border-white/8 bg-white/[.03]"}`}><p className="text-[8px] font-black uppercase tracking-[.2em] text-white/35">Champion</p>{champion ? <><NationFlag nation={champion.flagNation} className="mt-2 text-4xl" /><p className="mt-2 truncate text-base font-black">{champion.name}</p></> : <p className="mt-2 text-xs font-bold text-white/25">Make 31 picks</p>}</div></div>
         <RoundColumn round="sf" matches={rounds.sf} indices={[1]} onPick={pickWinner} reverse /><RoundColumn round="qf" matches={rounds.qf} indices={[2,3]} onPick={pickWinner} reverse /><RoundColumn round="r16" matches={rounds.r16} indices={[4,5,6,7]} onPick={pickWinner} reverse /><RoundColumn round="r32" matches={rounds.r32} indices={[8,9,10,11,12,13,14,15]} onPick={pickWinner} reverse />
       </div></div></section>
 
       {completedRounds.length ? <section className="mt-4 hidden rounded-[1.5rem] border border-white/10 bg-white/[.035] p-4 lg:block"><div className="flex flex-wrap items-center gap-2"><span className="mr-auto text-[10px] font-black uppercase tracking-[.18em] text-white/40">Share completed stages</span>{completedRounds.map((round) => <StageShare key={round} round={round} matches={rounds[round]} champion={champion} url={url} onStatus={setMessage} className="min-h-11 rounded-xl border border-[#d8b75b]/30 bg-[#d8b75b]/10 px-4 text-[9px] font-black uppercase tracking-wider text-[#f6dc86]" />)}</div></section> : null}
 
-      {champion ? <section className="champion-glow mt-5 overflow-hidden rounded-[2rem] border border-[#d8b75b]/45 bg-[radial-gradient(circle_at_50%_0%,rgba(246,220,134,.25),transparent_48%),linear-gradient(135deg,#183d28,#07110b)] p-6 text-center sm:p-10"><div className="champion-confetti mx-auto max-w-2xl"><span className="champion-trophy text-7xl">🏆</span><p className="mt-4 text-[10px] font-black uppercase tracking-[.35em] text-[#f6dc86]">Your World Cup champions</p><NationFlag nation={champion.name} className="mt-5 text-7xl" /><h2 className="mt-3 text-4xl font-black uppercase tracking-[-.05em] sm:text-6xl">{champion.name}</h2><div className="mx-auto mt-6 grid max-w-xl gap-2 sm:grid-cols-2"><StageShare round="final" matches={rounds.final} champion={champion} url={url} onStatus={setMessage} className="min-h-12 rounded-2xl bg-[#d8b75b] px-4 text-xs font-black uppercase tracking-wider text-black" /><ChallengeFriendButton title="World Cup Bracket Predictor" text="Can you predict the World Cup bracket better than me?" url={url} onStatus={setMessage} className="min-h-12 rounded-2xl border border-white/15 bg-white/10 px-4 text-xs font-black uppercase tracking-wider text-white" /><button type="button" onClick={resetBracket} className="min-h-12 rounded-2xl border border-white/10 bg-black/20 px-4 text-xs font-black uppercase tracking-wider text-white/70">Reset Bracket</button><Link href="/" className="flex min-h-12 items-center justify-center rounded-2xl border border-white/10 bg-black/20 px-4 text-xs font-black uppercase tracking-wider text-white/70">Home</Link></div></div></section> : null}
+      {champion ? <section className="champion-glow mt-5 overflow-hidden rounded-[2rem] border border-[#d8b75b]/45 bg-[radial-gradient(circle_at_50%_0%,rgba(246,220,134,.25),transparent_48%),linear-gradient(135deg,#183d28,#07110b)] p-6 text-center sm:p-10"><div className="champion-confetti mx-auto max-w-2xl"><span className="champion-trophy text-7xl">🏆</span><p className="mt-4 text-[10px] font-black uppercase tracking-[.35em] text-[#f6dc86]">Your World Cup champions</p><NationFlag nation={champion.flagNation} className="mt-5 text-7xl" /><h2 className="mt-3 text-4xl font-black uppercase tracking-[-.05em] sm:text-6xl">{champion.name}</h2><div className="mx-auto mt-6 grid max-w-xl gap-2 sm:grid-cols-2"><StageShare round="final" matches={rounds.final} champion={champion} url={url} onStatus={setMessage} className="min-h-12 rounded-2xl bg-[#d8b75b] px-4 text-xs font-black uppercase tracking-wider text-black" /><ChallengeFriendButton title="World Cup Bracket Predictor" text="Can you predict the World Cup bracket better than me?" url={url} onStatus={setMessage} className="min-h-12 rounded-2xl border border-white/15 bg-white/10 px-4 text-xs font-black uppercase tracking-wider text-white" /><button type="button" onClick={resetBracket} className="min-h-12 rounded-2xl border border-white/10 bg-black/20 px-4 text-xs font-black uppercase tracking-wider text-white/70">Reset Bracket</button><Link href="/" className="flex min-h-12 items-center justify-center rounded-2xl border border-white/10 bg-black/20 px-4 text-xs font-black uppercase tracking-wider text-white/70">Home</Link></div></div></section> : null}
       {!champion ? <div className="mt-5 grid gap-2 sm:grid-cols-2"><ChallengeFriendButton title="World Cup Bracket Predictor" text="Can you predict the World Cup bracket better than me?" url={url} onStatus={setMessage} className="min-h-12 rounded-2xl border border-[#d8b75b]/30 bg-[#d8b75b]/10 px-4 text-xs font-black uppercase tracking-wider text-[#f6dc86]" /><Link href="/" className="flex min-h-12 items-center justify-center rounded-2xl border border-white/10 bg-white/5 px-4 text-xs font-black uppercase tracking-wider text-white/65">Home</Link></div> : null}
       {message ? <p role="status" className="mt-3 text-center text-xs font-bold text-emerald-200">{message}</p> : null}
     </div>
