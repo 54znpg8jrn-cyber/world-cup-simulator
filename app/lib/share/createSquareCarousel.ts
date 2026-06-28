@@ -31,6 +31,14 @@ type ChallengeOptions = {
   url: string;
 };
 
+type ShareGeneratedImagesOptions = {
+  title: string;
+  text: string;
+  url?: string;
+  fallbackText?: string;
+  createFiles: () => Promise<File[]>;
+};
+
 const SIZE = 1080;
 const BRAND = "WORLD CUP GAMES";
 
@@ -66,10 +74,27 @@ export async function shareSquareCarousel({
   filenamePrefix,
   fallbackText,
 }: ShareCarouselOptions): Promise<"shared" | "downloaded" | "copied"> {
+  return shareGeneratedImages({
+    title,
+    text,
+    url,
+    fallbackText,
+    createFiles: () => createSquareCarousel(slides, filenamePrefix),
+  });
+}
+
+export async function shareGeneratedImages({
+  title,
+  text,
+  url,
+  fallbackText,
+  createFiles,
+}: ShareGeneratedImagesOptions): Promise<"shared" | "downloaded" | "copied"> {
   const copyText = [fallbackText ?? text, url].filter(Boolean).join("\n");
 
   try {
-    const files = await createSquareCarousel(slides, filenamePrefix);
+    const files = await createFiles();
+    if (!files.length) throw new Error("No share images were generated");
     if (navigator.share && navigator.canShare?.({ files })) {
       await navigator.share({ title, text, url, files });
       return "shared";
@@ -78,7 +103,7 @@ export async function shareSquareCarousel({
     files.forEach((file) => downloadBlob(file, file.name));
     return "downloaded";
   } catch (error) {
-    console.error("Square carousel generation/share failed", error);
+    console.error("Share image generation failed", error);
     await copyToClipboard(copyText);
     return "copied";
   }

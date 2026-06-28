@@ -4,12 +4,15 @@ import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { ChallengeFriendButton } from "../components/ChallengeFriendButton";
 import { NationFlag } from "../components/NationFlag";
-import { ShareResultButton } from "../components/ShareResultButton";
 import {
   BRACKET_PREDICTOR_ROUND_OF_32,
   type PredictorTeam,
 } from "../lib/games/bracket-predictor-data";
-import type { SquareCarouselSlide } from "../lib/share/createSquareCarousel";
+import {
+  shareBracketRoundImage,
+  shareWholeBracketImage,
+  type BracketShareRound,
+} from "../lib/share/bracketPredictorShare";
 
 type RoundKey = "r32" | "r16" | "qf" | "sf" | "final";
 type Picks = Record<string, string>;
@@ -26,9 +29,9 @@ const ROUND_ORDER: RoundKey[] = ["r32", "r16", "qf", "sf", "final"];
 const ROUND_META: Record<RoundKey, { label: string; short: string; count: number }> = {
   r32: { label: "Round of 32", short: "R32", count: 16 },
   r16: { label: "Round of 16", short: "R16", count: 8 },
-  qf: { label: "Quarter-finals", short: "QF", count: 4 },
-  sf: { label: "Semi-finals", short: "SF", count: 2 },
-  final: { label: "World Cup Final", short: "Final", count: 1 },
+  qf: { label: "Quarter-Finals", short: "QF", count: 4 },
+  sf: { label: "Semi-Finals", short: "SF", count: 2 },
+  final: { label: "Final", short: "Final", count: 1 },
 };
 
 function matchId(round: RoundKey, index: number) {
@@ -120,25 +123,25 @@ function RoundColumn({ round, matches, indices, onPick, reverse = false }: {
   </section>;
 }
 
-function StageShare({ round, matches, champion, url, className, onStatus }: {
-  round: RoundKey;
-  matches: PredictorMatch[];
-  champion: PredictorTeam | null;
-  url: string;
+function BracketShareButton({ label, disabled, onShare, className, onStatus }: {
+  label: string;
+  disabled: boolean;
+  onShare: () => Promise<"shared" | "downloaded" | "copied">;
   className?: string;
   onStatus: (message: string) => void;
 }) {
-  const isFinal = round === "final";
-  const winners = matches.map((match, index) => `${index + 1}. ${match.winner?.name ?? "TBD"}`);
-  const slide: SquareCarouselSlide = {
-    kicker: isFinal ? "My World Cup Prediction" : "Bracket Predictor",
-    title: isFinal ? `${champion?.name ?? "My pick"} are champions` : `${ROUND_META[round].label} Picks`,
-    subtitle: isFinal ? "The team I am backing to lift the trophy" : `${winners.length} winners. One path to glory.`,
-    body: isFinal ? [`🏆 ${champion?.name ?? "Champion"}`] : winners,
-    footer: "World Cup Games",
-    accent: isFinal ? "gold" : "green",
-  };
-  return <ShareResultButton title={`World Cup Bracket Predictor: ${ROUND_META[round].label}`} text={isFinal ? `I picked ${champion?.name} to win the World Cup.` : `My ${ROUND_META[round].label} picks are locked in.`} url={url} slides={[slide]} filenamePrefix={`world-cup-bracket-${round}`} fallbackText={isFinal ? `My World Cup champion: ${champion?.name}` : `${ROUND_META[round].label}: ${winners.join(", ")}`} className={className} onStatus={onStatus} />;
+  const [busy, setBusy] = useState(false);
+  return <button type="button" disabled={disabled || busy} onClick={async () => {
+    setBusy(true);
+    try {
+      const result = await onShare();
+      onStatus(result === "shared" ? "Bracket image shared!" : result === "downloaded" ? "Bracket image downloaded!" : "Bracket link copied!");
+    } finally {
+      setBusy(false);
+    }
+  }} className={`${className ?? ""} disabled:cursor-not-allowed disabled:opacity-35`}>
+    {busy ? "Creating Image..." : label}
+  </button>;
 }
 
 export default function BracketPredictorPage() {
@@ -187,6 +190,15 @@ export default function BracketPredictorPage() {
 
   const completedRounds = ROUND_ORDER.filter((round) => rounds[round].every((match) => match.winner));
   const picksMade = Object.keys(picks).length;
+  const shareRounds: BracketShareRound[] = ROUND_ORDER.map((round) => ({
+    key: round,
+    label: ROUND_META[round].label,
+    matches: rounds[round],
+  }));
+  const shareRound = (round: RoundKey) => shareBracketRoundImage({
+    round: shareRounds.find((entry) => entry.key === round)!,
+    url,
+  });
 
   return <main className="stadium-bg min-h-dvh w-full max-w-full overflow-x-hidden px-3 pb-[max(1.5rem,env(safe-area-inset-bottom))] pt-[max(.75rem,env(safe-area-inset-top))] text-white sm:px-5 lg:px-6">
     <div className="mx-auto w-full max-w-[100rem] min-w-0">
@@ -204,7 +216,6 @@ export default function BracketPredictorPage() {
       <section className="mt-3 lg:hidden">
         <div className="mb-3 flex items-end justify-between gap-3"><div><p className="text-[9px] font-black uppercase tracking-[.2em] text-[#d8b75b]">Current stage</p><h2 className="text-2xl font-black">{ROUND_META[activeRound].label}</h2></div><span className="text-[10px] font-black text-white/35">{rounds[activeRound].filter((match) => match.winner).length}/{rounds[activeRound].length}</span></div>
         <div className="grid gap-2 min-[560px]:grid-cols-2">{rounds[activeRound].map((match) => <MatchCard key={match.id} match={match} round={activeRound} onPick={pickWinner} />)}</div>
-        {completedRounds.includes(activeRound) ? <StageShare round={activeRound} matches={rounds[activeRound]} champion={champion} url={url} onStatus={setMessage} className="mt-3 min-h-12 w-full rounded-2xl bg-[#d8b75b] px-4 text-xs font-black uppercase tracking-wider text-black" /> : null}
       </section>
 
       <section className="mt-5 hidden min-w-0 lg:block"><div className="w-full max-w-full overflow-x-auto overscroll-x-contain pb-3"><div className="bracket-predictor-desktop mx-auto grid min-h-[900px] min-w-[1420px] grid-cols-[1.22fr_1.08fr_.98fr_.9fr_1.12fr_.9fr_.98fr_1.08fr_1.22fr] gap-2 rounded-[2rem] border border-white/10 bg-black/20 p-4">
@@ -213,9 +224,15 @@ export default function BracketPredictorPage() {
         <RoundColumn round="sf" matches={rounds.sf} indices={[1]} onPick={pickWinner} reverse /><RoundColumn round="qf" matches={rounds.qf} indices={[2,3]} onPick={pickWinner} reverse /><RoundColumn round="r16" matches={rounds.r16} indices={[4,5,6,7]} onPick={pickWinner} reverse /><RoundColumn round="r32" matches={rounds.r32} indices={[8,9,10,11,12,13,14,15]} onPick={pickWinner} reverse />
       </div></div></section>
 
-      {completedRounds.length ? <section className="mt-4 hidden rounded-[1.5rem] border border-white/10 bg-white/[.035] p-4 lg:block"><div className="flex flex-wrap items-center gap-2"><span className="mr-auto text-[10px] font-black uppercase tracking-[.18em] text-white/40">Share completed stages</span>{completedRounds.map((round) => <StageShare key={round} round={round} matches={rounds[round]} champion={champion} url={url} onStatus={setMessage} className="min-h-11 rounded-xl border border-[#d8b75b]/30 bg-[#d8b75b]/10 px-4 text-[9px] font-black uppercase tracking-wider text-[#f6dc86]" />)}</div></section> : null}
+      <section className="mt-4 rounded-[1.5rem] border border-white/10 bg-white/[.035] p-4">
+        <div className="flex flex-wrap items-end justify-between gap-2"><div><p className="text-[9px] font-black uppercase tracking-[.2em] text-[#d8b75b]">Share your predictions</p><h2 className="text-xl font-black">Bracket graphics</h2></div><p className="text-[10px] font-bold text-white/35">Buttons unlock when each round is complete.</p></div>
+        <div className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+          {ROUND_ORDER.map((round) => <BracketShareButton key={round} label={`Share ${ROUND_META[round].label}`} disabled={!completedRounds.includes(round)} onShare={() => shareRound(round)} onStatus={setMessage} className="min-h-12 rounded-xl border border-[#d8b75b]/30 bg-[#d8b75b]/10 px-3 text-[10px] font-black uppercase tracking-wider text-[#f6dc86]" />)}
+          <BracketShareButton label="Share Whole Bracket" disabled={!champion} onShare={() => shareWholeBracketImage({ rounds: shareRounds, url })} onStatus={setMessage} className="min-h-12 rounded-xl bg-[#d8b75b] px-3 text-[10px] font-black uppercase tracking-wider text-black shadow-[0_0_28px_rgba(216,183,91,.16)]" />
+        </div>
+      </section>
 
-      {champion ? <section className="champion-glow mt-5 overflow-hidden rounded-[2rem] border border-[#d8b75b]/45 bg-[radial-gradient(circle_at_50%_0%,rgba(246,220,134,.25),transparent_48%),linear-gradient(135deg,#183d28,#07110b)] p-6 text-center sm:p-10"><div className="champion-confetti mx-auto max-w-2xl"><span className="champion-trophy text-7xl">🏆</span><p className="mt-4 text-[10px] font-black uppercase tracking-[.35em] text-[#f6dc86]">Your World Cup champions</p><NationFlag nation={champion.flagNation} className="mt-5 text-7xl" /><h2 className="mt-3 text-4xl font-black uppercase tracking-[-.05em] sm:text-6xl">{champion.name}</h2><div className="mx-auto mt-6 grid max-w-xl gap-2 sm:grid-cols-2"><StageShare round="final" matches={rounds.final} champion={champion} url={url} onStatus={setMessage} className="min-h-12 rounded-2xl bg-[#d8b75b] px-4 text-xs font-black uppercase tracking-wider text-black" /><ChallengeFriendButton title="World Cup Bracket Predictor" text="Can you predict the World Cup bracket better than me?" url={url} onStatus={setMessage} className="min-h-12 rounded-2xl border border-white/15 bg-white/10 px-4 text-xs font-black uppercase tracking-wider text-white" /><button type="button" onClick={resetBracket} className="min-h-12 rounded-2xl border border-white/10 bg-black/20 px-4 text-xs font-black uppercase tracking-wider text-white/70">Reset Bracket</button><Link href="/" className="flex min-h-12 items-center justify-center rounded-2xl border border-white/10 bg-black/20 px-4 text-xs font-black uppercase tracking-wider text-white/70">Home</Link></div></div></section> : null}
+      {champion ? <section className="champion-glow mt-5 overflow-hidden rounded-[2rem] border border-[#d8b75b]/45 bg-[radial-gradient(circle_at_50%_0%,rgba(246,220,134,.25),transparent_48%),linear-gradient(135deg,#183d28,#07110b)] p-6 text-center sm:p-10"><div className="champion-confetti mx-auto max-w-2xl"><span className="champion-trophy text-7xl">🏆</span><p className="mt-4 text-[10px] font-black uppercase tracking-[.35em] text-[#f6dc86]">Your World Cup champions</p><NationFlag nation={champion.flagNation} className="mt-5 text-7xl" /><h2 className="mt-3 text-4xl font-black uppercase tracking-[-.05em] sm:text-6xl">{champion.name}</h2><div className="mx-auto mt-6 grid max-w-xl gap-2 sm:grid-cols-2"><BracketShareButton label="Share Final" disabled={false} onShare={() => shareRound("final")} onStatus={setMessage} className="min-h-12 rounded-2xl bg-[#d8b75b] px-4 text-xs font-black uppercase tracking-wider text-black" /><ChallengeFriendButton title="World Cup Bracket Predictor" text="Can you predict the World Cup bracket better than me?" url={url} onStatus={setMessage} className="min-h-12 rounded-2xl border border-white/15 bg-white/10 px-4 text-xs font-black uppercase tracking-wider text-white" /><button type="button" onClick={resetBracket} className="min-h-12 rounded-2xl border border-white/10 bg-black/20 px-4 text-xs font-black uppercase tracking-wider text-white/70">Reset Bracket</button><Link href="/" className="flex min-h-12 items-center justify-center rounded-2xl border border-white/10 bg-black/20 px-4 text-xs font-black uppercase tracking-wider text-white/70">Home</Link></div></div></section> : null}
       {!champion ? <div className="mt-5 grid gap-2 sm:grid-cols-2"><ChallengeFriendButton title="World Cup Bracket Predictor" text="Can you predict the World Cup bracket better than me?" url={url} onStatus={setMessage} className="min-h-12 rounded-2xl border border-[#d8b75b]/30 bg-[#d8b75b]/10 px-4 text-xs font-black uppercase tracking-wider text-[#f6dc86]" /><Link href="/" className="flex min-h-12 items-center justify-center rounded-2xl border border-white/10 bg-white/5 px-4 text-xs font-black uppercase tracking-wider text-white/65">Home</Link></div> : null}
       {message ? <p role="status" className="mt-3 text-center text-xs font-bold text-emerald-200">{message}</p> : null}
     </div>
