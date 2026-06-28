@@ -345,7 +345,7 @@ function GameLaunchCard({
   icon,
   children,
 }: {
-  tone: "simulator" | "higher-lower" | "wordle" | "hot-takes" | "calculator" | "guess-nation" | "nation-ranker";
+  tone: "simulator" | "higher-lower" | "wordle" | "hot-takes" | "calculator" | "guess-nation" | "nation-ranker" | "bracket-predictor";
   badge: string;
   title: string;
   subtitle: string;
@@ -1479,6 +1479,7 @@ export default function Home() {
               <GameLaunchCard tone="hot-takes" badge="Viral" title="Hot Takes" subtitle="Swipe your side of football's biggest debates." icon="🔥"><Link href="/hot-takes" className="premium-play-button">Play</Link></GameLaunchCard>
               <GameLaunchCard tone="guess-nation" badge="New" title="Guess the Nation" subtitle="Name the World Cup team from its club XI." icon="⚽"><Link href="/guess-the-nation" className="premium-play-button">Play</Link></GameLaunchCard>
               <GameLaunchCard tone="nation-ranker" badge="Creator" title="Nation Ranker" subtitle="Build and share spicy World Cup top lists." icon="↕"><Link href="/nation-ranker" className="premium-play-button">Create Ranking</Link></GameLaunchCard>
+              <GameLaunchCard tone="bracket-predictor" badge="New" title="Bracket Predictor" subtitle="Pick your path to the World Cup trophy." icon="🏟️"><Link href="/bracket-predictor" className="premium-play-button">Play</Link></GameLaunchCard>
               <GameLaunchCard tone="calculator" badge="Live" title="World Cup Calculator" subtitle="Live tables, races, and the knockout picture." icon="📊"><Link href="/world-cup-calculator" className="premium-play-button">Open Calculator</Link></GameLaunchCard>
             </div>
           </div>

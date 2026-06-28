@@ -19,7 +19,7 @@ export function ShareResultButton({
   title: string;
   text: string;
   url?: string;
-  slides: [SquareCarouselSlide, SquareCarouselSlide];
+  slides: readonly SquareCarouselSlide[];
   filenamePrefix: string;
   fallbackText?: string;
   className?: string;
@@ -55,7 +55,7 @@ export function ShareResultButton({
       }}
       className={className}
     >
-      {busy ? "Creating Carousel..." : "Share Result"}
+      {busy ? (slides.length === 1 ? "Creating Image..." : "Creating Carousel...") : "Share Result"}
     </button>
   );
 }

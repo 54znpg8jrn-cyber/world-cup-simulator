@@ -20,7 +20,7 @@ type ShareCarouselOptions = {
   title: string;
   text: string;
   url?: string;
-  slides: [SquareCarouselSlide, SquareCarouselSlide];
+  slides: readonly SquareCarouselSlide[];
   filenamePrefix: string;
   fallbackText?: string;
 };
@@ -44,12 +44,13 @@ const ACCENTS = {
 };
 
 export async function createSquareCarousel(
-  slides: [SquareCarouselSlide, SquareCarouselSlide],
+  slides: readonly SquareCarouselSlide[],
   filenamePrefix = "world-cup-games",
 ) {
+  if (!slides.length) throw new Error("At least one share slide is required");
   return Promise.all(
     slides.map(async (slide, index) => {
-      const blob = await renderSquareSlide(slide, index + 1);
+      const blob = await renderSquareSlide(slide, index + 1, slides.length);
       return new File([blob], `${filenamePrefix}-slide-${index + 1}.png`, {
         type: "image/png",
       });
@@ -103,7 +104,11 @@ export async function challengeFriend({
   }
 }
 
-async function renderSquareSlide(slide: SquareCarouselSlide, slideNumber: number) {
+async function renderSquareSlide(
+  slide: SquareCarouselSlide,
+  slideNumber: number,
+  slideCount: number,
+) {
   const canvas = document.createElement("canvas");
   canvas.width = SIZE;
   canvas.height = SIZE;
@@ -136,15 +141,17 @@ async function renderSquareSlide(slide: SquareCarouselSlide, slideNumber: number
 
   if (slide.body?.length) {
     const bodyY = slide.stats?.length ? 760 : slide.subtitle ? 560 : 500;
-    drawBody(context, slide.body.slice(0, 4), bodyY);
+    drawBody(context, slide.body.slice(0, 16), bodyY);
   }
 
   context.fillStyle = accent;
   context.font = "900 26px Arial, sans-serif";
   context.fillText(slide.footer ?? "Build yours at World Cup Games", SIZE / 2, 982);
-  context.fillStyle = "rgba(255,255,255,.38)";
-  context.font = "800 18px Arial, sans-serif";
-  context.fillText(`SLIDE ${slideNumber}/2`, SIZE / 2, 1022);
+  if (slideCount > 1) {
+    context.fillStyle = "rgba(255,255,255,.38)";
+    context.font = "800 18px Arial, sans-serif";
+    context.fillText(`SLIDE ${slideNumber}/${slideCount}`, SIZE / 2, 1022);
+  }
 
   return canvasToBlob(canvas);
 }
@@ -213,6 +220,40 @@ function drawStats(
 }
 
 function drawBody(context: CanvasRenderingContext2D, body: string[], y: number) {
+  if (body.length > 5) {
+    const columns = 2;
+    const rows = Math.ceil(body.length / columns);
+    const cardWidth = 410;
+    const gap = 22;
+    const rowHeight = Math.min(48, 390 / rows);
+    const startX = (SIZE - cardWidth * columns - gap) / 2;
+    const boxY = y - 46;
+    const boxHeight = rows * rowHeight + 58;
+
+    context.fillStyle = "rgba(0,0,0,.24)";
+    roundRect(context, 90, boxY, 900, boxHeight, 30);
+    context.fill();
+    context.strokeStyle = "rgba(255,255,255,.11)";
+    context.stroke();
+
+    context.textAlign = "left";
+    context.fillStyle = "#ffffff";
+    context.font = "900 23px Arial, sans-serif";
+    body.forEach((line, index) => {
+      const column = index < rows ? 0 : 1;
+      const row = column === 0 ? index : index - rows;
+      drawFittedText(
+        context,
+        line,
+        startX + column * (cardWidth + gap) + 12,
+        y + row * rowHeight,
+        cardWidth - 24,
+      );
+    });
+    context.textAlign = "center";
+    return;
+  }
+
   context.fillStyle = "rgba(0,0,0,.24)";
   roundRect(context, 110, y - 48, 860, 56 + body.length * 54, 30);
   context.fill();
